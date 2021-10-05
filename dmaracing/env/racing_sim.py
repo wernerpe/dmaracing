@@ -13,11 +13,16 @@ import torch
 
 
 class DmarEnv:
-    def __init__(self) -> None:
+    def __init__(self, args, cfg) -> None:
+        self.device = args.device
+        
         #load params
+        self.params = cfg
+        
         #allocate tensors
-        state
-        pass
+        #[x, y, theta, xdot, ydot, thetadot, delta]
+        self.states = torch.zeros(())
+        
 
     def observations(self,) -> None:
         pass
