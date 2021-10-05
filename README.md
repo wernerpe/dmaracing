@@ -1,1 +1,1 @@
-# dmaracng
+# Deep Multi-Agent Racing

@@ -1,0 +1,9 @@
+LICENSE
+README.md
+setup.py
+dmaracing/__init__.py
+dmaracing.egg-info/PKG-INFO
+dmaracing.egg-info/SOURCES.txt
+dmaracing.egg-info/dependency_links.txt
+dmaracing.egg-info/requires.txt
+dmaracing.egg-info/top_level.txt
