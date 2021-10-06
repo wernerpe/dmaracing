@@ -24,7 +24,10 @@ class state(Enum):
 #statenames
 s = state
 
-def check_collisison():
+def detect_collisison():
+    NotImplementedError
+
+def resolve_collsion():
     NotImplementedError
 
 def state_derivative(sim)-> torch.Tensor:
