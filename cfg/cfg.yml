@@ -18,7 +18,7 @@ model:
   lr: 0.033 #[m]
   Iz:  0.00006 #[kg*m^3]
   w: 0.03
-  
+
   #pajecka coef
   Bf: 2.58
   Br: 3.38
@@ -27,3 +27,7 @@ model:
   Df: 0.17
   Dr: 0.1
 
+viewer:
+  width: 800
+  height: 900
+  scale: 2 #[m/px] indicates how wide the window is in pixels
