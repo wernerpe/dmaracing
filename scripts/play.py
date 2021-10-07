@@ -10,11 +10,11 @@ def play():
     env = DmarEnv(cfg, args)
     
     actions = torch.zeros((cfg['sim']['numEnv'], cfg['sim']['numAgents'], 2), device=args.device,  dtype= torch.float, requires_grad=False)
-    actions[:, 0, 0] = 1.0
+    actions[:, 0, 1] = 17.0
     for _ in range(10):
         obs, rew, dones, info = env.step(actions)
-        print('1:', env.states[:,0,:])
-        print('2:', env.states[:,1,:])
+        print('1:', env.states[:,0,-1])
+        print('2:', env.states[:,1,-1])
 
     print('up and running')
     

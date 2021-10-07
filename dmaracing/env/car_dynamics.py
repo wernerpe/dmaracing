@@ -61,12 +61,19 @@ def state_derivative(state : torch.Tensor, actions : torch.Tensor, par : Dict[st
 #@torch.jit.script
 def step_cars(state : torch.Tensor, actions : torch.Tensor, num_agents : int, mod_par : Dict[str, float],  sim_par : Dict[str, float], vn : Dict[str, int]) -> torch.Tensor:
     dstate = state_derivative(state, actions, mod_par, num_agents , vn)
-    #handle constraints
-    #if steering angle exeeds limit in this step change steering vel to zero instead
-    is_addmissible = (state[:,:, vn['S_THETA']] + sim_par['dt'] * dstate[:,:, vn['S_DELTA']] < np.pi/2) *(state[:,:, vn['S_THETA']] + sim_par['dt'] * dstate[:,:, vn['S_DELTA']] > -np.pi/2)
-    dstate[:,:, vn['S_DELTA']] = is_addmissible * dstate[:,:, vn['S_DELTA']]
     
+    #handle constraints
+    is_addmissible = (state[:,:, vn['S_DX']] + sim_par['dt'] * actions[:,:, vn['A_ACC']] < 4.0) *(state[:,:, vn['S_DX']] + sim_par['dt'] * actions[:,:, vn['A_ACC']] > -2.0)
+    dstate[:,:, vn['S_DX']] = is_addmissible * dstate[:,:, vn['S_DX']] + ~is_addmissible * (dstate[:,:, vn['S_DX']]- 1/mod_par['m']*actions[:, vn['A_ACC']])
+
+
     next_states = state + sim_par['dt'] * dstate  
     
+    # clamp steering angle to constraints
+    up = next_states[:, :, vn['S_DELTA']] > np.pi/2
+    low =  next_states[:, :, vn['S_DELTA']] < -np.pi/2
+    next_states[:, :, vn['S_DELTA']] = up * np.pi/2 + low * np.pi + ~(up|low)*next_states[:, :, vn['S_DELTA']]
+
     #resolve collisions
+    
     return next_states
