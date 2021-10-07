@@ -17,7 +17,8 @@ model:
   lf: 0.03 #[m]
   lr: 0.033 #[m]
   Iz:  0.00006 #[kg*m^3]
-
+  w: 0.03
+  
   #pajecka coef
   Bf: 2.58
   Br: 3.38
