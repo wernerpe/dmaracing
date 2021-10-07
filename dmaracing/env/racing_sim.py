@@ -1,22 +1,18 @@
 import torch
 from dmaracing.env.car_dynamics import *
 
-num_env = 1000 
-device = torch.cuda('cuda')
-states = torch.zeros((num_env, 7), device = device, dtype = torch.float )
-
-
 
 class DmarEnv:
-    def __init__(self, args, cfg) -> None:
+    def __init__(self, cfg, args) -> None:
         self.device = args.device
+        self.names = get_varnames() 
         self.modelParameters = cfg['model']
         self.simParameters = cfg['sim']
-        self.num_states = self.modelParameters['numStates']
-        self.num_actions = self.modelParameters['numActions']
+        self.num_states = self.simParameters['numStates']
+        self.num_actions = self.simParameters['numActions']
         self.num_obs = self.simParameters['numObservations']       
-        self.num_agents = 1
-        self.num_envs = 100
+        self.num_agents = self.simParameters['numAgents']
+        self.num_envs = self.simParameters['numEnv']
 
         #load params
         self.params = cfg
@@ -42,8 +38,10 @@ class DmarEnv:
         pass
 
     def step(self, actions) -> None:
-        self.actions =     
 
+        self.actions = actions.clone().to(self.device)
+        self.states = step_cars(self.states, self.actions, self.modelParameters, self.simParameters, self.names)    
+        self.post_physics_step()
 
     
     def render(self, actions) -> None:
