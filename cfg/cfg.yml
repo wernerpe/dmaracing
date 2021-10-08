@@ -1,7 +1,7 @@
 sim:
   numEnv: 100
   #nuber of racing agents per env
-  numAgents: 2
+  numAgents: 12
   dt: 0.02 #[s]
   numStates: 7
   numObservations: 5
