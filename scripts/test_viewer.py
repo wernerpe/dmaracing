@@ -17,7 +17,5 @@ state_dummy[0, :, 2] = 2.0*np.pi/cfg['sim']['numAgents']*torch.arange(cfg['sim']
 
 while True:
     evnt = viewer.render(state_dummy[:,:,0:3])
-    if evnt == 118:
-        print('toggle viewer')
-    if evnt == 113 or evnt == 27:
+    if evnt == -100:
         break
