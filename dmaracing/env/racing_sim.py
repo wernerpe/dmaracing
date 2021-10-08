@@ -1,6 +1,7 @@
 import torch
 from torch._C import dtype
 from dmaracing.env.car_dynamics import *
+from dmaracing.env.viewer import Viewer
 from typing import Tuple
 import numpy as np
 
@@ -17,7 +18,7 @@ class DmarEnv:
         self.num_obs = self.simParameters['numObservations']       
         self.num_agents = self.simParameters['numAgents']
         self.num_envs = self.simParameters['numEnv']
-
+        self.viewer = Viewer(cfg)
         self.info = {}
 
         #allocate tensors
@@ -55,6 +56,6 @@ class DmarEnv:
         self.post_physics_step()
         return self.obs_buf, self.rew_buf, self.reset_buf, self.info
     
-    def render(self, actions) -> None:
-        pass
+    def render(self,) -> None:
+        self.evnt = self.viewer.render(self.states[:,:,0:3])
     
