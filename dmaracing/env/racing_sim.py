@@ -10,6 +10,7 @@ import sys
 class DmarEnv:
     def __init__(self, cfg, args) -> None:
         self.device = args.device
+        self.headless = args.headless
 
         #variable names and indices
         self.vn = get_varnames() 
@@ -19,8 +20,9 @@ class DmarEnv:
         self.num_actions = self.simParameters['numActions']
         self.num_obs = self.simParameters['numObservations']       
         self.num_agents = self.simParameters['numAgents']
+        self.collision_pairs = get_collision_pairs(self.num_agents)
         self.num_envs = self.simParameters['numEnv']
-        self.viewer = Viewer(cfg)
+        self.viewer = Viewer(cfg, self.headless)
         self.info = {}
         self.info['kill'] = False
 

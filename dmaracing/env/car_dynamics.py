@@ -16,14 +16,17 @@ def get_varnames()->Dict[str, int]:
     varnames['A_DDELTA'] = 1
     return varnames
 
+def get_collision_pairs(num_agents):
+    #naively check all collision pairs
+    ls = np.arange(num_agents)
+    pairs = [[a, b] for idx, a in enumerate(ls) for b in ls[idx + 1:]]
+    return pairs
 
-def detect_collisison():
-    NotImplementedError
+def resolve_collsions():
+    contact_forces = None
+    return contact_forces
 
-def resolve_collsion():
-    NotImplementedError
-
-#@torch.jit.script
+@torch.jit.script
 def state_derivative(state : torch.Tensor, actions : torch.Tensor, par : Dict[str, float], num_agents : int, vn : Dict[str, int])-> torch.Tensor:
     #model used from here, can change this later... 
     # https://onlinelibrary.wiley.com/doi/pdf/10.1002/oca.2123

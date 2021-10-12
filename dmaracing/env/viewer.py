@@ -5,7 +5,7 @@ import numpy as np
 import sys
 
 class Viewer:
-    def __init__(self, cfg):
+    def __init__(self, cfg, headless):
         self.device = 'cuda:0'
         self.cfg = cfg
         #load cfg
@@ -31,7 +31,7 @@ class Viewer:
         self.colors = 255.0/self.num_agents*np.arange(self.num_agents) 
         self.font = cv.FONT_HERSHEY_SIMPLEX
 
-        self.do_render = True
+        self.do_render = ~headless
         cv.imshow('dmaracing', self.img)
 
     def render(self, state):
