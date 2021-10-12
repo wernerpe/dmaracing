@@ -35,7 +35,7 @@ def state_derivative(state : torch.Tensor, actions : torch.Tensor, par : Dict[st
     alphar = torch.atan2(state[:, :, vn['S_DTHETA']]*par['lr'] - state[:, :, vn['S_DY']], state[:, :, vn['S_DX']])
     Ffy = par['Df'] * torch.sin(par['Cf']*torch.atan(par['Bf']*alphaf)) 
     Fry = par['Dr'] * torch.sin(par['Cr']*torch.atan(par['Br']*alphar))  
-    Frx = actions[:, vn['A_ACC']]
+    Frx = actions[:, :, vn['A_ACC']]
 
     dx = state[:, :, vn['S_DX']] * torch.cos(state[:, :, vn['S_THETA']]) - state[:, :, vn['S_DY']] * torch.sin(state[:, :, vn['S_THETA']]) 
     dy = state[:, :, vn['S_DX']] * torch.sin(state[:, :, vn['S_THETA']]) + state[:, :, vn['S_DY']] * torch.cos(state[:, :, vn['S_THETA']])
@@ -64,7 +64,7 @@ def step_cars(state : torch.Tensor, actions : torch.Tensor, num_agents : int, mo
     
     #handle constraints
     is_addmissible = (state[:,:, vn['S_DX']] + sim_par['dt'] * actions[:,:, vn['A_ACC']] < 4.0) *(state[:,:, vn['S_DX']] + sim_par['dt'] * actions[:,:, vn['A_ACC']] > -2.0)
-    dstate[:,:, vn['S_DX']] = is_addmissible * dstate[:,:, vn['S_DX']] + ~is_addmissible * (dstate[:,:, vn['S_DX']]- 1/mod_par['m']*actions[:, vn['A_ACC']])
+    dstate[:,:, vn['S_DX']] = is_addmissible * dstate[:,:, vn['S_DX']] + ~is_addmissible * (dstate[:,:, vn['S_DX']]- 1/mod_par['m']*actions[:, :, vn['A_ACC']])
 
 
     next_states = state + sim_par['dt'] * dstate  

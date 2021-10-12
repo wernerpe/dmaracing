@@ -1,5 +1,5 @@
 sim:
-  numEnv: 100
+  numEnv: 2
   #nuber of racing agents per env
   numAgents: 12
   dt: 0.02 #[s]

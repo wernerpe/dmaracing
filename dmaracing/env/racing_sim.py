@@ -1,9 +1,11 @@
+from os import kill
 import torch
 from torch._C import dtype
 from dmaracing.env.car_dynamics import *
 from dmaracing.env.viewer import Viewer
 from typing import Tuple
 import numpy as np
+import sys
 
 class DmarEnv:
     def __init__(self, cfg, args) -> None:
@@ -20,6 +22,7 @@ class DmarEnv:
         self.num_envs = self.simParameters['numEnv']
         self.viewer = Viewer(cfg)
         self.info = {}
+        self.info['kill'] = False
 
         #allocate tensors
         torch_zeros = lambda shape: torch.zeros(shape, device=self.device, dtype= torch.float, requires_grad=False)
@@ -47,7 +50,7 @@ class DmarEnv:
         self.states[env_ids, :, self.vn['S_DX']:] = 0.0
 
     def post_physics_step(self) -> None:
-        pass
+        self.render()
 
     def step(self, actions) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, Dict[str, float]] :
 
