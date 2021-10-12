@@ -75,7 +75,7 @@ def step_cars(state : torch.Tensor, actions : torch.Tensor, num_agents : int, mo
     # clamp steering angle to constraints
     up = next_states[:, :, vn['S_DELTA']] > np.pi/2
     low =  next_states[:, :, vn['S_DELTA']] < -np.pi/2
-    next_states[:, :, vn['S_DELTA']] = up * np.pi/2 + low * np.pi + ~(up|low)*next_states[:, :, vn['S_DELTA']]
+    next_states[:, :, vn['S_DELTA']] = up * np.pi/2 - low * np.pi/2 + ~(up|low)*next_states[:, :, vn['S_DELTA']]
 
     #resolve collisions
     

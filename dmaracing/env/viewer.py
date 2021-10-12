@@ -65,7 +65,7 @@ class Viewer:
                 cv.putText(self.img, str(idx), (px_x_number, px_y_number), self.font, 0.5, (int(self.colors[idx]),0,int(self.colors[idx])), 1, cv.LINE_AA)
             
         cv.imshow("dmaracing", self.img)
-        key = cv.waitKey(20)
+        key = cv.waitKey(10)
         if key == 118: #toggle render on v
             if self.do_render:
                 self.do_render = False

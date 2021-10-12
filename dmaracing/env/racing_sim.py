@@ -24,7 +24,7 @@ class DmarEnv:
         self.num_envs = self.simParameters['numEnv']
         self.viewer = Viewer(cfg, self.headless)
         self.info = {}
-        self.info['kill'] = False
+        self.info['key'] = None
 
         #allocate tensors
         torch_zeros = lambda shape: torch.zeros(shape, device=self.device, dtype= torch.float, requires_grad=False)
@@ -55,7 +55,7 @@ class DmarEnv:
         self.render()
 
     def step(self, actions) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, Dict[str, float]] :
-
+        
         self.actions = actions.clone().to(self.device)
         self.states = step_cars(self.states, self.actions, self.num_agents, self.modelParameters, self.simParameters, self.vn)    
         self.post_physics_step()
@@ -63,4 +63,4 @@ class DmarEnv:
     
     def render(self,) -> None:
         self.evnt = self.viewer.render(self.states[:,:,0:3])
-    
+        self.info['key'] = self.evnt
