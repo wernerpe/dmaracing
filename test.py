@@ -20,7 +20,7 @@ def get_car_vert_mat(w, l, num_envs, device):
     verts[:, 3, 1] = w/2
     return verts
 
-def build_col_poly_eqns(w, l, device):
+def build_col_poly_eqns(w, l, device, num_envs):
     P_tot = torch.zeros((16,2), device = device, dtype= torch.float, requires_grad=False)
     D_tot = torch.zeros((16,1), device = device, dtype= torch.float, requires_grad=False)
     #P1
@@ -62,10 +62,30 @@ def build_col_poly_eqns(w, l, device):
     #D4
     D_tot[12:16, 0] = D_tot[8:12, 0]
 
+    #summation template for polygon checking 
     S_mat = torch.eye(4, device=device, dtype=torch.float, requires_grad = False)
     tmp = torch.ones((1,4), device=device, dtype=torch.float, requires_grad = False)
     S_mat = torch.kron(S_mat, tmp)
-    return P_tot, D_tot, S_mat
+
+    #repulsion force direction
+    # colision polygon order
+    #
+    #            ^ y
+    #        l   |
+    # 3 x----------------x 0
+    #   | \      2   /   | 
+    #   | 4    ----   3  | w ->x
+    #   | /     1    \   |
+    # 2 X----------------X 1
+    #
+    #  repforce mat = [n1, n2, n3, n4] ^t
+    Rep_froce_dir = torch.zeros((num_envs, 4,2), device= device, dtype=torch.float, requires_grad=False)
+    Rep_froce_dir[:,0,1] = -1.0
+    Rep_froce_dir[:,1,1] = 1.0
+    Rep_froce_dir[:,2,0] = 1.0
+    Rep_froce_dir[:,3,0] = -1.0
+    
+    return P_tot, D_tot, S_mat, Rep_froce_dir
 
 def transform_col_verts(rel_trans_global : torch.Tensor, 
                         theta_A : torch.Tensor, 
@@ -100,7 +120,11 @@ def transform_col_verts(rel_trans_global : torch.Tensor,
     verts_rot_shift[:,3,:] += trans_rot[:]
     return verts_rot
 
-def get_contact_forces(P_tot, D_tot, verts_rot):
+def get_contact_forces(P_tot, D_tot, S_mat, verts_rot):
+    vert_poly_dists = torch.einsum('ij, lkj->lki', P_tot, verts_tf) + torch.tile(D_tot.squeeze(), (num_envs, 4, 1)) 
+    in_poly = torch.einsum('ij, lkj -> lki', S_mat, 1.0*(vert_poly_dists+1e-4>=0)) > 3 #watch for numerics here #!$W%!$#!
+    
+
     cf = torch.zeros((num_envs, 4, 2), device=device, dtype=torch.float, requires_grad=False)
     
 
@@ -111,29 +135,21 @@ w = 0.5
 l = 1
 verts = get_car_vert_mat(w, l, num_envs, device)
 theta_a = 0*torch.ones((num_envs), device=device, dtype=torch.float, requires_grad=False)
-theta_b = np.pi/2 *torch.ones((num_envs), device=device, dtype=torch.float, requires_grad=False)
+theta_b = np.pi/2*torch.ones((num_envs), device=device, dtype=torch.float, requires_grad=False)
 trans = torch.ones((num_envs,2), device=device, dtype=torch.float, requires_grad=False)
-trans[:, 0] = -0.75
+trans[:, 0] = 0.75
 trans[:, 1] = 0.75
 
 
 verts_tf = transform_col_verts(trans, theta_A = theta_a, theta_B=theta_b, verts = verts)
-P_tot, D_tot, S_mat = build_col_poly_eqns(w, l, device)
-testpt = torch.ones((2, 1), device=device, dtype=torch.float, requires_grad=False)
-testpt[0,0] =-0.5
-testpt[1,0] = 0.25
-print(P_tot@testpt +  D_tot)
-print(((P_tot@testpt +  D_tot)>=0)[0:4])
-print(((P_tot@testpt +  D_tot)>=0)[4:8])
-print(((P_tot@testpt +  D_tot)>=0)[8:12])
-print(((P_tot@testpt +  D_tot)>=0)[12:16])
-
+P_tot, D_tot, S_mat, Repf_mat = build_col_poly_eqns(w, l, device, num_envs)
 
 #"p(polyg, 2) verts (numenv, 4, 2) "
 vert_poly_dists = torch.einsum('ij, lkj->lki', P_tot, verts_tf) + torch.tile(D_tot.squeeze(), (num_envs, 4, 1)) 
 
-
 in_poly = torch.einsum('ij, lkj -> lki', S_mat, 1.0*(vert_poly_dists+1e-4>=0)) > 3
+#inpoly (numenvs, num_verts, num_poly) Repforcedir (num_envs, num_poly, coords) -> num_env, num_verts, forcecoords
+force_dir = torch.einsum('ijk, ikl -> ijl', 1.0*in_poly, Repf_mat)
 
 print(in_poly[0,:,:])
 
