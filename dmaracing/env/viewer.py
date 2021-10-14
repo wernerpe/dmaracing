@@ -39,12 +39,12 @@ class Viewer:
             #do drawing
             #listen for keypressed events
             self.img = 255*np.ones((self.height, self.width, 3), np.uint8)
-            transl = state[0,:,0:2]
-            theta = state[0,:,2]
-            self.R[0,0,:] = torch.cos(theta)
-            self.R[0,1,:] = -torch.sin(theta)
-            self.R[1,0,:] = torch.sin(theta)
-            self.R[1,1,:] = torch.cos(theta)
+            transl = state[0, :, 0:2]
+            theta = state[0, :, 2]
+            self.R[0, 0, :] = torch.cos(theta)
+            self.R[0, 1, :] = -torch.sin(theta)
+            self.R[1, 0, :] = torch.sin(theta)
+            self.R[1, 1, :] = torch.cos(theta)
 
             car_box_rot = torch.einsum ('ijl, jkl -> ikl', self.R, self.car_box_m)
             car_box_world = torch.transpose(car_box_rot + transl.T.unsqueeze(1).repeat(1,4,1), 0,1)

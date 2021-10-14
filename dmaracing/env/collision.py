@@ -1,5 +1,3 @@
-from functools import total_ordering
-import typing
 import torch
 import numpy as np
 from typing import List, Tuple
@@ -104,7 +102,8 @@ def transform_col_verts(rel_trans_global : torch.Tensor,
     rel_trans_global (num_envs, 2) :relative translation pB-pA in global frame 
     theta_A (num envs) : relative rotation of A to world
     theta_B (num envs) : relative rotation of B to world
-    verts : vertex tensor (numenvs, 4 car vertices, 2 cords) 
+    verts : vertex tensor (numenvs, 4 car vertices, 2 cords)
+    R: allocated rot mat (numenvs,2,2) 
     '''
     theta_rel = theta_B - theta_A
     R[:, 0, 0 ] = torch.cos(theta_rel)
@@ -126,14 +125,14 @@ def transform_col_verts(rel_trans_global : torch.Tensor,
     verts_rot_shift[:,3,:] += trans_rot[:]
     return verts_rot
 
-#@torch.jit.script
+@torch.jit.script
 def get_contact_forces(P_tot : torch.Tensor, 
                        D_tot : torch.Tensor,
                        S_mat : torch.Tensor,
                        Repf_mat : torch.Tensor, 
                        Depth_selector : List[int],
                        verts_tf : torch.Tensor,
-                       num_envs : int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+                       num_envs : int) -> Tuple[torch.Tensor, torch.Tensor]:
 
     #evaluate polygon equations on vertices of collider in bodyframe of collidee
     vert_poly_dists = torch.einsum('ij, lkj->lki', P_tot, verts_tf) + torch.tile(D_tot.squeeze(), (num_envs, 4, 1)) 
@@ -148,52 +147,5 @@ def get_contact_forces(P_tot : torch.Tensor,
     forces = force_dir
     forces[:, :, 0] *= magnitude
     forces[:, :, 1] *= magnitude
-
-    dirs_vert = torch.cat((verts_tf - torch.tile(torch.mean(verts_tf, dim = 1).unsqueeze(1), (1,4,1)), torch.zeros((num_envs,4,1), device =device, requires_grad=False) ), dim = 2)
-    dirs_force = torch.cat((forces[:, :, :], torch.zeros((num_envs,4,1), device =device)), dim = 2)
-
-    torque_B = torch.cross(dirs_vert, dirs_force, dim = 2).shape
-    dirs_vert_A = torch.cat((verts_tf, torch.zeros((num_envs,4,1), device =device, requires_grad=False) ), dim = 2)
-    torque_A = torch.cross(dirs_vert_A, dirs_force, dim = 2).shape
-    return forces, torque_B, torque_A
-
-    
-
-
-device = 'cuda:0'
-num_envs = 2000
-w = 0.5
-l = 1
-verts = get_car_vert_mat(w, l, num_envs, device)
-theta_a = 0*torch.ones((num_envs), device=device, dtype=torch.float, requires_grad=False)
-theta_b = 0*torch.ones((num_envs), device=device, dtype=torch.float, requires_grad=False)
-trans = torch.ones((num_envs,2), device=device, dtype=torch.float, requires_grad=False)
-trans[:, 0] = 0.9
-trans[:, 1] = 0.3
-
-R = torch.zeros((num_envs, 2, 2), device = device)
-verts_tf = transform_col_verts(trans, theta_A = theta_a, theta_B=theta_b, verts = verts, R = R)
-P_tot, D_tot, S_mat, Repf_mat, Ds = build_col_poly_eqns(w, l, device, num_envs)
-
-#"p(polyg, 2) verts (numenv, 4, 2) "
-vert_poly_dists = torch.einsum('ij, lkj->lki', P_tot, verts_tf) + torch.tile(D_tot.squeeze(), (num_envs, 4, 1)) 
-
-in_poly = torch.einsum('ij, lkj -> lki', S_mat, 1.0*(vert_poly_dists+1e-4>=0)) > 3
-#inpoly (numenvs, num_verts, num_poly) Repforcedir (num_envs, num_poly, coords) -> num_env, num_verts, forcecoords
-force_dir = torch.einsum('ijk, ikl -> ijl', 1.0*in_poly, Repf_mat)
-#inpoly (numenvs, num_verts, num_poly) #vert_poly_dists[:,:, Ds] (num_env, num_verts, num_polygons)
-depths = torch.einsum('ijk, ijk -> ij', 1.0*in_poly, vert_poly_dists[:,:, Ds])
-
-magnitude = 100*depths
-forces = force_dir
-forces[:, :, 0] *= magnitude
-forces[:, :, 1] *= magnitude
-
-f2 = get_contact_forces(P_tot, D_tot, S_mat, Repf_mat, Ds, verts_tf, num_envs)
-
-
-print(in_poly[0,:,:])
-print(forces[0,:,:])
-
-print('done')
-
+    dirs = torch.mean(verts_tf, dim = 1)
+    return forces, magnitude
