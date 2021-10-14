@@ -85,7 +85,8 @@ def build_col_poly_eqns(w, l, device, num_envs):
     Rep_froce_dir[:,2,0] = 1.0
     Rep_froce_dir[:,3,0] = -1.0
     
-    return P_tot, D_tot, S_mat, Rep_froce_dir
+    Depth_selector = [1, 1 + 4, 0 + 8, 0 + 12]
+    return P_tot, D_tot, S_mat, Rep_froce_dir, Depth_selector
 
 def transform_col_verts(rel_trans_global : torch.Tensor, 
                         theta_A : torch.Tensor, 
@@ -135,14 +136,14 @@ w = 0.5
 l = 1
 verts = get_car_vert_mat(w, l, num_envs, device)
 theta_a = 0*torch.ones((num_envs), device=device, dtype=torch.float, requires_grad=False)
-theta_b = np.pi/2*torch.ones((num_envs), device=device, dtype=torch.float, requires_grad=False)
+theta_b = 0*torch.ones((num_envs), device=device, dtype=torch.float, requires_grad=False)
 trans = torch.ones((num_envs,2), device=device, dtype=torch.float, requires_grad=False)
-trans[:, 0] = 0.75
-trans[:, 1] = 0.75
+trans[:, 0] = 0.9
+trans[:, 1] = 0.3
 
 
 verts_tf = transform_col_verts(trans, theta_A = theta_a, theta_B=theta_b, verts = verts)
-P_tot, D_tot, S_mat, Repf_mat = build_col_poly_eqns(w, l, device, num_envs)
+P_tot, D_tot, S_mat, Repf_mat, Ds = build_col_poly_eqns(w, l, device, num_envs)
 
 #"p(polyg, 2) verts (numenv, 4, 2) "
 vert_poly_dists = torch.einsum('ij, lkj->lki', P_tot, verts_tf) + torch.tile(D_tot.squeeze(), (num_envs, 4, 1)) 
@@ -150,9 +151,16 @@ vert_poly_dists = torch.einsum('ij, lkj->lki', P_tot, verts_tf) + torch.tile(D_t
 in_poly = torch.einsum('ij, lkj -> lki', S_mat, 1.0*(vert_poly_dists+1e-4>=0)) > 3
 #inpoly (numenvs, num_verts, num_poly) Repforcedir (num_envs, num_poly, coords) -> num_env, num_verts, forcecoords
 force_dir = torch.einsum('ijk, ikl -> ijl', 1.0*in_poly, Repf_mat)
+#inpoly (numenvs, num_verts, num_poly) #vert_poly_dists[:,:, Ds] (num_env, num_verts, num_polygons)
+depths = torch.einsum('ijk, ijk -> ij', 1.0*in_poly, vert_poly_dists[:,:, Ds])
+
+magnitude = 100*depths
+forces = force_dir
+forces[:, :, 0] *= magnitude
+forces[:, :, 1] *= magnitude
 
 print(in_poly[0,:,:])
-
+print(forces[0,:,:])
 
 print('done')
 
