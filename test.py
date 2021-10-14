@@ -37,10 +37,10 @@ def build_col_poly_eqns(w, l, device):
     #P3
     P_tot[8, 0] = -1
     P_tot[9, 0] = 1
-    P_tot[10, 0] = 1/np.sqrt(2)
-    P_tot[10, 1] = 1/np.sqrt(2)
-    P_tot[11, 0] = 1/np.sqrt(2)
-    P_tot[11, 1] = -1/np.sqrt(2)
+    P_tot[10, 0] = 1
+    P_tot[10, 1] = -1
+    P_tot[11, 0] = 1
+    P_tot[11, 1] = 1
 
     #P4
     P_tot[12:16, :] = P_tot[8:12, :]
@@ -56,8 +56,9 @@ def build_col_poly_eqns(w, l, device):
     #D3
     D_tot[8] = l/2
     D_tot[9] = 0
-    D_tot[10] = -l/(2*np.sqrt(2)) + w/(2*np.sqrt(2))
-    D_tot[11] = l/(2*np.sqrt(2)) + w/(2*np.sqrt(2))
+    D_tot[10] = (-l+w)/2
+    D_tot[11] = (-l+w)/2
+
     #D4
     D_tot[12:16, 0] = D_tot[8:12, 0]
 
@@ -120,13 +121,19 @@ verts_tf = transform_col_verts(trans, theta_A = theta_a, theta_B=theta_b, verts 
 P_tot, D_tot, S_mat = build_col_poly_eqns(w, l, device)
 testpt = torch.ones((2, 1), device=device, dtype=torch.float, requires_grad=False)
 testpt[0,0] =-0.5
-testpt[1,0] = 1.25
+testpt[1,0] = 0.25
 print(P_tot@testpt +  D_tot)
+print(((P_tot@testpt +  D_tot)>=0)[0:4])
+print(((P_tot@testpt +  D_tot)>=0)[4:8])
+print(((P_tot@testpt +  D_tot)>=0)[8:12])
+print(((P_tot@testpt +  D_tot)>=0)[12:16])
+
+
 #"p(polyg, 2) verts (numenv, 4, 2) "
-vert_poly_dists = torch.einsum('ij, lkj->lki', P_tot, verts_tf) #+ torch.tile(D_tot.squeeze(), (num_envs, 4, 1)) 
+vert_poly_dists = torch.einsum('ij, lkj->lki', P_tot, verts_tf) + torch.tile(D_tot.squeeze(), (num_envs, 4, 1)) 
 
 
-in_poly = torch.einsum('ij, lkj -> lki', S_mat, 1.0*(vert_poly_dists>=0)) == 4
+in_poly = torch.einsum('ij, lkj -> lki', S_mat, 1.0*(vert_poly_dists+1e-4>=0)) > 3
 
 print(in_poly[0,:,:])
 
