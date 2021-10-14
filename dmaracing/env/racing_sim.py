@@ -21,6 +21,10 @@ class DmarEnv:
         self.num_obs = self.simParameters['numObservations']       
         self.num_agents = self.simParameters['numAgents']
         self.collision_pairs = get_collision_pairs(self.num_agents)
+        self.collision_verts = get_car_vert_mat(cfg['model']['w'], 
+                                                cfg['model']['lr'] + cfg['model']['lf'], 
+                                                self.num_envs, 
+                                                self.device)
         self.num_envs = self.simParameters['numEnv']
         self.viewer = Viewer(cfg, self.headless)
         self.info = {}

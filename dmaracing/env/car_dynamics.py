@@ -22,7 +22,63 @@ def get_collision_pairs(num_agents):
     pairs = [[a, b] for idx, a in enumerate(ls) for b in ls[idx + 1:]]
     return pairs
 
+#only used for collsiion checking, only one car per env needed for pairwise checking
+def get_car_vert_mat(w, l, num_envs, device):
+    verts = torch.zeros((num_envs, 4, 2), device=device, dtype=torch.float, requires_grad=False)
+    #top lft , ccw
+    # 3 x-------x 0
+    #   |       |
+    # 2 X-------X 1
+    #
+    # ^ y 
+    # ->x
+    verts[:, 0, 0] = l/2
+    verts[:, 0, 1] = w/2
+    verts[:, 1, 0] = l/2
+    verts[:, 1, 1] = -w/2
+    verts[:, 2, 0] = -l/2
+    verts[:, 2, 1] = -w/2
+    verts[:, 3, 0] = -l/2
+    verts[:, 3, 1] = w/2
+    return verts
+
+@torch.jit.script
+def transform_col_verts(rel_trans_global : torch.Tensor, 
+                        theta_A : torch.Tensor, 
+                        theta_B : torch.Tensor, 
+                        verts: torch.Tensor) ->torch.Tensor:
+    '''
+    (B collider vertex rep, A collidee poly rep)
+    input: 
+    rel_trans_global (num_envs, 2) :relative translation pB-pA in global frame 
+    theta_A (num envs) : relative rotation of A to world
+    theta_B (num envs) : relative rotation of B to world
+    verts : vertex tensor (numenvs, 4 car vertices, 2 cords) 
+    '''
+    theta_rel = theta_B - theta_A
+    R = torch.zeros((len(theta_rel), 2, 2), device = theta_rel.device)
+    R[:, 0, 0 ] = torch.cos(theta_rel)
+    R[:, 0, 1 ] = -torch.sin(theta_rel)
+    R[:, 1, 0 ] = torch.sin(theta_rel)
+    R[:, 1, 1 ] = torch.cos(theta_rel)
+    verts_rot = torch.einsum('kij, klj->kli', R, verts)
+    #rotate global translation into A frame
+    R[:, 0, 0 ] = torch.cos(theta_A)
+    R[:, 0, 1 ] = torch.sin(theta_A)
+    R[:, 1, 0 ] = -torch.sin(theta_A)
+    R[:, 1, 1 ] = torch.cos(theta_A)
+    trans_rot = torch.einsum('kij, kj->ki', R, rel_trans_global)
+
+    verts_rot_shift = verts_rot
+    verts_rot_shift[:,0,:] += trans_rot[:]
+    verts_rot_shift[:,1,:] += trans_rot[:]
+    verts_rot_shift[:,2,:] += trans_rot[:]
+    verts_rot_shift[:,3,:] += trans_rot[:]
+    return verts_rot
+
+
 def resolve_collsions():
+
     contact_forces = None
     return contact_forces
 
