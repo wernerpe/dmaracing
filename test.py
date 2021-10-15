@@ -4,6 +4,8 @@ import torch
 import numpy as np
 from typing import List, Tuple
 
+from dmaracing.env.collision_utils import rotate_vec
+
 def get_car_vert_mat(w, l, num_envs, device):
     verts = torch.zeros((num_envs, 4, 2), device=device, dtype=torch.float, requires_grad=False)
     #top lft , ccw
@@ -126,14 +128,15 @@ def transform_col_verts(rel_trans_global : torch.Tensor,
     verts_rot_shift[:,3,:] += trans_rot[:]
     return verts_rot
 
-#@torch.jit.script
+@torch.jit.script
 def get_contact_forces(P_tot : torch.Tensor, 
                        D_tot : torch.Tensor,
                        S_mat : torch.Tensor,
                        Repf_mat : torch.Tensor, 
                        Depth_selector : List[int],
                        verts_tf : torch.Tensor,
-                       num_envs : int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+                       num_envs : int,
+                       zero_pad : torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
 
     #evaluate polygon equations on vertices of collider in bodyframe of collidee
     vert_poly_dists = torch.einsum('ij, lkj->lki', P_tot, verts_tf) + torch.tile(D_tot.squeeze(), (num_envs, 4, 1)) 
@@ -149,12 +152,16 @@ def get_contact_forces(P_tot : torch.Tensor,
     forces[:, :, 0] *= magnitude
     forces[:, :, 1] *= magnitude
 
-    dirs_vert = torch.cat((verts_tf - torch.tile(torch.mean(verts_tf, dim = 1).unsqueeze(1), (1,4,1)), torch.zeros((num_envs,4,1), device =device, requires_grad=False) ), dim = 2)
-    dirs_force = torch.cat((forces[:, :, :], torch.zeros((num_envs,4,1), device =device)), dim = 2)
+    dirs_vert = torch.cat((verts_tf - torch.tile(torch.mean(verts_tf, dim = 1).unsqueeze(1), (1,4,1)), zero_pad ), dim = 2)
+    dirs_force = torch.cat((forces[:, :, :], zero_pad), dim = 2)
 
     torque_B = torch.sum(torch.cross(dirs_vert, dirs_force, dim = 2)[:,:, 2], dim = 1)
-    dirs_vert_A = torch.cat((verts_tf, torch.zeros((num_envs,4,1), device =device, requires_grad=False) ), dim = 2)
+    dirs_vert_A = torch.cat((verts_tf, zero_pad), dim = 2)
     torque_A = torch.sum(torch.cross(dirs_vert_A, -dirs_force, dim = 2)[:,:, 2], dim = 1)
+    
+    #sum over contact forces acting at the individual vertices
+    forces = torch.sum(forces, dim = 1)
+
     return forces, torque_A, torque_B
 
     
@@ -162,8 +169,8 @@ def get_contact_forces(P_tot : torch.Tensor,
 
 device = 'cuda:0'
 num_envs = 2000
-w = 0.5
-l = 1
+w = 0.03
+l = 0.06
 verts = get_car_vert_mat(w, l, num_envs, device)
 theta_a = 0*torch.ones((num_envs), device=device, dtype=torch.float, requires_grad=False)
 theta_b = 0*torch.ones((num_envs), device=device, dtype=torch.float, requires_grad=False)
@@ -189,13 +196,21 @@ forces = force_dir
 forces[:, :, 0] *= magnitude
 forces[:, :, 1] *= magnitude
 
-cf, ta, tb = get_contact_forces(P_tot, D_tot, S_mat, Repf_mat, Ds, verts_tf, num_envs)
+zero_pad = torch.zeros((num_envs,4,1), device =device, requires_grad=False) 
+cf, ta, tb = get_contact_forces(P_tot, D_tot, S_mat, Repf_mat, Ds, verts_tf, num_envs, zero_pad)
 
 
 print(in_poly[0,:,:])
 print(forces[0,:,:])
+print(cf[0,:])
 print(ta[0])
 print(tb[0])
+
+v = verts_tf[:,0,:]
+v[:,0] = 1
+
+alph = np.pi/2 + 0*theta_a
+v_rot = rotate_vec(v,alph,R)
 
 print('done')
 

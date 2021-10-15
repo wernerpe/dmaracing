@@ -1,7 +1,7 @@
 sim:
-  numEnv: 2
+  numEnv: 2000
   #nuber of racing agents per env
-  numAgents: 12
+  numAgents: 2
   dt: 0.01 #[s]
   numStates: 7
   numObservations: 5
@@ -15,7 +15,7 @@ model:
 
   m: 0.041 #[kg]
   lf: 0.03 #[m]
-  lr: 0.033 #[m]
+  lr: 0.03 #[m]
   Iz:  0.00006 #[kg*m^3]
   w: 0.03
 

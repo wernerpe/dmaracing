@@ -1,11 +1,10 @@
-from os import kill
 import torch
 from torch._C import dtype
 from dmaracing.env.car_dynamics import *
+from dmaracing.env.car_dynamics_utils import allocate_car_dynamics_tensors
 from dmaracing.env.viewer import Viewer
 from typing import Tuple
 import numpy as np
-import sys
 
 class DmarEnv:
     def __init__(self, cfg, args) -> None:
@@ -20,11 +19,6 @@ class DmarEnv:
         self.num_actions = self.simParameters['numActions']
         self.num_obs = self.simParameters['numObservations']       
         self.num_agents = self.simParameters['numAgents']
-        self.collision_pairs = get_collision_pairs(self.num_agents)
-        self.collision_verts = get_car_vert_mat(cfg['model']['w'], 
-                                                cfg['model']['lr'] + cfg['model']['lf'], 
-                                                self.num_envs, 
-                                                self.device)
         self.num_envs = self.simParameters['numEnv']
         self.viewer = Viewer(cfg, self.headless)
         self.info = {}
@@ -33,10 +27,13 @@ class DmarEnv:
         #allocate tensors
         torch_zeros = lambda shape: torch.zeros(shape, device=self.device, dtype= torch.float, requires_grad=False)
         self.states = torch_zeros((self.num_envs, self.num_agents, self.num_states))
+        self.contact_wrenches = torch_zeros((self.num_envs, self.num_agents, 3))
         self.actions = torch_zeros((self.num_envs, self.num_agents, self.num_actions))
         self.obs_buf = torch_zeros((self.num_envs, self.num_agents, self.num_obs))
         self.rew_buf = torch_zeros((self.num_envs, self.num_agents,))
-        self.reset_buf =torch_zeros((self.num_envs, ))>1
+        self.reset_buf = torch_zeros((self.num_envs, ))>1
+
+        allocate_car_dynamics_tensors(self)
 
         env_ids = torch.arange(self.num_envs, dtype = torch.long)
         self.reset(env_ids)
@@ -54,14 +51,19 @@ class DmarEnv:
         self.states[env_ids, :, self.vn['S_Y']] = 0
         self.states[env_ids, :, self.vn['S_THETA']] = np.pi/2
         self.states[env_ids, :, self.vn['S_DX']:] = 0.0
+        self.states[env_ids, 0, self.vn['S_THETA']] = 0
+        self.states[env_ids, 0, self.vn['S_X']] = 0.01
+        self.states[env_ids, 0, self.vn['S_Y']] = 0.00
+        
 
     def post_physics_step(self) -> None:
         self.render()
 
+    #change this??? to make it jit
     def step(self, actions) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, Dict[str, float]] :
         
         self.actions = actions.clone().to(self.device)
-        self.states = step_cars(self.states, self.actions, self.num_agents, self.modelParameters, self.simParameters, self.vn)    
+        self.states = step_cars(self, self.states, self.actions, self.contact_wrenches, self.num_agents, self.modelParameters, self.simParameters, self.vn)    
         self.post_physics_step()
         return self.obs_buf, self.rew_buf, self.reset_buf, self.info
     

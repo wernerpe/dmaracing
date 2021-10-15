@@ -7,7 +7,7 @@ import sys
 import time
 
 def play():
-    cfg['sim']['numEnv'] = 2
+    cfg['sim']['numEnv'] = 2000
     env = DmarEnv(cfg, args)
     
     actions = torch.zeros((cfg['sim']['numEnv'], cfg['sim']['numAgents'], 2), device=args.device,  dtype= torch.float, requires_grad=False)
@@ -20,7 +20,7 @@ def play():
 
     while True:
         actions[:,0, 0] = 1.0*(vel_cmd - env.states[:,0,env.vn['S_DX']])
-        actions[:,0, 1] = 1.0*(steer_cmd - env.states[:,0,env.vn['S_DELTA']]) 
+        actions[:,0, 1] = 2.0*(steer_cmd - env.states[:,0,env.vn['S_DELTA']]) 
         obs, rew, dones, info = env.step(actions)
         #print(info['key'])
         evt = info['key']
@@ -31,10 +31,10 @@ def play():
             vel_cmd -= 0.05
             print('vel_cmd', vel_cmd, env.states[0,0,env.vn['S_DX']])
         elif evt == 106:
-            steer_cmd += 0.1
+            steer_cmd += 0.2
             print('steer_cmd', steer_cmd, env.states[0,0,env.vn['S_DELTA']])
         elif evt == 108:
-            steer_cmd -= 0.1
+            steer_cmd -= 0.2
             print('steer_cmd', steer_cmd, env.states[0,0,env.vn['S_DELTA']])
         
         num_trans += 1

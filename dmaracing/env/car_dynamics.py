@@ -1,7 +1,9 @@
 import torch   
-from enum import Enum
 from typing import Dict
 import numpy as np
+
+from dmaracing.env.car_dynamics_utils import get_contact_wrenches, rotate_vec, transform_col_verts
+
 
 def get_varnames()->Dict[str, int]:
     varnames = {}
@@ -16,74 +18,67 @@ def get_varnames()->Dict[str, int]:
     varnames['A_DDELTA'] = 1
     return varnames
 
-def get_collision_pairs(num_agents):
-    #naively check all collision pairs
-    ls = np.arange(num_agents)
-    pairs = [[a, b] for idx, a in enumerate(ls) for b in ls[idx + 1:]]
-    return pairs
+def resolve_collsions(task):
+    task.contact_wrenches[:,:,:] =0.0
 
-#only used for collsiion checking, only one car per env needed for pairwise checking
-def get_car_vert_mat(w, l, num_envs, device):
-    verts = torch.zeros((num_envs, 4, 2), device=device, dtype=torch.float, requires_grad=False)
-    #top lft , ccw
-    # 3 x-------x 0
-    #   |       |
-    # 2 X-------X 1
-    #
-    # ^ y 
-    # ->x
-    verts[:, 0, 0] = l/2
-    verts[:, 0, 1] = w/2
-    verts[:, 1, 0] = l/2
-    verts[:, 1, 1] = -w/2
-    verts[:, 2, 0] = -l/2
-    verts[:, 2, 1] = -w/2
-    verts[:, 3, 0] = -l/2
-    verts[:, 3, 1] = w/2
-    return verts
+    if len(task.collision_pairs):
+        for colp in task.collision_pairs:
 
-@torch.jit.script
-def transform_col_verts(rel_trans_global : torch.Tensor, 
-                        theta_A : torch.Tensor, 
-                        theta_B : torch.Tensor, 
-                        verts: torch.Tensor) ->torch.Tensor:
-    '''
-    (B collider vertex rep, A collidee poly rep)
-    input: 
-    rel_trans_global (num_envs, 2) :relative translation pB-pA in global frame 
-    theta_A (num envs) : relative rotation of A to world
-    theta_B (num envs) : relative rotation of B to world
-    verts : vertex tensor (numenvs, 4 car vertices, 2 cords) 
-    '''
-    theta_rel = theta_B - theta_A
-    R = torch.zeros((len(theta_rel), 2, 2), device = theta_rel.device)
-    R[:, 0, 0 ] = torch.cos(theta_rel)
-    R[:, 0, 1 ] = -torch.sin(theta_rel)
-    R[:, 1, 0 ] = torch.sin(theta_rel)
-    R[:, 1, 1 ] = torch.cos(theta_rel)
-    verts_rot = torch.einsum('kij, klj->kli', R, verts)
-    #rotate global translation into A frame
-    R[:, 0, 0 ] = torch.cos(theta_A)
-    R[:, 0, 1 ] = torch.sin(theta_A)
-    R[:, 1, 0 ] = -torch.sin(theta_A)
-    R[:, 1, 1 ] = torch.cos(theta_A)
-    trans_rot = torch.einsum('kij, kj->ki', R, rel_trans_global)
+            idx_comp = torch.where(torch.norm(task.states[:, colp[0], 0:2] -  task.states[:, colp[1], 0:2], dim =1)<=1)[0]# 5.6*task.modelParameters['lf'])[0]
+            
+            if len(idx_comp):
+                states_A = task.states[idx_comp, colp[0], 0:3]
+                states_B = task.states[idx_comp, colp[1], 0:3]
 
-    verts_rot_shift = verts_rot
-    verts_rot_shift[:,0,:] += trans_rot[:]
-    verts_rot_shift[:,1,:] += trans_rot[:]
-    verts_rot_shift[:,2,:] += trans_rot[:]
-    verts_rot_shift[:,3,:] += trans_rot[:]
-    return verts_rot
+                #get contact wrenches for collision pair candidate
+                rel_trans = states_B[:,:2] -states_A[:,:2]
+                verts_tf = transform_col_verts(rel_trans, states_A[:,2], states_B[:,2], task.collision_verts, task.R[idx_comp,:,:])
 
+                force_B, torque_A, torque_B = get_contact_wrenches(task.P_tot, 
+                                                                task.D_tot, 
+                                                                task.S_mat, 
+                                                                task.Repf_mat,
+                                                                task.Ds,
+                                                                verts_tf,
+                                                                task.num_envs,
+                                                                task.zero_pad
+                                                                )
 
-def resolve_collsions():
+                #rotate forces into global frame from frame A
+                force_B = rotate_vec(force_B, states_A[:, 2], task.R[idx_comp,:,:])
+                task.contact_wrenches[idx_comp, colp[0], :2] = -force_B
+                task.contact_wrenches[idx_comp, colp[1], :2] = force_B
+                task.contact_wrenches[idx_comp, colp[0], 2] = torque_A
+                task.contact_wrenches[idx_comp, colp[1], 2] = torque_B
 
-    contact_forces = None
-    return contact_forces
+                #flip and check other direction
+                states_A = task.states[:, colp[1], 0:3]
+                states_B = task.states[:, colp[0], 0:3]
+
+                #get contact wrenches for collision pair candidate
+                rel_trans = states_B[:,:2] - states_A[:,:2]
+                verts_tf = transform_col_verts(rel_trans, states_A[:,2], states_B[:,2], task.collision_verts, task.R[idx_comp,:,:])
+
+                force_B, torque_A, torque_B = get_contact_wrenches(task.P_tot, 
+                                                                task.D_tot, 
+                                                                task.S_mat, 
+                                                                task.Repf_mat,
+                                                                task.Ds,
+                                                                verts_tf,
+                                                                task.num_envs,
+                                                                task.zero_pad
+                                                                )
+
+                #rotate forces into global frame from frame A
+                force_B = rotate_vec(force_B, states_A[:, 2], task.R)
+                task.contact_wrenches[idx_comp, colp[1], :2] += -force_B
+                task.contact_wrenches[idx_comp, colp[0], :2] += force_B
+                task.contact_wrenches[idx_comp, colp[1], 2] += torque_A
+                task.contact_wrenches[idx_comp, colp[0], 2] += torque_B
+    
 
 @torch.jit.script
-def state_derivative(state : torch.Tensor, actions : torch.Tensor, par : Dict[str, float], num_agents : int, vn : Dict[str, int])-> torch.Tensor:
+def state_derivative(state : torch.Tensor, actions : torch.Tensor, col_wrenches : torch.Tensor, par : Dict[str, float], num_agents : int, vn : Dict[str, int])-> torch.Tensor:
     #model used from here, can change this later... 
     # https://onlinelibrary.wiley.com/doi/pdf/10.1002/oca.2123
     # 
@@ -99,9 +94,14 @@ def state_derivative(state : torch.Tensor, actions : torch.Tensor, par : Dict[st
     dx = state[:, :, vn['S_DX']] * torch.cos(state[:, :, vn['S_THETA']]) - state[:, :, vn['S_DY']] * torch.sin(state[:, :, vn['S_THETA']]) 
     dy = state[:, :, vn['S_DX']] * torch.sin(state[:, :, vn['S_THETA']]) + state[:, :, vn['S_DY']] * torch.cos(state[:, :, vn['S_THETA']])
     dtheta = state[:, :, vn['S_DTHETA']]
-    ddx = 1/par['m']*( Frx - Ffy*torch.sin(state[:, :, vn['S_DELTA']]) + par['m']*state[:, :, vn['S_DY']]*state[:, :, vn['S_DTHETA']] )
-    ddy = 1/par['m']*( Fry + Ffy*torch.cos(state[:, :, vn['S_DELTA']]) - par['m']*state[:, :, vn['S_DX']]*state[:, :, vn['S_DTHETA']] )
-    ddtheta = 1/par['Iz']*(Ffy*par['lf']*torch.cos(state[:, :, vn['S_DELTA']]))
+    ddx = 1/par['m']*( Frx - Ffy*torch.sin(state[:, :, vn['S_DELTA']]) + par['m']*state[:, :, vn['S_DY']]*state[:, :, vn['S_DTHETA']]  \
+                     +   torch.cos(state[:, :, vn['S_THETA']]) * col_wrenches[:, :, 0] + torch.sin(state[:, :, vn['S_THETA']])* col_wrenches[:, :, 1] )
+
+
+    ddy = 1/par['m']*( Fry + Ffy*torch.cos(state[:, :, vn['S_DELTA']]) - par['m']*state[:, :, vn['S_DX']]*state[:, :, vn['S_DTHETA']]  \
+                     - torch.sin(state[:, :, vn['S_THETA']]) * col_wrenches[:, :, 0] + torch.cos(state[:, :, vn['S_THETA']])* col_wrenches[:, :, 1] )
+
+    ddtheta = 1/par['Iz']*(Ffy*par['lf']*torch.cos(state[:, :, vn['S_DELTA']]) + col_wrenches[:, :, 2])
     
     #box constraints on steering angle
     ddelta =  actions[:, :, vn['A_DDELTA']]
@@ -118,8 +118,8 @@ def state_derivative(state : torch.Tensor, actions : torch.Tensor, par : Dict[st
 
 
 #@torch.jit.script
-def step_cars(state : torch.Tensor, actions : torch.Tensor, num_agents : int, mod_par : Dict[str, float],  sim_par : Dict[str, float], vn : Dict[str, int]) -> torch.Tensor:
-    dstate = state_derivative(state, actions, mod_par, num_agents , vn)
+def step_cars(task, state : torch.Tensor, actions : torch.Tensor, col_wrenches : torch.Tensor, num_agents : int, mod_par : Dict[str, float],  sim_par : Dict[str, float], vn : Dict[str, int]) -> torch.Tensor:
+    dstate = state_derivative(state, actions, col_wrenches, mod_par, num_agents , vn)
     
     #handle constraints
     is_addmissible = (state[:,:, vn['S_DX']] + sim_par['dt'] * actions[:,:, vn['A_ACC']] < 4.0) *(state[:,:, vn['S_DX']] + sim_par['dt'] * actions[:,:, vn['A_ACC']] > -2.0)
@@ -129,10 +129,10 @@ def step_cars(state : torch.Tensor, actions : torch.Tensor, num_agents : int, mo
     next_states = state + sim_par['dt'] * dstate  
     
     # clamp steering angle to constraints
-    up = next_states[:, :, vn['S_DELTA']] > np.pi/2
-    low =  next_states[:, :, vn['S_DELTA']] < -np.pi/2
-    next_states[:, :, vn['S_DELTA']] = up * np.pi/2 - low * np.pi/2 + ~(up|low)*next_states[:, :, vn['S_DELTA']]
+    up = next_states[:, :, vn['S_DELTA']] > np.pi/3
+    low =  next_states[:, :, vn['S_DELTA']] < -np.pi/3
+    next_states[:, :, vn['S_DELTA']] = up * np.pi/3 - low * np.pi/3 + ~(up|low)*next_states[:, :, vn['S_DELTA']]
 
     #resolve collisions
-    
+    resolve_collsions(task)
     return next_states

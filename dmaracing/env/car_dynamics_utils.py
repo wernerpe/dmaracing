@@ -2,6 +2,18 @@ import torch
 import numpy as np
 from typing import List, Tuple
 
+def allocate_car_dynamics_tensors(task):
+    task.R = torch.zeros((task.num_envs, 2, 2), device = task.device,requires_grad=False)
+    task.zero_pad = torch.zeros((task.num_envs,4,1), device =task.device, requires_grad=False) 
+
+    task.P_tot, task.D_tot, task.S_mat, task.Repf_mat, task.Ds = build_col_poly_eqns(task.modelParameters['w'], task.modelParameters['lr'] + task.modelParameters['lf'], task.device, task.num_envs)
+    task.collision_pairs = get_collision_pairs(task.num_agents)
+    task.collision_verts = get_car_vert_mat(task.modelParameters['w'], 
+                                            task.modelParameters['lr'] + task.modelParameters['lf'], 
+                                            task.num_envs, 
+                                            task.device)
+                                            
+#only used for collsiion checking, only one car per env needed for pairwise checking
 def get_car_vert_mat(w, l, num_envs, device):
     verts = torch.zeros((num_envs, 4, 2), device=device, dtype=torch.float, requires_grad=False)
     #top lft , ccw
@@ -21,7 +33,18 @@ def get_car_vert_mat(w, l, num_envs, device):
     verts[:, 3, 1] = w/2
     return verts
 
-def build_col_poly_eqns(w, l, device, num_envs):
+def get_collision_pairs(num_agents):
+    #naively check all collision pairs
+    ls = np.arange(num_agents)
+    pairs = [[a, b] for idx, a in enumerate(ls) for b in ls[idx + 1:]]
+    return pairs
+
+
+def build_col_poly_eqns(w,
+                        l, 
+                        device, 
+                        num_envs):
+
     P_tot = torch.zeros((16,2), device = device, dtype= torch.float, requires_grad=False)
     D_tot = torch.zeros((16,1), device = device, dtype= torch.float, requires_grad=False)
     #P1
@@ -97,13 +120,18 @@ def transform_col_verts(rel_trans_global : torch.Tensor,
                         verts: torch.Tensor,
                         R: torch.Tensor) ->torch.Tensor:
     '''
-    (B collider vertex rep, A collidee poly rep)
+    collider -> (B) Vertex rep
+    collidee -> (A) Poly rep
+
     input: 
     rel_trans_global (num_envs, 2) :relative translation pB-pA in global frame 
-    theta_A (num envs) : relative rotation of A to world
-    theta_B (num envs) : relative rotation of B to world
+    theta_A (num_envs) : relative rotation of A to world
+    theta_B (num_envs) : relative rotation of B to world
     verts : vertex tensor (numenvs, 4 car vertices, 2 cords)
-    R: allocated rot mat (numenvs,2,2) 
+    R: allocated rot mat (numenvs, 2, 2) 
+
+    output:
+    verts_rot_shift (num_envs, 4 car vertices, 2)
     '''
     theta_rel = theta_B - theta_A
     R[:, 0, 0 ] = torch.cos(theta_rel)
@@ -123,16 +151,41 @@ def transform_col_verts(rel_trans_global : torch.Tensor,
     verts_rot_shift[:,1,:] += trans_rot[:]
     verts_rot_shift[:,2,:] += trans_rot[:]
     verts_rot_shift[:,3,:] += trans_rot[:]
-    return verts_rot
+    return verts_rot_shift
 
 @torch.jit.script
-def get_contact_forces(P_tot : torch.Tensor, 
+def rotate_vec(vec : torch.Tensor, 
+               theta : torch.Tensor,  
+               R: torch.Tensor) ->torch.Tensor:
+    '''
+    collider -> (B) Vertex rep
+    collidee -> (A) Poly rep
+
+    input: 
+    vec (num_envs, 2) : vector to rotate 
+    theta (num_envs) : angle around z-axis to rotate
+    R: allocated rot mat (numenvs, 2, 2) 
+
+    output:
+    verts_rot (num_envs, 2)
+    '''
+    R[:, 0, 0 ] = torch.cos(theta)
+    R[:, 0, 1 ] = -torch.sin(theta)
+    R[:, 1, 0 ] = torch.sin(theta)
+    R[:, 1, 1 ] = torch.cos(theta)
+    vec_rot = torch.einsum('kij, kj->ki', R, vec)
+    return vec_rot
+
+
+#@torch.jit.script
+def get_contact_wrenches(P_tot : torch.Tensor, 
                        D_tot : torch.Tensor,
                        S_mat : torch.Tensor,
                        Repf_mat : torch.Tensor, 
                        Depth_selector : List[int],
                        verts_tf : torch.Tensor,
-                       num_envs : int) -> Tuple[torch.Tensor, torch.Tensor]:
+                       num_envs : int,
+                       zero_pad : torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
 
     #evaluate polygon equations on vertices of collider in bodyframe of collidee
     vert_poly_dists = torch.einsum('ij, lkj->lki', P_tot, verts_tf) + torch.tile(D_tot.squeeze(), (num_envs, 4, 1)) 
@@ -147,5 +200,16 @@ def get_contact_forces(P_tot : torch.Tensor,
     forces = force_dir
     forces[:, :, 0] *= magnitude
     forces[:, :, 1] *= magnitude
-    dirs = torch.mean(verts_tf, dim = 1)
-    return forces, magnitude
+
+    dirs_vert = torch.cat((verts_tf - torch.tile(torch.mean(verts_tf, dim = 1).unsqueeze(1), (1,4,1)), zero_pad ), dim = 2)
+    dirs_force = torch.cat((forces[:, :, :], zero_pad), dim = 2)
+
+    torque_B = torch.sum(torch.cross(dirs_vert, dirs_force, dim = 2)[:,:, 2], dim = 1)
+    dirs_vert_A = torch.cat((verts_tf, zero_pad), dim = 2)
+    torque_A = torch.sum(torch.cross(dirs_vert_A, -dirs_force, dim = 2)[:,:, 2], dim = 1)
+    
+    #sum over contact forces acting at the individual vertices
+    forces = torch.sum(forces, dim = 1)
+
+    return forces, torque_A, torque_B
+
