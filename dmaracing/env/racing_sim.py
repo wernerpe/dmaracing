@@ -52,7 +52,7 @@ class DmarEnv:
         self.states[env_ids, :, self.vn['S_THETA']] = np.pi/2
         self.states[env_ids, :, self.vn['S_DX']:] = 0.0
         self.states[env_ids, 0, self.vn['S_THETA']] = 0
-        self.states[env_ids, 0, self.vn['S_X']] = 0.01
+        self.states[env_ids, 0, self.vn['S_X']] = 0.00
         self.states[env_ids, 0, self.vn['S_Y']] = 0.00
         
 

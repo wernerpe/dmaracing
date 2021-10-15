@@ -20,7 +20,7 @@ def play():
 
     while True:
         actions[:,0, 0] = 1.0*(vel_cmd - env.states[:,0,env.vn['S_DX']])
-        actions[:,0, 1] = 2.0*(steer_cmd - env.states[:,0,env.vn['S_DELTA']]) 
+        actions[:,0, 1] = 0.2*(steer_cmd - env.states[:,0,env.vn['S_DELTA']]) 
         obs, rew, dones, info = env.step(actions)
         #print(info['key'])
         evt = info['key']

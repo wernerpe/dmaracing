@@ -26,7 +26,7 @@ def resolve_collsions(task):
 
             idx_comp = torch.where(torch.norm(task.states[:, colp[0], 0:2] -  task.states[:, colp[1], 0:2], dim =1)<=1)[0]# 5.6*task.modelParameters['lf'])[0]
             
-            if len(idx_comp):
+            if 1:#len(idx_comp):
                 states_A = task.states[idx_comp, colp[0], 0:3]
                 states_B = task.states[idx_comp, colp[1], 0:3]
 
@@ -96,7 +96,7 @@ def state_derivative(state : torch.Tensor, actions : torch.Tensor, col_wrenches 
     dtheta = state[:, :, vn['S_DTHETA']]
     ddx = 1/par['m']*( Frx - Ffy*torch.sin(state[:, :, vn['S_DELTA']]) + par['m']*state[:, :, vn['S_DY']]*state[:, :, vn['S_DTHETA']]  \
                      +   torch.cos(state[:, :, vn['S_THETA']]) * col_wrenches[:, :, 0] + torch.sin(state[:, :, vn['S_THETA']])* col_wrenches[:, :, 1] )
-
+                    #- 0.1  * (state[:, :, vn['S_DX']]>0) +  0.1  * (state[:, :, vn['S_DX']]<0)
 
     ddy = 1/par['m']*( Fry + Ffy*torch.cos(state[:, :, vn['S_DELTA']]) - par['m']*state[:, :, vn['S_DX']]*state[:, :, vn['S_DTHETA']]  \
                      - torch.sin(state[:, :, vn['S_THETA']]) * col_wrenches[:, :, 0] + torch.cos(state[:, :, vn['S_THETA']])* col_wrenches[:, :, 1] )
