@@ -152,10 +152,10 @@ def get_contact_forces(P_tot : torch.Tensor,
     dirs_vert = torch.cat((verts_tf - torch.tile(torch.mean(verts_tf, dim = 1).unsqueeze(1), (1,4,1)), torch.zeros((num_envs,4,1), device =device, requires_grad=False) ), dim = 2)
     dirs_force = torch.cat((forces[:, :, :], torch.zeros((num_envs,4,1), device =device)), dim = 2)
 
-    torque_B = torch.cross(dirs_vert, dirs_force, dim = 2).shape
+    torque_B = torch.sum(torch.cross(dirs_vert, dirs_force, dim = 2)[:,:, 2], dim = 1)
     dirs_vert_A = torch.cat((verts_tf, torch.zeros((num_envs,4,1), device =device, requires_grad=False) ), dim = 2)
-    torque_A = torch.cross(dirs_vert_A, dirs_force, dim = 2).shape
-    return forces, torque_B, torque_A
+    torque_A = torch.sum(torch.cross(dirs_vert_A, -dirs_force, dim = 2)[:,:, 2], dim = 1)
+    return forces, torque_A, torque_B
 
     
 
@@ -189,11 +189,13 @@ forces = force_dir
 forces[:, :, 0] *= magnitude
 forces[:, :, 1] *= magnitude
 
-f2 = get_contact_forces(P_tot, D_tot, S_mat, Repf_mat, Ds, verts_tf, num_envs)
+cf, ta, tb = get_contact_forces(P_tot, D_tot, S_mat, Repf_mat, Ds, verts_tf, num_envs)
 
 
 print(in_poly[0,:,:])
 print(forces[0,:,:])
+print(ta[0])
+print(tb[0])
 
 print('done')
 
