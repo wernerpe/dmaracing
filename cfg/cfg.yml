@@ -1,8 +1,8 @@
 sim:
-  numEnv: 2000
+  numEnv: 4000
   #nuber of racing agents per env
-  numAgents: 4
-  dt: 0.01 #[s]
+  numAgents: 10
+  dt: 0.004 #[s]
   numStates: 7
   numObservations: 5
   numActions: 2
@@ -27,8 +27,10 @@ model:
   Df: 0.17
   Dr: 0.1
 
+  max_steering_ang: 0.75
+
 viewer:
-  width: 1600
-  height: 1600
-  scale: 3.0 #[m/px] indicates how wide the window is in pixels
+  width: 800
+  height: 800
+  scale: 2.0 #[m/px] indicates how wide the window is in pixels
   linethickness: 1

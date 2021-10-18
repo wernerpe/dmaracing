@@ -20,7 +20,8 @@ class DmarEnv:
         self.num_obs = self.simParameters['numObservations']       
         self.num_agents = self.simParameters['numAgents']
         self.num_envs = self.simParameters['numEnv']
-        self.viewer = Viewer(cfg, self.headless)
+        if not self.headless:
+            self.viewer = Viewer(cfg)
         self.info = {}
         self.info['key'] = None
 
@@ -39,7 +40,6 @@ class DmarEnv:
         self.reset(env_ids)
 
         
-
     def observations(self,) -> None:
         pass
     
@@ -51,13 +51,12 @@ class DmarEnv:
         self.states[env_ids, :, self.vn['S_Y']] = 0
         self.states[env_ids, :, self.vn['S_THETA']] = np.pi/2
         self.states[env_ids, :, self.vn['S_DX']:] = 0.0
-        self.states[env_ids, 0, self.vn['S_THETA']] = 0
-        self.states[env_ids, 0, self.vn['S_X']] = 0.00
-        self.states[env_ids, 0, self.vn['S_Y']] = 0.00
-        
+        if not self.headless:
+            self.render()
 
     def post_physics_step(self) -> None:
-        self.render()
+        if not self.headless:
+            self.render()
 
     #change this??? to make it jit
     def step(self, actions) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, Dict[str, float]] :
@@ -68,5 +67,5 @@ class DmarEnv:
         return self.obs_buf, self.rew_buf, self.reset_buf, self.info
     
     def render(self,) -> None:
-        self.evnt = self.viewer.render(self.states[:,:,0:3])
+        self.evnt = self.viewer.render(self.states[:,:,[0,1,2,6]])
         self.info['key'] = self.evnt

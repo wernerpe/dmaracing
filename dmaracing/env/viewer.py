@@ -5,7 +5,7 @@ import numpy as np
 import sys
 
 class Viewer:
-    def __init__(self, cfg, headless):
+    def __init__(self, cfg):
         self.device = 'cuda:0'
         self.cfg = cfg
         #load cfg
@@ -31,7 +31,6 @@ class Viewer:
         self.colors = 255.0/self.num_agents*np.arange(self.num_agents) 
         self.font = cv.FONT_HERSHEY_SIMPLEX
 
-        self.do_render = ~headless
         cv.imshow('dmaracing', self.img)
 
     def render(self, state):
@@ -41,6 +40,7 @@ class Viewer:
             self.img = 255*np.ones((self.height, self.width, 3), np.uint8)
             transl = state[0, :, 0:2]
             theta = state[0, :, 2]
+            delta = state[0, :, 3]
             self.R[0, 0, :] = torch.cos(theta)
             self.R[0, 1, :] = -torch.sin(theta)
             self.R[1, 0, :] = torch.sin(theta)
@@ -49,6 +49,10 @@ class Viewer:
             car_box_rot = torch.einsum ('ijl, jkl -> ikl', self.R, self.car_box_m)
             car_box_world = torch.transpose(car_box_rot + transl.T.unsqueeze(1).repeat(1,4,1), 0,1)
             
+            self.R[0, 0, :] = torch.cos(theta+delta)
+            self.R[0, 1, :] = -torch.sin(theta+delta)
+            self.R[1, 0, :] = torch.sin(theta+delta)
+            self.R[1, 1, :] = torch.cos(theta+delta)
             car_heading_rot = torch.einsum ('ijl, jkl -> ikl', self.R, self.car_heading_m)
             car_heading_world = torch.transpose(car_heading_rot + transl.T.unsqueeze(1).repeat(1,2,1), 0,1)
 
@@ -65,7 +69,7 @@ class Viewer:
                 cv.putText(self.img, str(idx), (px_x_number, px_y_number), self.font, 0.5, (int(self.colors[idx]),0,int(self.colors[idx])), 1, cv.LINE_AA)
             
         cv.imshow("dmaracing", self.img)
-        key = cv.waitKey(10)
+        key = cv.waitKey(1)
         if key == 118: #toggle render on v
             if self.do_render:
                 self.do_render = False
