@@ -12,19 +12,19 @@ def play():
     env = DmarEnv(cfg, args)
     
     actions = torch.zeros((cfg['sim']['numEnv'], cfg['sim']['numAgents'], 2), device=args.device,  dtype= torch.float, requires_grad=False)
-    vel_cmd = 1.0
-    steer_cmd = 0.1
+    vel_cmd = 0.0
+    steer_cmd = 0.0
     num_step = 400
 
 
     t0 = time.time()
 
-    for idx in range(num_step):
+    while True:
         actions[:,0, 0] = 2.0*(vel_cmd - env.states[:,0,env.vn['S_DX']])
         actions[:,0, 1] = 3.*(steer_cmd - env.states[:,0,env.vn['S_DELTA']]) 
         obs, rew, dones, info = env.step(actions)
         #print(info['key'])
-        '''
+        
         evt = info['key']
 
         if evt == 105:
@@ -39,9 +39,9 @@ def play():
         elif evt == 108:
             steer_cmd -= 0.4 * (steer_cmd> -cfg['model']['max_steering_ang'])
             print('steer_cmd', steer_cmd, env.states[0,0,env.vn['S_DELTA']])
-        '''
-        if ( idx%50  ) ==0:
-            print(idx)
+        
+        #if ( idx%50  ) ==0:
+        #    print(idx)
         #print('1:', env.states[0, 0, :3])
         #print('2:', env.states[:,1,-1])
     t1 = time.time()
@@ -52,7 +52,7 @@ def play():
 if __name__ == "__main__":
     args = CmdLineArguments()
     args.device = 'cuda:0'
-    args.headless = True 
+    args.headless = False 
     path_cfg = os.getcwd() + '/cfg'
     cfg, cfg_train = getcfg(path_cfg)
     play()    

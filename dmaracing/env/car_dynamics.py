@@ -13,9 +13,17 @@ def get_varnames()->Dict[str, int]:
     varnames['S_DX'] = 3
     varnames['S_DY'] = 4
     varnames['S_DTHETA'] = 5
-    varnames['S_DELTA'] = 6
-    varnames['A_ACC'] = 0
-    varnames['A_DDELTA'] = 1
+    varnames['S_W0'] = 6
+    varnames['S_W1'] = 7
+    varnames['S_W2'] = 8
+    varnames['S_W3'] = 9
+    varnames['A_STEER'] = 10
+    varnames['S_GAS'] = 11
+    varnames['S_BREAK'] = 12 
+
+    varnames['A_STEER'] = 0
+    varnames['A_GAS'] = 1
+    varnames['A_BREAK'] = 2
     return varnames
 
 @torch.jit.script
@@ -132,7 +140,7 @@ def state_derivative(state : torch.Tensor, actions : torch.Tensor, col_wrenches 
     return dstate
 
 
-
+"""
 def step_cars(task, state : torch.Tensor, actions : torch.Tensor, col_wrenches : torch.Tensor, num_agents : int, mod_par : Dict[str, float],  sim_par : Dict[str, float], vn : Dict[str, int]) -> torch.Tensor:
     dstate = state_derivative(state, actions, col_wrenches, mod_par, num_agents , vn)
     
@@ -163,3 +171,32 @@ def step_cars(task, state : torch.Tensor, actions : torch.Tensor, col_wrenches :
                                               task.num_envs,
                                               task.zero_pad)
     return next_states
+"""
+
+def step_cars(state : torch.Tensor, 
+              actions : torch.Tensor, 
+              col_wrenches : torch.Tensor, 
+              num_agents : int, 
+              mod_par : Dict[str, float],  
+              sim_par : Dict[str, float], 
+              vn : Dict[str, int]) -> torch.Tensor:
+    #set steering angle
+    dir = torch.sign(actions[:, :, vn['A_STEER']] - state[:, :, vn['S_STEER']])
+    val = torch.abs(actions[:, :, vn['A_STEER']] - state[:, :, vn['S_STEER']])
+
+    state[:, :, vn['S_STEER']] = sim_par['dt']*dir * torch.min(50.0 * val, 3.0)
+    torch.clamp(state[:, :, vn['S_STEER']], -np.pi/3, np.pi/3)
+
+    #set gas 
+    diff = state[:, :, vn['S_GAS']] - actions[:, :, vn['A_GAS']]
+    state[:, :, vn['S_GAS']] += torch.clamp(diff, max=0.1)
+    state[:, :, vn['S_GAS']] = torch.clamp(state[:, :, vn['S_GAS']], 0, 1)
+    
+    #set wheel speeds
+
+    #set brake
+    diff = state[:, :, vn['S_GAS']] - actions[:, :, vn['A_GAS']]
+    state[:, :, vn['S_GAS']] += torch.clamp(diff, max=0.1)
+    state[:, :, vn['S_GAS']] = torch.clamp(state[:, :, vn['S_GAS']], 0, 1)
+
+    pass

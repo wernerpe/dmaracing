@@ -30,7 +30,7 @@ class Viewer:
         self.img = 255*np.ones((self.height, self.width, 3), np.uint8)
         self.colors = 255.0/self.num_agents*np.arange(self.num_agents) 
         self.font = cv.FONT_HERSHEY_SIMPLEX
-
+        self.do_render = True
         cv.imshow('dmaracing', self.img)
 
     def render(self, state):
