@@ -193,6 +193,7 @@ def step_cars(state : torch.Tensor,
     state[:, :, vn['S_GAS']] = torch.clamp(state[:, :, vn['S_GAS']], 0, 1)
     
     #set wheel speeds
+    state[:, :, vn['S_W3']:vn['S_W4']+1] += torch.div( sim_par['dt'] * mod_par['ENGINEPOW']*state[:, :, vn['S_GAS']],mod_par['I_w']*(torch.abs(state[:, :, vn['S_W3']:vn['S_W4']+1]) + 5))
 
     #set brake
     diff = state[:, :, vn['S_GAS']] - actions[:, :, vn['A_GAS']]
