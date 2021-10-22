@@ -2,35 +2,19 @@ sim:
   numEnv: 4000
   #nuber of racing agents per env
   numAgents: 10
-  dt: 0.004 #[s]
-  numStates: 7
+  dt: 0.01 #[s]
+  numStates: 12
   numObservations: 5
-  numActions: 2
+  numActions: 3
   
   
 model:
-#Optimization-Based Autonomous Racingof 1:43 Scale RC Cars
-#Alexander Liniger, Alexander Domahidi and Manfred Morari
-# https://onlinelibrary.wiley.com/doi/abs/10.1002/oca.2123
+  SIZE: 0.02 #[px/m]
+  BREAKFORCE: 15
 
-  m: 0.041 #[kg]
-  lf: 0.03 #[m]
-  lr: 0.03 #[m]
-  Iz:  0.00006 #[kg*m^3]
-  w: 0.03
-
-  #pajecka coef
-  Bf: 2.58
-  Br: 3.38
-  Cf: 1.2
-  Cr: 1.29
-  Df: 0.17
-  Dr: 0.1
-
-  max_steering_ang: 0.75
 
 viewer:
   width: 800
   height: 800
-  scale: 2.0 #[m/px] indicates how wide the window is in pixels
+  scale: 120.0 #[m/width*px] indicates how wide the window is in pixels
   linethickness: 1

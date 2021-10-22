@@ -17,10 +17,9 @@ def get_varnames()->Dict[str, int]:
     varnames['S_W1'] = 7
     varnames['S_W2'] = 8
     varnames['S_W3'] = 9
-    varnames['A_STEER'] = 10
+    varnames['S_STEER'] = 10
     varnames['S_GAS'] = 11
-    varnames['S_BREAK'] = 12 
-
+    
     varnames['A_STEER'] = 0
     varnames['A_GAS'] = 1
     varnames['A_BREAK'] = 2
@@ -100,104 +99,127 @@ def resolve_collsions(contact_wrenches : torch.Tensor,
                 contact_wrenches[ idx_comp, colp[0], 2] += torque_B
     return contact_wrenches
 
+
+def set_dependent_params(mod_par):
+    SIZE = mod_par['SIZE']
+    mod_par['ENGINE_POWER'] = 100000000*SIZE**2
+    mod_par['WHEEL_MOMENT_OF_INERTIA'] = 4000*SIZE**2
+    mod_par['FRICTION_LIMIT'] = 1000000 * SIZE * SIZE
+    mod_par['WHEEL_R'] = SIZE*27
+    L = 160.0 *SIZE
+    W = L/2
+    M = L*W
+    mod_par['M'] = L
+    mod_par['L'] = L
+    mod_par['W'] = W 
+    mod_par['I'] = M*(L**2 + W**2 )/12.0
+    mod_par['lf'] = L/2
+    mod_par['lr'] = L/2
+    
 @torch.jit.script
-def state_derivative(state : torch.Tensor, actions : torch.Tensor, col_wrenches : torch.Tensor, par : Dict[str, float], num_agents : int, vn : Dict[str, int])-> torch.Tensor:
-    #model used from here, can change this later... 
-    # https://onlinelibrary.wiley.com/doi/pdf/10.1002/oca.2123
-    # 
-    # [x, y, theta, xdot, ydot, thetadot, delta]
-    #blah wip
-    
-    alphaf = -torch.atan2(state[:, :, vn['S_DTHETA']]*par['lf'] + state[:, :, vn['S_DY']], state[:, :, vn['S_DX']] ) + state[:, :, vn['S_DELTA']]
-    alphar = torch.atan2(state[:, :, vn['S_DTHETA']]*par['lr'] - state[:, :, vn['S_DY']], state[:, :, vn['S_DX']])
-    Ffy = par['Df'] * torch.sin(par['Cf']*torch.atan(par['Bf']*alphaf)) 
-    Fry = par['Dr'] * torch.sin(par['Cr']*torch.atan(par['Br']*alphar))  
-    Frx = actions[:, :, vn['A_ACC']]
-
-    dx = state[:, :, vn['S_DX']] * torch.cos(state[:, :, vn['S_THETA']]) - state[:, :, vn['S_DY']] * torch.sin(state[:, :, vn['S_THETA']]) 
-    dy = state[:, :, vn['S_DX']] * torch.sin(state[:, :, vn['S_THETA']]) + state[:, :, vn['S_DY']] * torch.cos(state[:, :, vn['S_THETA']])
-    dtheta = state[:, :, vn['S_DTHETA']]
-    ddx = 1/par['m']*( Frx - Ffy*torch.sin(state[:, :, vn['S_DELTA']]) + par['m']*state[:, :, vn['S_DY']]*state[:, :, vn['S_DTHETA']]  \
-                     +   torch.cos(state[:, :, vn['S_THETA']]) * col_wrenches[:, :, 0] + torch.sin(state[:, :, vn['S_THETA']])* col_wrenches[:, :, 1]  \
-                     - 0.1  * (state[:, :, vn['S_DX']]>0) +  0.1  * (state[:, :, vn['S_DX']]<0 ))
-
-    ddy = 1/par['m']*( Fry + Ffy*torch.cos(state[:, :, vn['S_DELTA']]) - par['m']*state[:, :, vn['S_DX']]*state[:, :, vn['S_DTHETA']]  \
-                     - torch.sin(state[:, :, vn['S_THETA']]) * col_wrenches[:, :, 0] + torch.cos(state[:, :, vn['S_THETA']])* col_wrenches[:, :, 1] )
-
-    ddtheta = 1/par['Iz']*(Ffy*par['lf']*torch.cos(state[:, :, vn['S_DELTA']]) + col_wrenches[:, :, 2])
-    
-    #box constraints on steering angle
-    ddelta =  actions[:, :, vn['A_DDELTA']]
-
-    dstate = torch.cat((dx.view(-1, num_agents, 1),
-                        dy.view(-1, num_agents, 1),
-                        dtheta.view(-1, num_agents, 1),
-                        ddx.view(-1, num_agents, 1),
-                        ddy.view(-1, num_agents, 1),
-                        ddtheta.view(-1, num_agents, 1),
-                        ddelta.view(-1, num_agents, 1)
-                        ), dim=2)
-    return dstate
-
-
-"""
-def step_cars(task, state : torch.Tensor, actions : torch.Tensor, col_wrenches : torch.Tensor, num_agents : int, mod_par : Dict[str, float],  sim_par : Dict[str, float], vn : Dict[str, int]) -> torch.Tensor:
-    dstate = state_derivative(state, actions, col_wrenches, mod_par, num_agents , vn)
-    
-    #handle constraints
-    is_addmissible = (state[:,:, vn['S_DX']] + sim_par['dt'] * actions[:,:, vn['A_ACC']] < 4.0) *(state[:,:, vn['S_DX']] + sim_par['dt'] * actions[:,:, vn['A_ACC']] > -2.0)
-    dstate[:,:, vn['S_DX']] = is_addmissible * dstate[:,:, vn['S_DX']] + ~is_addmissible * (dstate[:,:, vn['S_DX']]- 1/mod_par['m']*actions[:, :, vn['A_ACC']])
-
-
-    next_states = state + sim_par['dt'] * dstate  
-    
-    # clamp steering angle to constraints
-    up = next_states[:, :, vn['S_DELTA']] > mod_par['max_steering_ang']
-    low =  next_states[:, :, vn['S_DELTA']] < -mod_par['max_steering_ang']
-    next_states[:, :, vn['S_DELTA']] = up * mod_par['max_steering_ang'] - low * mod_par['max_steering_ang'] + ~(up|low)*next_states[:, :, vn['S_DELTA']]
-
-    #resolve collisions
-    task.contact_wrenches = resolve_collsions(task.contact_wrenches,
-                                              task.states,
-                                              task.collision_pairs,
-                                              mod_par['lf'],
-                                              task.collision_verts,
-                                              task.R,
-                                              task.P_tot,
-                                              task.D_tot,
-                                              task.S_mat,
-                                              task.Repf_mat,
-                                              task.Ds,
-                                              task.num_envs,
-                                              task.zero_pad)
-    return next_states
-"""
-
 def step_cars(state : torch.Tensor, 
-              actions : torch.Tensor, 
+              actions : torch.Tensor,
+              wheel_locations: torch.Tensor,
+              R: torch.Tensor, 
               col_wrenches : torch.Tensor, 
-              num_agents : int, 
               mod_par : Dict[str, float],  
               sim_par : Dict[str, float], 
               vn : Dict[str, int]) -> torch.Tensor:
+    
+
     #set steering angle
     dir = torch.sign(actions[:, :, vn['A_STEER']] - state[:, :, vn['S_STEER']])
     val = torch.abs(actions[:, :, vn['A_STEER']] - state[:, :, vn['S_STEER']])
 
-    state[:, :, vn['S_STEER']] = sim_par['dt']*dir * torch.min(50.0 * val, 3.0)
-    torch.clamp(state[:, :, vn['S_STEER']], -np.pi/3, np.pi/3)
+    theta = state[:, :, vn['S_THETA']]
+    delta = state[:, :, vn['S_STEER']]
 
+    state[:, :, vn['S_STEER']] += sim_par['dt']*dir * torch.min(50.0 * val, 3.0 +  0*val)
+    torch.clamp(state[:, :, vn['S_STEER']], -np.pi/3, np.pi/3)
+    
+    #compute wheel forward and side directions, plus locations in the global frame
+    dir_fwd_ft = torch.cat((torch.cos(theta + delta).unsqueeze(2), torch.sin(theta + delta).unsqueeze(2)), dim = 2)
+    dir_fwd_bk = torch.cat((torch.cos(theta).unsqueeze(2), torch.sin(theta).unsqueeze(2)), dim = 2)
+    #(numenv, num_ag, 2)
+    wheel_dirs_forward = torch.cat((dir_fwd_ft.unsqueeze(2),
+                                    dir_fwd_ft.unsqueeze(2),
+                                    dir_fwd_bk.unsqueeze(2),
+                                    dir_fwd_bk.unsqueeze(2)), dim = 2)
+
+    dir_sid_ft = torch.cat((-torch.sin(theta + delta).unsqueeze(2), torch.cos(theta + delta).unsqueeze(2)), dim = 2)
+    dir_sid_bk = torch.cat((-torch.sin(theta).unsqueeze(2), torch.cos(theta).unsqueeze(2)), dim = 2)
+
+    wheel_dirs_side =  torch.cat((dir_sid_ft.unsqueeze(2),
+                                  dir_sid_ft.unsqueeze(2),
+                                  dir_sid_bk.unsqueeze(2),
+                                  dir_sid_bk.unsqueeze(2)), dim = 2)
+    
+
+    R[:, :, 0, 0 ] = torch.cos(theta)
+    R[:, :, 0, 1 ] = -torch.sin(theta)
+    R[:, :, 1, 0 ] = torch.sin(theta)
+    R[:, :, 1, 1 ] = torch.cos(theta)
+    #(num_envs, num_agents, 2, 2) x (num_envs, num_agents, num_wheels, 2)
+    wheel_locations_world = torch.nn.functional.pad(torch.einsum('klij, dj->kldi', R, wheel_locations), (0,1))
+
+   
     #set gas 
-    diff = state[:, :, vn['S_GAS']] - actions[:, :, vn['A_GAS']]
+    diff = actions[:, :, vn['A_GAS']] - state[:, :, vn['S_GAS']] 
     state[:, :, vn['S_GAS']] += torch.clamp(diff, max=0.1)
     state[:, :, vn['S_GAS']] = torch.clamp(state[:, :, vn['S_GAS']], 0, 1)
     
     #set wheel speeds
-    state[:, :, vn['S_W3']:vn['S_W4']+1] += torch.div( sim_par['dt'] * mod_par['ENGINEPOW']*state[:, :, vn['S_GAS']],mod_par['I_w']*(torch.abs(state[:, :, vn['S_W3']:vn['S_W4']+1]) + 5))
+    num = sim_par['dt'] * mod_par['ENGINE_POWER']*state[:, :, vn['S_GAS']]
+    den = mod_par['WHEEL_MOMENT_OF_INERTIA']*(torch.abs(state[:, :, vn['S_W2']:vn['S_W3']+1]) + 5)
+    state[:, :, vn['S_W2']:vn['S_W3']+1] += torch.div( num.unsqueeze(2),den)
 
     #set brake
-    diff = state[:, :, vn['S_GAS']] - actions[:, :, vn['A_GAS']]
-    state[:, :, vn['S_GAS']] += torch.clamp(diff, max=0.1)
-    state[:, :, vn['S_GAS']] = torch.clamp(state[:, :, vn['S_GAS']], 0, 1)
+    #break >0.9 -> lock up wheels
+    dir =  -torch.sign(state[:, :, vn['S_W0']:vn['S_W3']+1])
+    val = mod_par['BREAKFORCE'] * actions[:, :, vn['A_BREAK']].unsqueeze(2)
+    need_clip = torch.abs(val)>torch.abs(state[:, :, vn['S_W0']:vn['S_W3']+1])
+    val = need_clip * torch.abs(state[:, :, vn['S_W0']:vn['S_W3']+1]) + ~need_clip*val
+    state[:, :, vn['S_W0']:vn['S_W3']+1] += dir*val
+    state[:, :, vn['S_W0']:vn['S_W3']+1] = (0.9 >= actions[:, :, vn['A_BREAK']]).unsqueeze(2) * state[:, :, vn['S_W0']:vn['S_W3']+1]
+    
+    vr = state[:, :, vn['S_W0']:vn['S_W3']+1] * mod_par['WHEEL_R']
+    omega_body  = torch.nn.functional.pad(state[:, :, vn['S_DTHETA']].unsqueeze(2), (2, 0))
+    
+    wheel_vels_fl = state[:, :, vn['S_DX']:vn['S_DY']+1] - torch.cross(wheel_locations_world[:,:, 0, :],  omega_body)[:, :, 0:2]
+    wheel_vels_fr = state[:, :, vn['S_DX']:vn['S_DY']+1] - torch.cross(wheel_locations_world[:,:, 1, :],  omega_body)[:, :, 0:2]
+    wheel_vels_br = state[:, :, vn['S_DX']:vn['S_DY']+1] - torch.cross(wheel_locations_world[:,:, 2, :],  omega_body)[:, :, 0:2]
+    wheel_vels_bl = state[:, :, vn['S_DX']:vn['S_DY']+1] - torch.cross(wheel_locations_world[:,:, 3, :],  omega_body)[:, :, 0:2] 
+    wheel_vels = torch.cat((wheel_vels_fl.unsqueeze(2),
+                            wheel_vels_fr.unsqueeze(2),
+                            wheel_vels_br.unsqueeze(2),
+                            wheel_vels_bl.unsqueeze(2)), dim = 2)
+    
+    #wheel vels (num_env, num_agnt, 4, 2) wheel_dir (num_env, num_agnt, 4, 2) -> wheel force proj (num_env, num_agnt, 4, )
+    vf = torch.einsum('ijkl, ijkl -> ijk', wheel_vels, wheel_dirs_forward)                        
+    vs = torch.einsum('ijkl, ijkl -> ijk', wheel_vels, wheel_dirs_side)                        
+    f_force = -vf + vr
+    p_force = -vs
+    f_force *= 205000 *mod_par['SIZE']**2
+    p_force *= 205000 *mod_par['SIZE']**2
 
-    pass
+    f_tot = torch.sqrt(torch.square(f_force) +torch.square(p_force)) + 1e-9
+    f_lim = mod_par['FRICTION_LIMIT']
+    slip = f_tot > f_lim
+    f_force = slip * (f_lim * torch.div(f_force, f_tot)) + ~slip * f_force
+    p_force = slip * (f_lim * torch.div(p_force, f_tot)) + ~slip * p_force
+
+    state[:, :, vn['S_W0']:vn['S_W3']+1] -= sim_par['dt']*mod_par['WHEEL_R']/mod_par['WHEEL_MOMENT_OF_INERTIA'] * f_force
+
+    #apply force to center
+    wheel_forces = f_force.unsqueeze(3)*wheel_dirs_forward + p_force.unsqueeze(3)*wheel_dirs_side
+    net_force = torch.sum(wheel_forces, dim = 2)
+    net_torque = torch.sum(torch.cross(wheel_locations_world, torch.nn.functional.pad(wheel_forces, (0,1)), dim = 3)[..., 2], dim = 2)
+
+    #net_torque
+    ddx = 1/mod_par['M']*(net_force[:,:,0] + col_wrenches[:,:,0])
+    ddy = 1/mod_par['M']*(net_force[:,:,1] + col_wrenches[:,:,1])
+    ddtheta = 1/mod_par['I']*(net_torque + col_wrenches[:,:,2])
+    acc = torch.cat((ddx.unsqueeze(2),ddy.unsqueeze(2),ddtheta.unsqueeze(2)), dim= 2)
+    state[:, :, vn['S_X']:vn['S_THETA'] + 1] += sim_par['dt']*state[:,:,vn['S_DX']:vn['S_DTHETA']+1]
+    state[:, :, vn['S_DX']:vn['S_DTHETA'] + 1] += sim_par['dt']*acc
+    return state

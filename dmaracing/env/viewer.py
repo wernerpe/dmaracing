@@ -4,10 +4,12 @@ import torch
 import numpy as np
 import sys
 
+
 class Viewer:
     def __init__(self, cfg):
         self.device = 'cuda:0'
         self.cfg = cfg
+
         #load cfg
         self.width = self.cfg['viewer']['width']
         self.height = self.cfg['viewer']['height']
@@ -17,7 +19,7 @@ class Viewer:
         self.num_agents = self.cfg['sim']['numAgents']
 
         #bounding box of car in model frame
-        w = self.cfg['model']['w']
+        w = self.cfg['model']['W']
         lf = self.cfg['model']['lf']  
         lr = self.cfg['model']['lr']
         self.car_box_m = torch.tensor([[lf, -w/2],[lf, w/2],[-lr, w/2], [-lr, -w/2]], device = self.device)

@@ -3,16 +3,27 @@ import numpy as np
 from typing import List, Tuple
 
 def allocate_car_dynamics_tensors(task):
-    task.R = torch.zeros((task.num_envs, 2, 2), device = task.device,requires_grad=False)
+    task.R = torch.zeros((task.num_envs, task.num_agents, 2, 2), device = task.device, requires_grad=False)
     task.zero_pad = torch.zeros((task.num_envs,4,1), device =task.device, requires_grad=False) 
 
-    task.P_tot, task.D_tot, task.S_mat, task.Repf_mat, task.Ds = build_col_poly_eqns(task.modelParameters['w'], task.modelParameters['lr'] + task.modelParameters['lf'], task.device, task.num_envs)
+    task.P_tot, task.D_tot, task.S_mat, task.Repf_mat, task.Ds = build_col_poly_eqns(task.modelParameters['W'], task.modelParameters['lr'] + task.modelParameters['lf'], task.device, task.num_envs)
     task.collision_pairs = get_collision_pairs(task.num_agents)
-    task.collision_verts = get_car_vert_mat(task.modelParameters['w'], 
+    task.collision_verts = get_car_vert_mat(task.modelParameters['W'], 
                                             task.modelParameters['lr'] + task.modelParameters['lf'], 
                                             task.num_envs, 
                                             task.device)
-                                            
+    L = task.modelParameters['L']
+    W = task.modelParameters['W']
+    task.wheel_locations = torch.zeros((4,2), device = task.device)
+    task.wheel_locations[0, 0] = L/2.0 
+    task.wheel_locations[0, 1] = W/2.0 
+    task.wheel_locations[1, 0] = L/2.0 
+    task.wheel_locations[1, 1] = -W/2.0 
+    task.wheel_locations[2, 0] = -L/2.0 
+    task.wheel_locations[2, 1] = -W/2.0 
+    task.wheel_locations[3, 0] = -L/2.0 
+    task.wheel_locations[3, 1] = W/2.0 
+
 #only used for collsiion checking, only one car per env needed for pairwise checking
 def get_car_vert_mat(w, l, num_envs, device):
     verts = torch.zeros((num_envs, 4, 2), device=device, dtype=torch.float, requires_grad=False)
