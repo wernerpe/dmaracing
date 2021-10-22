@@ -1,11 +1,12 @@
 sim:
   numEnv: 4000
   #nuber of racing agents per env
-  numAgents: 2
+  numAgents: 4
   dt: 0.01 #[s]
   numStates: 12
   numObservations: 5
   numActions: 3
+  collide: 1
   
   
 model:

@@ -1,9 +1,9 @@
 import torch
 from torch._C import dtype
-from dmaracing.env.car_dynamics import *
-from dmaracing.env.car_dynamics_utils import allocate_car_dynamics_tensors
+from dmaracing.env.car_dynamics import step_cars
+from dmaracing.env.car_dynamics_utils import get_varnames, set_dependent_params, allocate_car_dynamics_tensors 
 from dmaracing.env.viewer import Viewer
-from typing import Tuple
+from typing import Tuple, Dict
 import numpy as np
 
 class DmarEnv:
@@ -21,6 +21,7 @@ class DmarEnv:
         self.num_obs = self.simParameters['numObservations']       
         self.num_agents = self.simParameters['numAgents']
         self.num_envs = self.simParameters['numEnv']
+        self.collide = self.simParameters['collide']
         if not self.headless:
             self.viewer = Viewer(cfg)
         self.info = {}
@@ -48,9 +49,10 @@ class DmarEnv:
         pass
 
     def reset(self, env_ids) -> None:
-        self.states[env_ids, :, self.vn['S_X']] = 1.5*self.modelParameters['W']*torch.tile(torch.arange(self.num_agents, device=self.device, dtype= torch.float, requires_grad=False), (len(env_ids),1))
-        self.states[env_ids, :, self.vn['S_Y']] = 0
-        self.states[env_ids, :, self.vn['S_THETA']] = np.pi/2
+
+        self.states[env_ids, :, self.vn['S_X']] = 30*torch.rand((len(env_ids), self.num_agents), device=self.device, requires_grad=False) - 2.5
+        self.states[env_ids, :, self.vn['S_Y']] = 30*torch.rand((len(env_ids), self.num_agents), device=self.device, requires_grad=False) - 2.5
+        self.states[env_ids, :, self.vn['S_THETA']] = np.pi*2*torch.rand((len(env_ids), self.num_agents), device=self.device, requires_grad=False)
         self.states[env_ids, :, self.vn['S_DX']:] = 0.0
         self.states[env_ids, 0, self.vn['S_Y']] = 3.9651
         if not self.headless:
@@ -60,19 +62,28 @@ class DmarEnv:
         if not self.headless:
             self.render()
 
-    #change this??? to make it jit
     def step(self, actions) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, Dict[str, float]] :
         
         self.actions = actions.clone().to(self.device)
-        self.states = step_cars(self,
-                                self.states, 
-                                self.actions, 
-                                self.wheel_locations, 
-                                self.R, 
-                                self.contact_wrenches, 
-                                self.modelParameters, 
-                                self.simParameters, 
-                                self.vn)
+        self.states, self.contact_wrenches = step_cars(self.states, 
+                                                       self.actions, 
+                                                       self.wheel_locations, 
+                                                       self.R, 
+                                                       self.contact_wrenches, 
+                                                       self.modelParameters, 
+                                                       self.simParameters, 
+                                                       self.vn,
+                                                       self.collision_pairs,
+                                                       self.collision_verts,
+                                                       self.P_tot,
+                                                       self.D_tot,
+                                                       self.S_mat,
+                                                       self.Repf_mat,
+                                                       self.Ds,
+                                                       self.num_envs,
+                                                       self.zero_pad,
+                                                       self.collide
+                                                       )
 
         self.post_physics_step()
         return self.obs_buf, self.rew_buf, self.reset_buf, self.info

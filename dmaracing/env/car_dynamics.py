@@ -1,130 +1,29 @@
 import torch   
-from typing import Dict, List
+from typing import Dict, List, Tuple
 import numpy as np
 
-from dmaracing.env.car_dynamics_utils import get_contact_wrenches, rotate_vec, transform_col_verts
-
-
-def get_varnames()->Dict[str, int]:
-    varnames = {}
-    varnames['S_X'] = 0
-    varnames['S_Y'] = 1
-    varnames['S_THETA'] = 2
-    varnames['S_DX'] = 3
-    varnames['S_DY'] = 4
-    varnames['S_DTHETA'] = 5
-    varnames['S_W0'] = 6
-    varnames['S_W1'] = 7
-    varnames['S_W2'] = 8
-    varnames['S_W3'] = 9
-    varnames['S_STEER'] = 10
-    varnames['S_GAS'] = 11
-    
-    varnames['A_STEER'] = 0
-    varnames['A_GAS'] = 1
-    varnames['A_BREAK'] = 2
-    return varnames
+from dmaracing.env.car_dynamics_utils import resolve_collsions
 
 @torch.jit.script
-def resolve_collsions(contact_wrenches : torch.Tensor,
-                      states : torch.Tensor,
-                      collision_pairs : List[List[int]],
-                      lf : float,
-                      collision_verts : torch.Tensor,
-                      R : torch.Tensor,
-                      P_tot : torch.Tensor,
-                      D_tot : torch.Tensor,
-                      S_mat : torch.Tensor,
-                      Repf_mat : torch.Tensor,
-                      Ds : List[int],
-                      num_envs : int,
-                      zero_pad : torch.Tensor
-                      ) -> torch.Tensor:
-
-    contact_wrenches[:,:,:] =0.0
-
-    if len(collision_pairs):
-        for colp in collision_pairs:
-
-            idx_comp = torch.where(torch.norm(states[:, colp[0], 0:2] -  states[:, colp[1], 0:2], dim =1)<=2.9*lf)[0]
-            
-            if  len(idx_comp):
-                states_A = states[idx_comp, colp[0], 0:3]
-                states_B = states[idx_comp, colp[1], 0:3]
-
-                #get contact wrenches for collision pair candidate
-                rel_trans = states_B[:,:2] -states_A[:,:2]
-                verts_tf = transform_col_verts(rel_trans, states_A[:,2], states_B[:,2], collision_verts[idx_comp, :, :], R[idx_comp,:,:])
-                force_B, torque_A, torque_B = get_contact_wrenches(P_tot, 
-                                                                   D_tot, 
-                                                                   S_mat, 
-                                                                   Repf_mat[idx_comp, ...],
-                                                                   Ds,
-                                                                   verts_tf,
-                                                                   len(idx_comp),
-                                                                   zero_pad[idx_comp, ...]
-                                                                   )
-
-                #rotate forces into global frame from frame A
-                force_B = rotate_vec(force_B, states_A[:, 2], R[idx_comp,:,:])
-                contact_wrenches[ idx_comp, colp[0], :2] += -force_B
-                contact_wrenches[ idx_comp, colp[1], :2] += force_B
-                contact_wrenches[ idx_comp, colp[0], 2] += torque_A
-                contact_wrenches[ idx_comp, colp[1], 2] += torque_B
-
-                #flip and check other direction
-                states_A = states[idx_comp, colp[1], 0:3]
-                states_B = states[idx_comp, colp[0], 0:3]
-
-                #get contact wrenches for collision pair candidate
-                rel_trans = states_B[:,:2] - states_A[:,:2]
-                verts_tf = transform_col_verts(rel_trans, states_A[:,2], states_B[:,2], collision_verts[idx_comp, :, :], R[idx_comp,:,:])
-
-                force_B, torque_A, torque_B = get_contact_wrenches(P_tot, 
-                                                                   D_tot, 
-                                                                   S_mat, 
-                                                                   Repf_mat[idx_comp, ...],
-                                                                   Ds,
-                                                                   verts_tf,
-                                                                   len(idx_comp),
-                                                                   zero_pad[idx_comp, ...]
-                                                                   )
-
-                #rotate forces into global frame from frame A
-                force_B = rotate_vec(force_B, states_A[:, 2], R[idx_comp,:,:])
-                contact_wrenches[ idx_comp, colp[1], :2] += -force_B
-                contact_wrenches[ idx_comp, colp[0], :2] += force_B
-                contact_wrenches[ idx_comp, colp[1], 2] += torque_A
-                contact_wrenches[ idx_comp, colp[0], 2] += torque_B
-    return contact_wrenches
-
-
-def set_dependent_params(mod_par):
-    SIZE = mod_par['SIZE']
-    mod_par['ENGINE_POWER'] = 10000000*SIZE**2
-    mod_par['WHEEL_MOMENT_OF_INERTIA'] = 4000*SIZE**2
-    mod_par['FRICTION_LIMIT'] = 0.22*1000000 * SIZE * SIZE
-    mod_par['WHEEL_R'] = SIZE*27
-    L = 160.0 *SIZE
-    W = L/2
-    M = L*W
-    mod_par['M'] = L
-    mod_par['L'] = L
-    mod_par['W'] = W 
-    mod_par['I'] = M*(L**2 + W**2 )/12.0
-    mod_par['lf'] = L/2
-    mod_par['lr'] = L/2
-    
-
-def step_cars(task,
-              state : torch.Tensor, 
+def step_cars(state : torch.Tensor, 
               actions : torch.Tensor,
               wheel_locations: torch.Tensor,
               R: torch.Tensor, 
-              col_wrenches : torch.Tensor, 
+              contact_wrenches : torch.Tensor, 
               mod_par : Dict[str, float],  
               sim_par : Dict[str, float], 
-              vn : Dict[str, int]) -> torch.Tensor:
+              vn : Dict[str, int],
+              collision_pairs : List[List[int]],
+              collision_verts : torch.Tensor,
+              P_tot : torch.Tensor,
+              D_tot : torch.Tensor,
+              S_mat : torch.Tensor,
+              Repf_mat : torch.Tensor,
+              Ds : List[int],
+              num_envs : int,
+              zero_pad : torch.Tensor,
+              collide: int
+              ) -> Tuple[torch.Tensor, torch.Tensor]:
     
 
     #set steering angle
@@ -140,6 +39,7 @@ def step_cars(task,
     #compute wheel forward and side directions, plus locations in the global frame
     dir_fwd_ft = torch.cat((torch.cos(theta + delta).unsqueeze(2), torch.sin(theta + delta).unsqueeze(2)), dim = 2)
     dir_fwd_bk = torch.cat((torch.cos(theta).unsqueeze(2), torch.sin(theta).unsqueeze(2)), dim = 2)
+
     #(numenv, num_ag, 2)
     wheel_dirs_forward = torch.cat((dir_fwd_ft.unsqueeze(2),
                                     dir_fwd_ft.unsqueeze(2),
@@ -216,24 +116,25 @@ def step_cars(task,
     net_torque = torch.sum(torch.cross(wheel_locations_world, torch.nn.functional.pad(wheel_forces, (0,1)), dim = 3)[..., 2], dim = 2)
 
     #net_torque
-    ddx = 1/mod_par['M']*(net_force[:,:,0] + col_wrenches[:,:,0])
-    ddy = 1/mod_par['M']*(net_force[:,:,1] + col_wrenches[:,:,1])
-    ddtheta = 1/mod_par['I']*(net_torque + col_wrenches[:,:,2])
+    ddx = 1/mod_par['M']*(net_force[:,:,0] + contact_wrenches[:,:,0])
+    ddy = 1/mod_par['M']*(net_force[:,:,1] + contact_wrenches[:,:,1])
+    ddtheta = 1/mod_par['I']*(net_torque + contact_wrenches[:,:,2])
     acc = torch.cat((ddx.unsqueeze(2),ddy.unsqueeze(2),ddtheta.unsqueeze(2)), dim= 2)
     state[:, :, vn['S_X']:vn['S_THETA'] + 1] += sim_par['dt']*state[:,:,vn['S_DX']:vn['S_DTHETA']+1]
     state[:, :, vn['S_DX']:vn['S_DTHETA'] + 1] += sim_par['dt']*acc
 
-    task.contact_wrenches = resolve_collsions(task.contact_wrenches,
-                                              task.states,
-                                              task.collision_pairs,
-                                              mod_par['lf'],
-                                              task.collision_verts,
-                                              task.R[:,0,:,:],
-                                              task.P_tot,
-                                              task.D_tot,
-                                              task.S_mat,
-                                              task.Repf_mat,
-                                              task.Ds,
-                                              task.num_envs,
-                                              task.zero_pad)
-    return state
+    if collide:
+        contact_wrenches = resolve_collsions(contact_wrenches,
+                                             state,
+                                             collision_pairs,
+                                             mod_par['lf'],
+                                             collision_verts,
+                                             R[:,0,:,:],
+                                             P_tot,
+                                             D_tot,
+                                             S_mat,
+                                             Repf_mat,
+                                             Ds,
+                                             num_envs,
+                                             zero_pad)
+    return state, contact_wrenches

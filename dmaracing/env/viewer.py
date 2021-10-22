@@ -71,6 +71,7 @@ class Viewer:
                 cv.polylines(self.img, [px_pts_car], isClosed = True, color = (int(self.colors[idx]),0,int(self.colors[idx])), thickness = self.thickness)
                 cv.polylines(self.img, [px_pts_heading], isClosed = True, color = (int(self.colors[idx]),0,int(self.colors[idx])), thickness = self.thickness)
                 cv.putText(self.img, str(idx), (px_x_number, px_y_number), self.font, 0.5, (int(self.colors[idx]),0,int(self.colors[idx])), 1, cv.LINE_AA)
+            cv.putText(self.img, "env:" + str(self.env_idx_render), (50, 50), self.font, 2, (int(self.colors[idx]),  0, int(self.colors[idx])), 1, cv.LINE_AA)
             
         cv.imshow("dmaracing", self.img)
         key = cv.waitKey(1)
@@ -84,10 +85,10 @@ class Viewer:
             sys.exit()
         if key == 114:
             self.env_idx_render = np.mod(self.env_idx_render+1, self.num_envs)
-            print('[VIZ] env toggled to ', self.env_idx_render)
+            #print('[VIZ] env toggled to ', self.env_idx_render)
         if key == 116:
             self.env_idx_render = np.mod(self.env_idx_render-1, self.num_envs)
-            print('[VIZ] env toggled to ', self.env_idx_render)
+            #print('[VIZ] env toggled to ', self.env_idx_render)
         return key
 
     def cords2px(self, pts):
