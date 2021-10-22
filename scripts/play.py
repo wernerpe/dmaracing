@@ -12,7 +12,7 @@ def play():
     env = DmarEnv(cfg, args)
     
     actions = torch.zeros((cfg['sim']['numEnv'], cfg['sim']['numAgents'], cfg['sim']['numActions']), device=args.device,  dtype= torch.float, requires_grad=False)
-    vel_cmd = 0.0
+    vel_cmd = 0.2
     steer_cmd = 0.0
     brk_cmd = 0.0
     num_step = 400
@@ -21,9 +21,9 @@ def play():
     t0 = time.time()
 
     while True:
-        actions[:,0, 0] = steer_cmd #3.*(steer_cmd - env.states[:,0,env.vn['S_STEER']]) 
-        actions[:,0, 1] = vel_cmd#2.0*(vel_cmd - env.states[:,0,env.vn['S_DX']])
-        actions[:,0, 2] = brk_cmd#2.0*(vel_cmd - env.states[:,0,env.vn['S_DX']])
+        actions[0 ,0, 0] = steer_cmd #3.*(steer_cmd - env.states[:,0,env.vn['S_STEER']]) 
+        actions[0 ,0, 1] = vel_cmd#2.0*(vel_cmd - env.states[:,0,env.vn['S_DX']])
+        actions[0 ,0, 2] = brk_cmd#2.0*(vel_cmd - env.states[:,0,env.vn['S_DX']])
         
         obs, rew, dones, info = env.step(actions)
         #print(info['key'])
@@ -31,12 +31,12 @@ def play():
         evt = info['key']
         #print(evt)
         if evt == 105:
-            vel_cmd += 0.01
-            brk_cmd -= 0.1*(brk_cmd>0)
+            vel_cmd += 0.1
+            brk_cmd = 0
             print('vel_cmd', vel_cmd, env.states[0,0,env.vn['S_DX']])
         elif evt == 107:
-            vel_cmd -= 0.01
-            brk_cmd += 0.2
+            vel_cmd = 0.1
+            brk_cmd = 0.9
             print('vel_cmd', vel_cmd, env.states[0,0,env.vn['S_DX']])
         elif evt == 106:
             steer_cmd += 0.2 * (steer_cmd < 1)

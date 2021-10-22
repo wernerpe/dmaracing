@@ -52,6 +52,7 @@ class DmarEnv:
         self.states[env_ids, :, self.vn['S_Y']] = 0
         self.states[env_ids, :, self.vn['S_THETA']] = np.pi/2
         self.states[env_ids, :, self.vn['S_DX']:] = 0.0
+        self.states[env_ids, 0, self.vn['S_Y']] = 3.9651
         if not self.headless:
             self.render()
 
@@ -63,7 +64,8 @@ class DmarEnv:
     def step(self, actions) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, Dict[str, float]] :
         
         self.actions = actions.clone().to(self.device)
-        self.states = step_cars(self.states, 
+        self.states = step_cars(self,
+                                self.states, 
                                 self.actions, 
                                 self.wheel_locations, 
                                 self.R, 

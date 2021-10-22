@@ -188,7 +188,7 @@ def rotate_vec(vec : torch.Tensor,
     return vec_rot
 
 
-#@torch.jit.script
+@torch.jit.script
 def get_contact_wrenches(P_tot : torch.Tensor, 
                          D_tot : torch.Tensor,
                          S_mat : torch.Tensor,
@@ -197,7 +197,6 @@ def get_contact_wrenches(P_tot : torch.Tensor,
                          verts_tf : torch.Tensor,
                          num_envs : int,
                          zero_pad : torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-
     #evaluate polygon equations on vertices of collider in bodyframe of collidee
     vert_poly_dists = torch.einsum('ij, lkj->lki', P_tot, verts_tf) + torch.tile(D_tot.squeeze(), (num_envs, 4, 1)) 
     #check if in polygon
@@ -207,7 +206,7 @@ def get_contact_wrenches(P_tot : torch.Tensor,
     #inpoly (numenvs, num_verts, num_poly) #vert_poly_dists[:,:, Ds] (num_env, num_verts, num_polygons)
     #use fact that we precomputed all distances to polygon walls
     depths = torch.einsum('ijk, ijk -> ij', 1.0*in_poly, vert_poly_dists[:,:, Depth_selector])
-    magnitude = 200*depths
+    magnitude = 9000*depths
     forces = force_dir
     forces[:, :, 0] *= magnitude
     forces[:, :, 1] *= magnitude

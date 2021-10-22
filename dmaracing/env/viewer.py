@@ -17,6 +17,7 @@ class Viewer:
         self.scale_y = self.height/self.width*self.scale_x
         self.thickness = self.cfg['viewer']['linethickness']
         self.num_agents = self.cfg['sim']['numAgents']
+        self.num_envs = self.cfg['sim']['numEnv']
 
         #bounding box of car in model frame
         w = self.cfg['model']['W']
@@ -33,6 +34,7 @@ class Viewer:
         self.colors = 255.0/self.num_agents*np.arange(self.num_agents) 
         self.font = cv.FONT_HERSHEY_SIMPLEX
         self.do_render = True
+        self.env_idx_render = 0
         cv.imshow('dmaracing', self.img)
 
     def render(self, state):
@@ -40,9 +42,9 @@ class Viewer:
             #do drawing
             #listen for keypressed events
             self.img = 255*np.ones((self.height, self.width, 3), np.uint8)
-            transl = state[0, :, 0:2]
-            theta = state[0, :, 2]
-            delta = state[0, :, 3]
+            transl = state[self.env_idx_render, :, 0:2]
+            theta = state[self.env_idx_render, :, 2]
+            delta = state[self.env_idx_render, :, 3]
             self.R[0, 0, :] = torch.cos(theta)
             self.R[0, 1, :] = -torch.sin(theta)
             self.R[1, 0, :] = torch.sin(theta)
@@ -80,6 +82,12 @@ class Viewer:
             print('[VIZ] render toggled to ', self.do_render)
         if key == 113 or key == 27: #quit on escape or q
             sys.exit()
+        if key == 114:
+            self.env_idx_render = np.mod(self.env_idx_render+1, self.num_envs)
+            print('[VIZ] env toggled to ', self.env_idx_render)
+        if key == 116:
+            self.env_idx_render = np.mod(self.env_idx_render-1, self.num_envs)
+            print('[VIZ] env toggled to ', self.env_idx_render)
         return key
 
     def cords2px(self, pts):
