@@ -35,7 +35,7 @@ class Viewer:
         self.font = cv.FONT_HERSHEY_SIMPLEX
         self.do_render = True
         self.env_idx_render = 0
-        self.track = get_track(2)
+        self.track = get_track(self.cfg)
         cv.imshow('dmaracing', self.img)
 
     def render(self, state):

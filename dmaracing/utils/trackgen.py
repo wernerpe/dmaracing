@@ -2,20 +2,20 @@ import numpy as np
 import math
 import cv2 as cv
 
-def get_track(seed):
+def get_track(cfg):
     #https://github.com/openai/gym/blob/master/gym/envs/box2d/car_racing.py
-    SCALE = 6.0  # Track scale
+    SCALE = cfg['track']['SCALE'] # Track scale
     TRACK_RAD = 500 / SCALE  # Track is heavily morphed circle with this radius
-    CHECKPOINTS = 10
-    TRACK_DETAIL_STEP = 21 / SCALE
-    TRACK_TURN_RATE = 0.31
-    TRACK_WIDTH = 40 / SCALE
-    BORDER = 8 / SCALE
-    BORDER_MIN_COUNT = 4
-    verbose = True
-
-    width = 800
-    height = 800
+    CHECKPOINTS = cfg['track']['CHECKPOINTS']
+    TRACK_DETAIL_STEP = cfg['track']['TRACK_DETAIL_STEP'] / SCALE
+    TRACK_TURN_RATE = cfg['track']['TRACK_TURN_RATE']
+    TRACK_WIDTH = cfg['track']['TRACK_WIDTH'] / SCALE
+    BORDER = cfg['track']['BORDER'] / SCALE
+    BORDER_MIN_COUNT = cfg['track']['BORDER_MIN_COUNT'] 
+    verbose = cfg['track']['verbose']
+    seed = cfg['track']['seed']
+    width = cfg['viewer']['width']
+    height = cfg['viewer']['height']
 
     img = 255*np.ones((height, width, 3), np.uint8)
     ov = img.copy()

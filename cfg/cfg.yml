@@ -23,10 +23,12 @@ viewer:
 track:
   #https://github.com/openai/gym/blob/master/gym/envs/box2d/car_racing.py
   SCALE: 6.0  # Track scale
-  TRACK_RAD: 500 / SCALE  # Track is heavily morphed circle with this radius
+  TRACK_RAD: 500   # Track is heavily morphed circle with this radius
   CHECKPOINTS: 15
-  TRACK_DETAIL_STEP: 21 / SCALE
+  TRACK_DETAIL_STEP: 21 
   TRACK_TURN_RATE: 0.31
-  TRACK_WIDTH: 40 / SCALE
-  BORDER: 8 / SCALE
+  TRACK_WIDTH: 40 
+  BORDER: 8 
   BORDER_MIN_COUNT: 4
+  verbose: False
+  seed: 0
