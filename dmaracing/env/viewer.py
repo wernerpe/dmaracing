@@ -3,7 +3,7 @@ from numpy.core.numeric import isclose
 import torch
 import numpy as np
 import sys
-
+from dmaracing.utils.trackgen import get_track
 
 class Viewer:
     def __init__(self, cfg):
@@ -35,13 +35,14 @@ class Viewer:
         self.font = cv.FONT_HERSHEY_SIMPLEX
         self.do_render = True
         self.env_idx_render = 0
+        self.track = get_track(2)
         cv.imshow('dmaracing', self.img)
 
     def render(self, state):
         if self.do_render:
             #do drawing
             #listen for keypressed events
-            self.img = 255*np.ones((self.height, self.width, 3), np.uint8)
+            self.img = self.track.copy()#255*np.ones((self.height, self.width, 3), np.uint8)
             transl = state[self.env_idx_render, :, 0:2]
             theta = state[self.env_idx_render, :, 2]
             delta = state[self.env_idx_render, :, 3]
