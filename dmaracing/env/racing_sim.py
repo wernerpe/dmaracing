@@ -5,6 +5,7 @@ from dmaracing.env.car_dynamics_utils import get_varnames, set_dependent_params,
 from dmaracing.env.viewer import Viewer
 from typing import Tuple, Dict
 import numpy as np
+from dmaracing.utils.trackgen import get_track
 
 class DmarEnv:
     def __init__(self, cfg, args) -> None:
@@ -22,8 +23,11 @@ class DmarEnv:
         self.num_agents = self.simParameters['numAgents']
         self.num_envs = self.simParameters['numEnv']
         self.collide = self.simParameters['collide']
+
+        self.track = get_track(cfg)
+        
         if not self.headless:
-            self.viewer = Viewer(cfg)
+            self.viewer = Viewer(cfg, self.track)
         self.info = {}
         self.info['key'] = None
 

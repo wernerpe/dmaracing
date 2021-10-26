@@ -1,12 +1,11 @@
 import cv2 as cv
-from numpy.core.numeric import isclose
 import torch
 import numpy as np
 import sys
-from dmaracing.utils.trackgen import get_track
+
 
 class Viewer:
-    def __init__(self, cfg):
+    def __init__(self, cfg, track):
         self.device = 'cuda:0'
         self.cfg = cfg
 
@@ -35,7 +34,7 @@ class Viewer:
         self.font = cv.FONT_HERSHEY_SIMPLEX
         self.do_render = True
         self.env_idx_render = 0
-        self.track = get_track(self.cfg)
+        self.track = track
         cv.imshow('dmaracing', self.img)
 
     def render(self, state):
