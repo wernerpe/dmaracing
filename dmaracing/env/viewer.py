@@ -80,6 +80,7 @@ class Viewer:
             
         cv.imshow("dmaracing", self.img)
         key = cv.waitKey(1)
+        #print(key)
         if key == 118: #toggle render on v
             if self.do_render:
                 self.do_render = False
@@ -95,16 +96,16 @@ class Viewer:
             if key == 116:
                 self.env_idx_render = np.mod(self.env_idx_render-1, self.num_envs)
                 #print('[VIZ] env toggled to ', self.env_idx_render)
-            if key == 82:
+            if key == 119:
                 self.y_offset -= 40
                 draw_track(self.track, self.cords2px_np)
-            if key == 84:
+            if key == 115:
                 self.y_offset += 40
                 draw_track(self.track, self.cords2px_np)
-            if key == 81:
+            if key == 97:
                 self.x_offset += 40
                 draw_track(self.track, self.cords2px_np)
-            if key == 83:
+            if key == 100:
                 self.x_offset -= 40
                 draw_track(self.track, self.cords2px_np)
             if key == 46:

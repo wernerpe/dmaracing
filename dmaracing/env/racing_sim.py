@@ -55,13 +55,13 @@ class DmarEnv:
     def reset(self, env_ids) -> None:
         
         for agent in range(self.num_agents):
-            tile_idx = -50 + int(-agent * self.modelParameters['L']/(self.tile_len))
+            tile_idx = 0 + -2*agent 
             x, y = self.track[1][tile_idx, :]
             offset_x = np.cos(self.track[-1][tile_idx] + np.pi/2)* self.modelParameters['L'] + (1-2*(agent%2))*np.cos(self.track[-1][tile_idx])* self.modelParameters['L']
             offset_y = np.sin(self.track[-1][tile_idx] + np.pi/2)* self.modelParameters['L'] + (1-2*(agent%2))*np.sin(self.track[-1][tile_idx])* self.modelParameters['L']
-            self.states[env_ids, agent, self.vn['S_X']] = x + offset_x
-            self.states[env_ids, agent, self.vn['S_Y']] = y + offset_y
-            self.states[env_ids, agent, self.vn['S_THETA']] = self.track[-1][tile_idx]-np.pi/2 
+            self.states[env_ids, agent, self.vn['S_X']] = x + 0*offset_x
+            self.states[env_ids, agent, self.vn['S_Y']] = y + 0*offset_y
+            self.states[env_ids, agent, self.vn['S_THETA']] = self.track[-1][tile_idx] + np.pi/2 
             #self.states[env_ids, agent, self.vn['S_THETA']+1:] = 0.0
             
         if not self.headless:

@@ -47,17 +47,17 @@ def allocate_car_dynamics_tensors(task):
 
 def set_dependent_params(mod_par):
     SIZE = mod_par['SIZE']
-    mod_par['ENGINE_POWER'] = 10000000*SIZE**2
+    mod_par['ENGINE_POWER'] = 5000000*SIZE**2
     mod_par['WHEEL_MOMENT_OF_INERTIA'] = 4000*SIZE**2
-    mod_par['FRICTION_LIMIT'] = 0.22*1000000 * SIZE * SIZE
+    mod_par['FRICTION_LIMIT'] = 1000000 * SIZE * SIZE
     mod_par['WHEEL_R'] = SIZE*27
     L = 160.0 *SIZE
     W = L/2
-    M = L*W
+    M = L*W *160
     mod_par['M'] = L
     mod_par['L'] = L
     mod_par['W'] = W 
-    mod_par['I'] = M*(L**2 + W**2 )/12.0
+    mod_par['I'] = 0.3*M*(L**2 + W**2 )/12.0
     mod_par['lf'] = L/2
     mod_par['lr'] = L/2
     

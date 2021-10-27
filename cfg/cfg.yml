@@ -11,7 +11,7 @@ sim:
   
 model:
   SIZE: 0.02 #[px/m]
-  BREAKFORCE: 8
+  BREAKFORCE: 15
 
 
 viewer:
@@ -25,10 +25,10 @@ track:
   SCALE: 6.0  # Track scale
   TRACK_RAD: 500   # Track is heavily morphed circle with this radius
   CHECKPOINTS: 15
-  TRACK_DETAIL_STEP: 21 
+  TRACK_DETAIL_STEP: 15 
   TRACK_TURN_RATE: 0.31
   TRACK_WIDTH: 40 
   BORDER: 8 
   BORDER_MIN_COUNT: 4
   verbose: False
-  seed: 0
+  seed: 10

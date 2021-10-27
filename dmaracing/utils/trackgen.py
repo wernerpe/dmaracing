@@ -141,7 +141,7 @@ def get_track(cfg):
     # Red-white border on hard turns
     border = [False] * len(track)
     centerline = np.zeros((len(track), 2))
-    betas = np.zeros((len(track),))
+    alphas = []
 
     track_poly_verts = []
     for i in range(len(track)):
@@ -186,7 +186,8 @@ def get_track(cfg):
         track_poly_verts.append(vert)
         centerline[i,0] = track[i][2]
         centerline[i,1] = track[i][3]            
-        betas[i] = beta
+        alphas.append(track[i][1])
+        
         '''
         if border[i]:
             side = np.sign(beta2 - beta1)
@@ -211,7 +212,7 @@ def get_track(cfg):
             )
         '''
 
-    return [img, centerline, np.array(track_poly_verts), betas], TRACK_DETAIL_STEP
+    return [img, centerline, np.array(track_poly_verts), np.array(alphas)], TRACK_DETAIL_STEP
 
 def draw_track(track, cords2px):
     img = track[0]
