@@ -1,3 +1,6 @@
+#Credit goes to https://github.com/openai/gym/blob/master/gym/envs/box2d/car_racing.py
+
+from typing import overload
 import numpy as np
 import math
 import cv2 as cv
@@ -19,14 +22,8 @@ def get_track(cfg):
 
     img = 255*np.ones((height, width, 3), np.uint8)
     ov = img.copy()
+    polys = img.copy()
     cv.imshow('dmaracing', img)
-
-    scale_x = 300
-    scale_y = height/width*scale_x
-    def cords2px(pts):
-            pts[:, 0] = width/scale_x*pts[:, 0] + width/2.0
-            pts[:, 1] = -height/scale_y*pts[:, 1] + height/2.0
-            return pts.astype(np.int32)
 
     np.random.seed(seed)
     # Create checkpoints
@@ -144,7 +141,7 @@ def get_track(cfg):
     # Red-white border on hard turns
     border = [False] * len(track)
     centerline = np.zeros((len(track), 2))
-
+    track_poly_verts = []
     for i in range(len(track)):
         good = True
         oneside = 0
@@ -179,27 +176,14 @@ def get_track(cfg):
             x2 + TRACK_WIDTH * math.cos(beta2),
             y2 + TRACK_WIDTH * math.sin(beta2),
         )
-        vertices = [road1_l, road1_r, road2_r, road2_l]
         vert = np.zeros((4,2))
         vert[0,:] = road1_l
         vert[1,:] = road1_r
         vert[2,:] = road2_r
         vert[3,:] = road2_l
-        vert[:,0] -= 20
-        vert_px = cords2px(vert)
-        cv.fillPoly(ov, [vert_px], color = (int(255/len(track)*i),0,0))
+        track_poly_verts.append(vert)
         centerline[i,0] = track[i][2]
         centerline[i,1] = track[i][3]            
-        #fd_tile.shape.vertices = vertices
-        #t = world.CreateStaticBody(fixtures=fd_tile)
-        #t.userData = t
-        #c = 0.01 * (i % 3)
-        #t.color = [ROAD_COLOR[0] + c, ROAD_COLOR[1] + c, ROAD_COLOR[2] + c]
-        #t.road_visited = False
-        #t.road_friction = 1.0
-        #t.fixtures[0].sensor = True
-        #road_poly.append(([road1_l, road1_r, road2_r, road2_l], t.color))
-        #road.append(t)
         '''
         if border[i]:
             side = np.sign(beta2 - beta1)
@@ -223,10 +207,25 @@ def get_track(cfg):
                 ([b1_l, b1_r, b2_r, b2_l], (1, 1, 1) if i % 2 == 0 else (1, 0, 0))
             )
         '''
+    return [img, centerline, np.array(track_poly_verts)]
+
+def draw_track(track, cords2px):
+    img = track[0]
+    centerline = track[1].copy()
+    track_poly_verts = track[2].copy()
+    img[:] = 255 
+    underlay = img.copy()
+    overlay = img.copy()
+    for idx in range(len(track_poly_verts)):
+        verts = track_poly_verts[idx, :, :]
+        vert_px = cords2px(verts)
+        cv.fillPoly(underlay, [vert_px], color = (int(255/len(track_poly_verts)*idx),0,0))
+        cv.polylines(overlay, [vert_px], isClosed = True,  color = (0,0,0), thickness = 1)
+
+    img = cv.addWeighted(underlay, 0.3, img, 0.9, 0)
+    
     cl_px = cords2px(centerline)
-    cl_px[:, 0] -= 50
-    img = cv.addWeighted(ov, 0.2, img, 0.9, 0)
     cv.polylines(img, [cl_px], isClosed = True, color = (0,0,0), thickness = 1)
-        
-    cv.imshow('dmaracing', img)
-    return img
+    img = cv.addWeighted(overlay, 0.1, img, 0.9, 0)
+    track[0] = img
+    

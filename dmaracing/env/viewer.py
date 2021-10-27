@@ -3,6 +3,8 @@ import torch
 import numpy as np
 import sys
 
+from dmaracing.utils.trackgen import draw_track
+
 
 class Viewer:
     def __init__(self, cfg, track):
@@ -35,13 +37,16 @@ class Viewer:
         self.do_render = True
         self.env_idx_render = 0
         self.track = track
+        self.x_offset = 0
+        self.y_offset = 0
+        draw_track(self.track, self.cords2px_np)
         cv.imshow('dmaracing', self.img)
 
     def render(self, state):
         if self.do_render:
             #do drawing
             #listen for keypressed events
-            self.img = self.track.copy()#255*np.ones((self.height, self.width, 3), np.uint8)
+            self.img = self.track[0].copy()#255*np.ones((self.height, self.width, 3), np.uint8)
             transl = state[self.env_idx_render, :, 0:2]
             theta = state[self.env_idx_render, :, 2]
             delta = state[self.env_idx_render, :, 3]
@@ -70,11 +75,12 @@ class Viewer:
                 px_pts_heading = px_car_heading_world[..., idx].reshape(-1,1,2)
                 cv.polylines(self.img, [px_pts_car], isClosed = True, color = (int(self.colors[idx]),0,int(self.colors[idx])), thickness = self.thickness)
                 cv.polylines(self.img, [px_pts_heading], isClosed = True, color = (int(self.colors[idx]),0,int(self.colors[idx])), thickness = self.thickness)
-                cv.putText(self.img, str(idx), (px_x_number, px_y_number), self.font, 0.5, (int(self.colors[idx]),0,int(self.colors[idx])), 1, cv.LINE_AA)
+                cv.putText(self.img, str(idx), (px_x_number+ self.x_offset, px_y_number + self.y_offset), self.font, 0.5, (int(self.colors[idx]),0,int(self.colors[idx])), 1, cv.LINE_AA)
             cv.putText(self.img, "env:" + str(self.env_idx_render), (50, 50), self.font, 2, (int(self.colors[idx]),  0, int(self.colors[idx])), 1, cv.LINE_AA)
             
         cv.imshow("dmaracing", self.img)
         key = cv.waitKey(1)
+        print(key)
         if key == 118: #toggle render on v
             if self.do_render:
                 self.do_render = False
@@ -89,10 +95,36 @@ class Viewer:
         if key == 116:
             self.env_idx_render = np.mod(self.env_idx_render-1, self.num_envs)
             #print('[VIZ] env toggled to ', self.env_idx_render)
+        if key == 82:
+            self.y_offset -= 40
+            draw_track(self.track, self.cords2px_np)
+        if key == 84:
+            self.y_offset += 40
+            draw_track(self.track, self.cords2px_np)
+        if key == 81:
+            self.x_offset += 40
+            draw_track(self.track, self.cords2px_np)
+        if key == 83:
+            self.x_offset -= 40
+            draw_track(self.track, self.cords2px_np)
+        if key == 46:
+            self.scale_x *= 1.2
+            self.scale_y *= 1.2
+            draw_track(self.track, self.cords2px_np)
+        if key == 44:     
+            self.scale_x /= 1.2
+            self.scale_y /= 1.2
+            draw_track(self.track, self.cords2px_np)
+        
         return key
 
     def cords2px(self, pts):
         pts = pts.cpu().numpy()
-        pts[:, 0, :] = self.width/self.scale_x*pts[:, 0, :] + self.width/2.0
-        pts[:, 1, :] = -self.height/self.scale_y*pts[:, 1, :] + self.height/2.0
+        pts[:, 0, :] = self.width/self.scale_x*pts[:, 0, :] + self.width/2.0 + self.x_offset
+        pts[:, 1, :] = -self.height/self.scale_y*pts[:, 1, :] + self.height/2.0 + self.y_offset
+        return pts.astype(np.int32)
+
+    def cords2px_np(self, pts):
+        pts[:, 0] = self.width/self.scale_x*pts[:, 0] + self.width/2.0 + self.x_offset
+        pts[:, 1] = -self.height/self.scale_y*pts[:, 1] + self.height/2.0 + self.y_offset
         return pts.astype(np.int32)
