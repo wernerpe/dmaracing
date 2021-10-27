@@ -24,7 +24,7 @@ class DmarEnv:
         self.num_envs = self.simParameters['numEnv']
         self.collide = self.simParameters['collide']
 
-        self.track, self.tile_len = get_track(cfg)
+        self.track, self.tile_len = get_track(cfg, self.device)
     
         if not self.headless:
             self.viewer = Viewer(cfg, self.track)
@@ -94,6 +94,15 @@ class DmarEnv:
                                                        self.collide
                                                        )
 
+        theta = self.states[:, :, self.vn['S_THETA']]
+        self.R[:, :, 0, 0 ] = torch.cos(theta)
+        self.R[:, :, 0, 1 ] = -torch.sin(theta)
+        self.R[:, :, 1, 0 ] = torch.sin(theta)
+        self.R[:, :, 1, 1 ] = torch.cos(theta)
+        #(num_envs, num_agents, 2, 2) x (num_envs, num_agents, num_wheels, 2)
+        wheel_locations_world = torch.einsum('klij, dj->kldi', self.R, self.wheel_locations)
+        
+        
         self.post_physics_step()
         return self.obs_buf, self.rew_buf, self.reset_buf, self.info
     

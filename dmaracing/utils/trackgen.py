@@ -1,11 +1,14 @@
 #Credit goes to https://github.com/openai/gym/blob/master/gym/envs/box2d/car_racing.py
 
 from typing import overload
+
 import numpy as np
 import math
 import cv2 as cv
-
-def get_track(cfg):
+from scipy.sparse import coo_matrix
+import torch
+ 
+def get_track(cfg, device):
     #https://github.com/openai/gym/blob/master/gym/envs/box2d/car_racing.py
     SCALE = cfg['track']['SCALE'] # Track scale
     TRACK_RAD = cfg['track']['TRACK_RAD'] / SCALE  # Track is heavily morphed circle with this radius
@@ -212,7 +215,7 @@ def get_track(cfg):
             )
         '''
     track_poly_verts = np.array(track_poly_verts)
-    A, b, S_mat = construct_poly_track_eqns(track_poly_verts)
+    A, b, S_mat = construct_poly_track_eqns(track_poly_verts, device)
     return [img, centerline, np.array(track_poly_verts), np.array(alphas), A, b, S_mat], TRACK_DETAIL_STEP
 
 def draw_track(track, cords2px):
@@ -238,9 +241,9 @@ def draw_track(track, cords2px):
     track[0] = img
     
 
-def construct_poly_track_eqns(track_poly_verts):
-    A = np.zeros((4*len(track_poly_verts), 2))
-    b = np.zeros((len(track_poly_verts)*4,))
+def construct_poly_track_eqns(track_poly_verts, device):
+    A = torch.zeros((4*len(track_poly_verts), 2), device = device, dtype = torch.float, requires_grad = False)
+    b = torch.zeros((len(track_poly_verts)*4,), device= device, dtype = torch.float, requires_grad = False)
     order  = [[0,1], [1,2], [2,3], [3,1]]
     for idx in range(len(track_poly_verts)):
         verts = track_poly_verts[idx,:,:]
@@ -251,10 +254,11 @@ def construct_poly_track_eqns(track_poly_verts):
             diff_rot = diff.copy()
             diff_rot[0] = -diff_rot[1]
             diff_rot[1] = diff[0]  
-            A[idx + pair_idx, :] = diff_rot
+            A[idx + pair_idx, 0] = diff_rot[0]
+            A[idx + pair_idx, 1] = diff_rot[1]
             b[idx + pair_idx] = diff_rot@vert_pair[0,:]
             pair_idx+=1
-    S_mat = np.eye(4)
-    tmp = np.ones((1,4))
-    S_mat = np.kron(S_mat, tmp)
+    S_mat = torch.eye(4, device = device, dtype = torch.float, requires_grad = False)
+    tmp = torch.ones((1,4), device = device, dtype = torch.float, requires_grad = False)
+    S_mat = torch.kron(S_mat, tmp).to_sparse()
     return A, b, S_mat

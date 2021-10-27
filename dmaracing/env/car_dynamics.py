@@ -22,7 +22,7 @@ def step_cars(state : torch.Tensor,
               Ds : List[int],
               num_envs : int,
               zero_pad : torch.Tensor,
-              collide: int
+              collide: int 
               ) -> Tuple[torch.Tensor, torch.Tensor]:
     
 
