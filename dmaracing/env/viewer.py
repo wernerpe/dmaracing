@@ -37,7 +37,7 @@ class Viewer:
         self.do_render = True
         self.env_idx_render = 0
         self.track = track
-        self.x_offset = 0
+        self.x_offset = -50
         self.y_offset = 0
         draw_track(self.track, self.cords2px_np)
         cv.imshow('dmaracing', self.img)

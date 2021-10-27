@@ -211,8 +211,9 @@ def get_track(cfg):
                 ([b1_l, b1_r, b2_r, b2_l], (1, 1, 1) if i % 2 == 0 else (1, 0, 0))
             )
         '''
-
-    return [img, centerline, np.array(track_poly_verts), np.array(alphas)], TRACK_DETAIL_STEP
+    track_poly_verts = np.array(track_poly_verts)
+    A, b, S_mat = construct_poly_track_eqns(track_poly_verts)
+    return [img, centerline, np.array(track_poly_verts), np.array(alphas), A, b, S_mat], TRACK_DETAIL_STEP
 
 def draw_track(track, cords2px):
     img = track[0]
@@ -236,3 +237,24 @@ def draw_track(track, cords2px):
     img = cv.addWeighted(overlay, 0.1, img, 0.9, 0)
     track[0] = img
     
+
+def construct_poly_track_eqns(track_poly_verts):
+    A = np.zeros((4*len(track_poly_verts), 2))
+    b = np.zeros((len(track_poly_verts)*4,))
+    order  = [[0,1], [1,2], [2,3], [3,1]]
+    for idx in range(len(track_poly_verts)):
+        verts = track_poly_verts[idx,:,:]
+        pair_idx = 0
+        for pair in order:
+            vert_pair = verts[pair,:]
+            diff = vert_pair[1,:] - vert_pair[0,:]
+            diff_rot = diff.copy()
+            diff_rot[0] = -diff_rot[1]
+            diff_rot[1] = diff[0]  
+            A[idx + pair_idx, :] = diff_rot
+            b[idx + pair_idx] = diff_rot@vert_pair[0,:]
+            pair_idx+=1
+    S_mat = np.eye(4)
+    tmp = np.ones((1,4))
+    S_mat = np.kron(S_mat, tmp)
+    return A, b, S_mat

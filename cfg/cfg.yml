@@ -11,13 +11,13 @@ sim:
   
 model:
   SIZE: 0.02 #[px/m]
-  BREAKFORCE: 15
+  BREAKFORCE: 1
 
 
 viewer:
   width: 800
   height: 800
-  scale: 180.0 #[m/width*px] indicates how wide the window is in pixels
+  scale: 250.0 #[m/width*px] indicates how wide the window is in pixels
   linethickness: 1
 
 track:
