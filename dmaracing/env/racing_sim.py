@@ -24,8 +24,8 @@ class DmarEnv:
         self.num_envs = self.simParameters['numEnv']
         self.collide = self.simParameters['collide']
 
-        self.track = get_track(cfg)
-        
+        self.track, self.tile_len = get_track(cfg)
+    
         if not self.headless:
             self.viewer = Viewer(cfg, self.track)
         self.info = {}
@@ -53,12 +53,17 @@ class DmarEnv:
         pass
 
     def reset(self, env_ids) -> None:
-
-        self.states[env_ids, :, self.vn['S_X']] = 30*torch.rand((len(env_ids), self.num_agents), device=self.device, requires_grad=False) - 2.5
-        self.states[env_ids, :, self.vn['S_Y']] = 30*torch.rand((len(env_ids), self.num_agents), device=self.device, requires_grad=False) - 2.5
-        self.states[env_ids, :, self.vn['S_THETA']] = np.pi*2*torch.rand((len(env_ids), self.num_agents), device=self.device, requires_grad=False)
-        self.states[env_ids, :, self.vn['S_DX']:] = 0.0
-        self.states[env_ids, 0, self.vn['S_Y']] = 3.9651
+        
+        for agent in range(self.num_agents):
+            tile_idx = -50 + int(-agent * self.modelParameters['L']/(self.tile_len))
+            x, y = self.track[1][tile_idx, :]
+            offset_x = np.cos(self.track[-1][tile_idx] + np.pi/2)* self.modelParameters['L'] + (1-2*(agent%2))*np.cos(self.track[-1][tile_idx])* self.modelParameters['L']
+            offset_y = np.sin(self.track[-1][tile_idx] + np.pi/2)* self.modelParameters['L'] + (1-2*(agent%2))*np.sin(self.track[-1][tile_idx])* self.modelParameters['L']
+            self.states[env_ids, agent, self.vn['S_X']] = x + offset_x
+            self.states[env_ids, agent, self.vn['S_Y']] = y + offset_y
+            self.states[env_ids, agent, self.vn['S_THETA']] = self.track[-1][tile_idx]-np.pi/2 
+            #self.states[env_ids, agent, self.vn['S_THETA']+1:] = 0.0
+            
         if not self.headless:
             self.render()
 

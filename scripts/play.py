@@ -12,7 +12,7 @@ def play():
     env = DmarEnv(cfg, args)
     
     actions = torch.zeros((cfg['sim']['numEnv'], cfg['sim']['numAgents'], cfg['sim']['numActions']), device=args.device,  dtype= torch.float, requires_grad=False)
-    vel_cmd = 0.2
+    vel_cmd = 0.0
     steer_cmd = 0.0
     brk_cmd = 0.0
     num_step = 400

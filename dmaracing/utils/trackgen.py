@@ -8,7 +8,7 @@ import cv2 as cv
 def get_track(cfg):
     #https://github.com/openai/gym/blob/master/gym/envs/box2d/car_racing.py
     SCALE = cfg['track']['SCALE'] # Track scale
-    TRACK_RAD = 500 / SCALE  # Track is heavily morphed circle with this radius
+    TRACK_RAD = cfg['track']['TRACK_RAD'] / SCALE  # Track is heavily morphed circle with this radius
     CHECKPOINTS = cfg['track']['CHECKPOINTS']
     TRACK_DETAIL_STEP = cfg['track']['TRACK_DETAIL_STEP'] / SCALE
     TRACK_TURN_RATE = cfg['track']['TRACK_TURN_RATE']
@@ -141,6 +141,8 @@ def get_track(cfg):
     # Red-white border on hard turns
     border = [False] * len(track)
     centerline = np.zeros((len(track), 2))
+    betas = np.zeros((len(track),))
+
     track_poly_verts = []
     for i in range(len(track)):
         good = True
@@ -184,6 +186,7 @@ def get_track(cfg):
         track_poly_verts.append(vert)
         centerline[i,0] = track[i][2]
         centerline[i,1] = track[i][3]            
+        betas[i] = beta
         '''
         if border[i]:
             side = np.sign(beta2 - beta1)
@@ -207,7 +210,8 @@ def get_track(cfg):
                 ([b1_l, b1_r, b2_r, b2_l], (1, 1, 1) if i % 2 == 0 else (1, 0, 0))
             )
         '''
-    return [img, centerline, np.array(track_poly_verts)]
+
+    return [img, centerline, np.array(track_poly_verts), betas], TRACK_DETAIL_STEP
 
 def draw_track(track, cords2px):
     img = track[0]
@@ -226,6 +230,8 @@ def draw_track(track, cords2px):
     
     cl_px = cords2px(centerline)
     cv.polylines(img, [cl_px], isClosed = True, color = (0,0,0), thickness = 1)
+    for idx in range(len(cl_px)):
+        cv.circle(img, (cl_px[idx, 0], cl_px[idx, 1]),1,(0,0,255))
     img = cv.addWeighted(overlay, 0.1, img, 0.9, 0)
     track[0] = img
     

@@ -80,7 +80,6 @@ class Viewer:
             
         cv.imshow("dmaracing", self.img)
         key = cv.waitKey(1)
-        print(key)
         if key == 118: #toggle render on v
             if self.do_render:
                 self.do_render = False
@@ -89,32 +88,33 @@ class Viewer:
             print('[VIZ] render toggled to ', self.do_render)
         if key == 113 or key == 27: #quit on escape or q
             sys.exit()
-        if key == 114:
-            self.env_idx_render = np.mod(self.env_idx_render+1, self.num_envs)
-            #print('[VIZ] env toggled to ', self.env_idx_render)
-        if key == 116:
-            self.env_idx_render = np.mod(self.env_idx_render-1, self.num_envs)
-            #print('[VIZ] env toggled to ', self.env_idx_render)
-        if key == 82:
-            self.y_offset -= 40
-            draw_track(self.track, self.cords2px_np)
-        if key == 84:
-            self.y_offset += 40
-            draw_track(self.track, self.cords2px_np)
-        if key == 81:
-            self.x_offset += 40
-            draw_track(self.track, self.cords2px_np)
-        if key == 83:
-            self.x_offset -= 40
-            draw_track(self.track, self.cords2px_np)
-        if key == 46:
-            self.scale_x *= 1.2
-            self.scale_y *= 1.2
-            draw_track(self.track, self.cords2px_np)
-        if key == 44:     
-            self.scale_x /= 1.2
-            self.scale_y /= 1.2
-            draw_track(self.track, self.cords2px_np)
+        if self.do_render:
+            if key == 114:
+                self.env_idx_render = np.mod(self.env_idx_render+1, self.num_envs)
+                #print('[VIZ] env toggled to ', self.env_idx_render)
+            if key == 116:
+                self.env_idx_render = np.mod(self.env_idx_render-1, self.num_envs)
+                #print('[VIZ] env toggled to ', self.env_idx_render)
+            if key == 82:
+                self.y_offset -= 40
+                draw_track(self.track, self.cords2px_np)
+            if key == 84:
+                self.y_offset += 40
+                draw_track(self.track, self.cords2px_np)
+            if key == 81:
+                self.x_offset += 40
+                draw_track(self.track, self.cords2px_np)
+            if key == 83:
+                self.x_offset -= 40
+                draw_track(self.track, self.cords2px_np)
+            if key == 46:
+                self.scale_x *= 1.2
+                self.scale_y *= 1.2
+                draw_track(self.track, self.cords2px_np)
+            if key == 44:     
+                self.scale_x /= 1.2
+                self.scale_y /= 1.2
+                draw_track(self.track, self.cords2px_np)
         
         return key
 
