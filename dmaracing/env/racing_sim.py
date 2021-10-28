@@ -41,16 +41,20 @@ class DmarEnv:
         self.reset_buf = torch_zeros((self.num_envs, ))>1
 
         allocate_car_dynamics_tensors(self)
-
-        env_ids = torch.arange(self.num_envs, dtype = torch.long)
-        self.reset(env_ids)
+        self.reset_all()
 
         
     def observations(self,) -> None:
         pass
     
-    def check_termination():
+    def check_termination() -> None:
         pass
+    
+    def reset_all(self) -> torch.Tensor:
+        env_ids = torch.arange(self.num_envs, dtype = torch.long)
+        self.reset(env_ids)
+        self.post_physics_step()
+        return self.obs_buf
 
     def reset(self, env_ids) -> None:
         
@@ -63,62 +67,44 @@ class DmarEnv:
             self.states[env_ids, agent, self.vn['S_Y']] = y + 0*offset_y
             self.states[env_ids, agent, self.vn['S_THETA']] = self.track[3][tile_idx] + np.pi/2 
             #self.states[env_ids, agent, self.vn['S_THETA']+1:] = 0.0
-            
-        if not self.headless:
-            self.render()
+
+    def step(self, actions) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, Dict[str, float]] :
+        
+        self.actions = actions.clone().to(self.device)
+        self.simulate()
+        self.post_physics_step()
+        return self.obs_buf, self.rew_buf, self.reset_buf, self.info
+    
+
+    def simulate(self) -> None:
+        #run physics update
+        self.states, self.contact_wrenches, self.wheels_on_track_segments = step_cars(self.states, 
+                                                                                      self.actions, 
+                                                                                      self.wheel_locations, 
+                                                                                      self.R, 
+                                                                                      self.contact_wrenches, 
+                                                                                      self.modelParameters, 
+                                                                                      self.simParameters, 
+                                                                                      self.vn,
+                                                                                      self.collision_pairs,
+                                                                                      self.collision_verts,
+                                                                                      self.P_tot,
+                                                                                      self.D_tot,
+                                                                                      self.S_mat,
+                                                                                      self.Repf_mat,
+                                                                                      self.Ds,
+                                                                                      self.num_envs,
+                                                                                      self.zero_pad,
+                                                                                      self.collide,
+                                                                                      self.track[4],
+                                                                                      self.track[5],
+                                                                                      self.track[6]
+                                                                                     )
 
     def post_physics_step(self) -> None:
         if not self.headless:
             self.render()
 
-    def step(self, actions) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, Dict[str, float]] :
-        
-        self.actions = actions.clone().to(self.device)
-        self.states, self.contact_wrenches = step_cars(self.states, 
-                                                       self.actions, 
-                                                       self.wheel_locations, 
-                                                       self.R, 
-                                                       self.contact_wrenches, 
-                                                       self.modelParameters, 
-                                                       self.simParameters, 
-                                                       self.vn,
-                                                       self.collision_pairs,
-                                                       self.collision_verts,
-                                                       self.P_tot,
-                                                       self.D_tot,
-                                                       self.S_mat,
-                                                       self.Repf_mat,
-                                                       self.Ds,
-                                                       self.num_envs,
-                                                       self.zero_pad,
-                                                       self.collide,
-                                                       self.track[4],
-                                                       self.track[5],
-                                                       self.track[6]
-                                                       )
-
-        #theta = self.states[:, :, self.vn['S_THETA']]
-        #self.R[:, :, 0, 0 ] = torch.cos(theta)
-        #self.R[:, :, 0, 1 ] = -torch.sin(theta)
-        #self.R[:, :, 1, 0 ] = torch.sin(theta)
-        #self.R[:, :, 1, 1 ] = torch.cos(theta)
-        ##(num_envs, num_agents, 2, 2) x (num_envs, num_agents, num_wheels, 2)
-        #wheel_locations_world = torch.einsum('klij, dj->kldi', self.R, self.wheel_locations) + self.states[:,:,0:2].unsqueeze(2)
-        #wfl = wheel_locations_world[0,0,0,:].cpu().numpy().reshape(1,-1)
-        #self.viewer.clear_markers()
-        #self.viewer.add_point(wfl, 5, (0,255,0))
-        #wheel_in_track = 1.0 * (torch.einsum('tc, eawc  -> eawt', self.track[4], wheel_locations_world) - self.track[5] +0.1>0 )
-        #wheel_in_track2 = torch.einsum('jt, eawt -> eawj', self.track[6], wheel_in_track) == 4 
-        #pos = wheel_locations_world[0,0,0,:]
-        #seg = 5
-        #A = self.track[4][:seg*4,:] 
-        #b = self.track[5][:seg*4]
-        #centerline = torch.tensor(self.track[1], device=self.device, dtype = torch.float)
-        #S_mat = self.track[6][:seg,:seg*4]
-
-        self.post_physics_step()
-        return self.obs_buf, self.rew_buf, self.reset_buf, self.info
-    
     def render(self,) -> None:
         self.evnt = self.viewer.render(self.states[:,:,[0,1,2,10]])
         self.info['key'] = self.evnt

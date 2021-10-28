@@ -26,7 +26,7 @@ def step_cars(state : torch.Tensor,
               A_track: torch.Tensor,
               b_track: torch.Tensor,
               S_track: torch.Tensor 
-              ) -> Tuple[torch.Tensor, torch.Tensor]:
+              ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     
 
     #set steering angle
@@ -112,7 +112,7 @@ def step_cars(state : torch.Tensor,
     wheel_on_track_seg = torch.einsum('jt, eawt -> eawj', S_track, wheel_on_track_seg) == 4
     wheel_on_track = torch.any(wheel_on_track_seg, dim = 3)
     f_tot = torch.sqrt(torch.square(f_force) +torch.square(p_force)) + 1e-9
-    f_lim = (0.99*mod_par['FRICTION_LIMIT'])*wheel_on_track + 0.01*mod_par['FRICTION_LIMIT']
+    f_lim = ((1-mod_par['OFFTRACK_FRICTION_SCALER'])*mod_par['FRICTION_LIMIT'])*wheel_on_track + mod_par['OFFTRACK_FRICTION_SCALER']*mod_par['FRICTION_LIMIT']
     slip = f_tot > f_lim
     f_force = slip * (f_lim * torch.div(f_force, f_tot)) + ~slip * f_force
     p_force = slip * (f_lim * torch.div(p_force, f_tot)) + ~slip * p_force
@@ -146,4 +146,5 @@ def step_cars(state : torch.Tensor,
                                              Ds,
                                              num_envs,
                                              zero_pad)
-    return state, contact_wrenches
+
+    return state, contact_wrenches, wheel_on_track_seg
