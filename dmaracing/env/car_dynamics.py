@@ -22,7 +22,10 @@ def step_cars(state : torch.Tensor,
               Ds : List[int],
               num_envs : int,
               zero_pad : torch.Tensor,
-              collide: int 
+              collide: int,
+              A_track: torch.Tensor,
+              b_track: torch.Tensor,
+              S_track: torch.Tensor 
               ) -> Tuple[torch.Tensor, torch.Tensor]:
     
 
@@ -60,8 +63,9 @@ def step_cars(state : torch.Tensor,
     R[:, :, 1, 0 ] = torch.sin(theta)
     R[:, :, 1, 1 ] = torch.cos(theta)
     #(num_envs, num_agents, 2, 2) x (num_envs, num_agents, num_wheels, 2)
-    wheel_locations_world = torch.nn.functional.pad(torch.einsum('klij, dj->kldi', R, wheel_locations), (0,1))
-
+    wheel_locations_bodycentric_world = torch.einsum('klij, dj->kldi', R, wheel_locations)
+    wheel_locations_world = wheel_locations_bodycentric_world + state[:,:, vn['S_X']:vn['S_Y']+1].unsqueeze(2)
+    wheel_locations_bodycentric_world = torch.nn.functional.pad(wheel_locations_bodycentric_world, (0,1))
    
     #set gas 
     diff = actions[:, :, vn['A_GAS']] - state[:, :, vn['S_GAS']] 
@@ -85,10 +89,10 @@ def step_cars(state : torch.Tensor,
     vr = state[:, :, vn['S_W0']:vn['S_W3']+1] * mod_par['WHEEL_R']
     omega_body  = torch.nn.functional.pad(state[:, :, vn['S_DTHETA']].unsqueeze(2), (2, 0))
     
-    wheel_vels_fl = state[:, :, vn['S_DX']:vn['S_DY']+1] - torch.cross(wheel_locations_world[:,:, 0, :],  omega_body)[:, :, 0:2]
-    wheel_vels_fr = state[:, :, vn['S_DX']:vn['S_DY']+1] - torch.cross(wheel_locations_world[:,:, 1, :],  omega_body)[:, :, 0:2]
-    wheel_vels_br = state[:, :, vn['S_DX']:vn['S_DY']+1] - torch.cross(wheel_locations_world[:,:, 2, :],  omega_body)[:, :, 0:2]
-    wheel_vels_bl = state[:, :, vn['S_DX']:vn['S_DY']+1] - torch.cross(wheel_locations_world[:,:, 3, :],  omega_body)[:, :, 0:2] 
+    wheel_vels_fl = state[:, :, vn['S_DX']:vn['S_DY']+1] - torch.cross(wheel_locations_bodycentric_world[:,:, 0, :],  omega_body)[:, :, 0:2]
+    wheel_vels_fr = state[:, :, vn['S_DX']:vn['S_DY']+1] - torch.cross(wheel_locations_bodycentric_world[:,:, 1, :],  omega_body)[:, :, 0:2]
+    wheel_vels_br = state[:, :, vn['S_DX']:vn['S_DY']+1] - torch.cross(wheel_locations_bodycentric_world[:,:, 2, :],  omega_body)[:, :, 0:2]
+    wheel_vels_bl = state[:, :, vn['S_DX']:vn['S_DY']+1] - torch.cross(wheel_locations_bodycentric_world[:,:, 3, :],  omega_body)[:, :, 0:2] 
     wheel_vels = torch.cat((wheel_vels_fl.unsqueeze(2),
                             wheel_vels_fr.unsqueeze(2),
                             wheel_vels_br.unsqueeze(2),
@@ -101,9 +105,14 @@ def step_cars(state : torch.Tensor,
     p_force = -vs
     f_force *= 205000 *mod_par['SIZE']**2
     p_force *= 205000 *mod_par['SIZE']**2
+    
 
+    #check which tires are on track
+    wheel_on_track_seg = 1.0 * (torch.einsum('tc, eawc  -> eawt', A_track, wheel_locations_world) - b_track +0.1>0 )
+    wheel_on_track_seg = torch.einsum('jt, eawt -> eawj', S_track, wheel_on_track_seg) == 4
+    wheel_on_track = torch.any(wheel_on_track_seg, dim = 3)
     f_tot = torch.sqrt(torch.square(f_force) +torch.square(p_force)) + 1e-9
-    f_lim = mod_par['FRICTION_LIMIT']
+    f_lim = (0.99*mod_par['FRICTION_LIMIT'])*wheel_on_track + 0.01*mod_par['FRICTION_LIMIT']
     slip = f_tot > f_lim
     f_force = slip * (f_lim * torch.div(f_force, f_tot)) + ~slip * f_force
     p_force = slip * (f_lim * torch.div(p_force, f_tot)) + ~slip * p_force
@@ -113,7 +122,7 @@ def step_cars(state : torch.Tensor,
     #apply force to center
     wheel_forces = f_force.unsqueeze(3)*wheel_dirs_forward + p_force.unsqueeze(3)*wheel_dirs_side
     net_force = torch.sum(wheel_forces, dim = 2)
-    net_torque = torch.sum(torch.cross(wheel_locations_world, torch.nn.functional.pad(wheel_forces, (0,1)), dim = 3)[..., 2], dim = 2)
+    net_torque = torch.sum(torch.cross(wheel_locations_bodycentric_world, torch.nn.functional.pad(wheel_forces, (0,1)), dim = 3)[..., 2], dim = 2)
 
     #net_torque
     ddx = 1/mod_par['M']*(net_force[:,:,0] + contact_wrenches[:,:,0])

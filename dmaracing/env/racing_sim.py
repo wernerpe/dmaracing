@@ -91,27 +91,30 @@ class DmarEnv:
                                                        self.Ds,
                                                        self.num_envs,
                                                        self.zero_pad,
-                                                       self.collide
+                                                       self.collide,
+                                                       self.track[4],
+                                                       self.track[5],
+                                                       self.track[6]
                                                        )
 
-        theta = self.states[:, :, self.vn['S_THETA']]
-        self.R[:, :, 0, 0 ] = torch.cos(theta)
-        self.R[:, :, 0, 1 ] = -torch.sin(theta)
-        self.R[:, :, 1, 0 ] = torch.sin(theta)
-        self.R[:, :, 1, 1 ] = torch.cos(theta)
-        #(num_envs, num_agents, 2, 2) x (num_envs, num_agents, num_wheels, 2)
-        wheel_locations_world = torch.einsum('klij, dj->kldi', self.R, self.wheel_locations) + self.states[:,:,0:2].unsqueeze(2)
-        wfl = wheel_locations_world[0,0,0,:].cpu().numpy().reshape(1,-1)
-        self.viewer.clear_markers()
-        self.viewer.add_point(wfl, 5, (0,255,0))
-        wheel_in_track = 1.0 * (torch.einsum('tc, eawc  -> eawt', self.track[4], wheel_locations_world) - self.track[5] +0.1>0 )
-        wheel_in_track2 = torch.einsum('jt, eawt -> eawj', self.track[6], wheel_in_track) == 4 
-        pos = wheel_locations_world[0,0,0,:]
-        seg = 5
-        A = self.track[4][:seg*4,:] 
-        b = self.track[5][:seg*4]
-        centerline = torch.tensor(self.track[1], device=self.device, dtype = torch.float)
-        S_mat = self.track[6][:seg,:seg*4]
+        #theta = self.states[:, :, self.vn['S_THETA']]
+        #self.R[:, :, 0, 0 ] = torch.cos(theta)
+        #self.R[:, :, 0, 1 ] = -torch.sin(theta)
+        #self.R[:, :, 1, 0 ] = torch.sin(theta)
+        #self.R[:, :, 1, 1 ] = torch.cos(theta)
+        ##(num_envs, num_agents, 2, 2) x (num_envs, num_agents, num_wheels, 2)
+        #wheel_locations_world = torch.einsum('klij, dj->kldi', self.R, self.wheel_locations) + self.states[:,:,0:2].unsqueeze(2)
+        #wfl = wheel_locations_world[0,0,0,:].cpu().numpy().reshape(1,-1)
+        #self.viewer.clear_markers()
+        #self.viewer.add_point(wfl, 5, (0,255,0))
+        #wheel_in_track = 1.0 * (torch.einsum('tc, eawc  -> eawt', self.track[4], wheel_locations_world) - self.track[5] +0.1>0 )
+        #wheel_in_track2 = torch.einsum('jt, eawt -> eawj', self.track[6], wheel_in_track) == 4 
+        #pos = wheel_locations_world[0,0,0,:]
+        #seg = 5
+        #A = self.track[4][:seg*4,:] 
+        #b = self.track[5][:seg*4]
+        #centerline = torch.tensor(self.track[1], device=self.device, dtype = torch.float)
+        #S_mat = self.track[6][:seg,:seg*4]
 
         self.post_physics_step()
         return self.obs_buf, self.rew_buf, self.reset_buf, self.info
