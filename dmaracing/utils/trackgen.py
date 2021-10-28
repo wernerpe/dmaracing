@@ -231,6 +231,11 @@ def draw_track(track, cords2px):
         cv.fillPoly(underlay, [vert_px], color = (int(255/len(track_poly_verts)*idx),0,0))
         cv.polylines(overlay, [vert_px], isClosed = True,  color = (0,0,0), thickness = 1)
 
+    verts = track[2][0, :, :].copy()
+    vert_px = cords2px(verts)
+    #cv.fillPoly(underlay, [vert_px], color = (int(255/len(track_poly_verts)*idx),0,0))
+    cv.polylines(overlay, [vert_px], isClosed = True,  color = (0,0 ,255), thickness = 3)
+    
     img = cv.addWeighted(underlay, 0.3, img, 0.9, 0)
     
     cl_px = cords2px(centerline)
@@ -244,7 +249,7 @@ def draw_track(track, cords2px):
 def construct_poly_track_eqns(track_poly_verts, device):
     A = torch.zeros((4*len(track_poly_verts), 2), device = device, dtype = torch.float, requires_grad = False)
     b = torch.zeros((len(track_poly_verts)*4,), device= device, dtype = torch.float, requires_grad = False)
-    order  = [[0,1], [1,2], [2,3], [3,1]]
+    order  = [[0,1], [1,2], [2,3], [3,0]]
     for idx in range(len(track_poly_verts)):
         verts = track_poly_verts[idx,:,:]
         pair_idx = 0
@@ -252,13 +257,14 @@ def construct_poly_track_eqns(track_poly_verts, device):
             vert_pair = verts[pair,:]
             diff = vert_pair[1,:] - vert_pair[0,:]
             diff_rot = diff.copy()
-            diff_rot[0] = -diff_rot[1]
-            diff_rot[1] = diff[0]  
-            A[idx + pair_idx, 0] = diff_rot[0]
-            A[idx + pair_idx, 1] = diff_rot[1]
-            b[idx + pair_idx] = diff_rot@vert_pair[0,:]
+            diff_rot[0] = diff_rot[1]
+            diff_rot[1] = -diff[0]  
+            A[4*idx + pair_idx, 0] = diff_rot[0]
+            A[4*idx + pair_idx, 1] = diff_rot[1]
+            b[4*idx + pair_idx] = diff_rot@vert_pair[0,:]
             pair_idx+=1
-    S_mat = torch.eye(4, device = device, dtype = torch.float, requires_grad = False)
+    S_mat = torch.eye(len(track_poly_verts), device = device, dtype = torch.float, requires_grad = False)
     tmp = torch.ones((1,4), device = device, dtype = torch.float, requires_grad = False)
-    S_mat = torch.kron(S_mat, tmp).to_sparse()
+    S_mat = torch.kron(S_mat, tmp)
     return A, b, S_mat
+

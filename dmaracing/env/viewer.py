@@ -39,6 +39,7 @@ class Viewer:
         self.track = track
         self.x_offset = -50
         self.y_offset = 0
+        self.points = []
         draw_track(self.track, self.cords2px_np)
         cv.imshow('dmaracing', self.img)
 
@@ -77,7 +78,8 @@ class Viewer:
                 cv.polylines(self.img, [px_pts_heading], isClosed = True, color = (int(self.colors[idx]),0,int(self.colors[idx])), thickness = self.thickness)
                 cv.putText(self.img, str(idx), (px_x_number+ self.x_offset, px_y_number + self.y_offset), self.font, 0.5, (int(self.colors[idx]),0,int(self.colors[idx])), 1, cv.LINE_AA)
             cv.putText(self.img, "env:" + str(self.env_idx_render), (50, 50), self.font, 2, (int(self.colors[idx]),  0, int(self.colors[idx])), 1, cv.LINE_AA)
-            
+            self.draw_points()
+
         cv.imshow("dmaracing", self.img)
         key = cv.waitKey(1)
         #print(key)
@@ -129,3 +131,15 @@ class Viewer:
         pts[:, 0] = self.width/self.scale_x*pts[:, 0] + self.width/2.0 + self.x_offset
         pts[:, 1] = -self.height/self.scale_y*pts[:, 1] + self.height/2.0 + self.y_offset
         return pts.astype(np.int32)
+
+    def add_point(self, cords, radius, color):
+        cd = cords.copy()
+        cd = self.cords2px_np(cd)
+        self.points.append([cd, radius, color])
+
+    def clear_markers(self,):
+        self.points = []   
+
+    def draw_points(self,):
+        for pt in self.points:
+            cv.circle(self.img, (pt[0][0, 0], pt[0][0, 1]), pt[1], pt[2])
