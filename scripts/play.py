@@ -1,5 +1,5 @@
 import torch
-from dmaracing.env.racing_sim import DmarEnv
+from dmaracing.env.dmar import DmarEnv
 from dmaracing.utils.helpers import *
 import os
 
@@ -40,5 +40,5 @@ if __name__ == "__main__":
     args.device = 'cuda:0'
     args.headless = False 
     path_cfg = os.getcwd() + '/cfg'
-    cfg, cfg_train = getcfg(path_cfg)
+    cfg, cfg_train, logdir = getcfg(path_cfg)
     play()    

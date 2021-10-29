@@ -43,6 +43,14 @@ class Viewer:
         draw_track(self.track, self.cords2px_np)
         cv.imshow('dmaracing', self.img)
 
+    def center_cam(self, state):
+        self.scale_x /= 2.0
+        self.scale_y /= 2.0 
+        self.x_offset = int(-self.width/self.scale_x*state[0,0,0])
+        self.y_offset = int(self.height/self.scale_y*state[0,0,1])
+        draw_track(self.track, self.cords2px_np)
+        
+
     def render(self, state):
         if self.do_render:
             #do drawing

@@ -1,5 +1,4 @@
-#Credit goes to https://github.com/openai/gym/blob/master/gym/envs/box2d/car_racing.py
-
+#track generator copied from https://github.com/openai/gym/blob/master/gym/envs/box2d/car_racing.py
 from typing import overload
 
 import numpy as np
@@ -9,7 +8,6 @@ from scipy.sparse import coo_matrix
 import torch
  
 def get_track(cfg, device):
-    #https://github.com/openai/gym/blob/master/gym/envs/box2d/car_racing.py
     SCALE = cfg['track']['SCALE'] # Track scale
     TRACK_RAD = cfg['track']['TRACK_RAD'] / SCALE  # Track is heavily morphed circle with this radius
     CHECKPOINTS = cfg['track']['CHECKPOINTS']
@@ -216,7 +214,7 @@ def get_track(cfg, device):
         '''
     track_poly_verts = np.array(track_poly_verts)
     A, b, S_mat = construct_poly_track_eqns(track_poly_verts, device)
-    return [img, centerline, np.array(track_poly_verts), np.array(alphas), A, b, S_mat], TRACK_DETAIL_STEP
+    return [img, centerline, np.array(track_poly_verts), np.array(alphas), A, b, S_mat], TRACK_DETAIL_STEP, len(track_poly_verts)
 
 def draw_track(track, cords2px):
     img = track[0]

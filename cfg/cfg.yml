@@ -1,22 +1,28 @@
 sim:
   numEnv: 4000
   #nuber of racing agents per env
-  numAgents: 10
+  numAgents: 1
   dt: 0.01 #[s]
   numStates: 12
   numObservations: 5
   numActions: 3
   collide: 1
   
-  
 model:
   SIZE: 0.02 #[px/m]
   BREAKFORCE: 1
-
+  ENGINE_POWER_SCALE: 4000000
+  WHEEL_MOMENT_OF_INERTIA_SCALE: 4000
+  FRICTION_LIMIT_SCALE: 1000000
+  OFFTRACK_FRICTION_SCALE: 0.3
+  WHEEL_R_SCALE: 27
+  LENGTH_SCALE: 200
+  MASS_SCALE: 230
+  MOMENT_OF_INERTIA_SCALE: 0.3
 
 viewer:
-  width: 800
-  height: 800
+  width: 1200
+  height: 1200
   scale: 250.0 #[m/width*px] indicates how wide the window is in pixels
   linethickness: 1
 
@@ -24,11 +30,11 @@ track:
   #https://github.com/openai/gym/blob/master/gym/envs/box2d/car_racing.py
   SCALE: 6.0  # Track scale
   TRACK_RAD: 500   # Track is heavily morphed circle with this radius
-  CHECKPOINTS: 15
+  CHECKPOINTS: 12
   TRACK_DETAIL_STEP: 15 
   TRACK_TURN_RATE: 0.31
   TRACK_WIDTH: 40 
   BORDER: 8 
   BORDER_MIN_COUNT: 4
   verbose: False
-  seed: 10
+  seed: 0
