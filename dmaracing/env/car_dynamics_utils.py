@@ -23,7 +23,7 @@ def get_varnames()->Dict[str, int]:
     return varnames
 
 def allocate_car_dynamics_tensors(task):
-    task.R = torch.zeros((task.num_envs, task.num_agents, 2, 2), device = task.device, requires_grad=False)
+    task.R = torch.zeros((task.num_envs, task.num_agents, 2, 2), dtype = torch.float, device = task.device, requires_grad=False)
     task.zero_pad = torch.zeros((task.num_envs,4,1), device =task.device, requires_grad=False) 
 
     task.P_tot, task.D_tot, task.S_mat, task.Repf_mat, task.Ds = build_col_poly_eqns(task.modelParameters['W'], task.modelParameters['lr'] + task.modelParameters['lf'], task.device, task.num_envs)
@@ -34,7 +34,7 @@ def allocate_car_dynamics_tensors(task):
                                             task.device)
     L = task.modelParameters['L']
     W = task.modelParameters['W']
-    task.wheel_locations = torch.zeros((4,2), device = task.device)
+    task.wheel_locations = torch.zeros((4,2), device = task.device, dtype=torch.float, requires_grad=False)
     task.wheel_locations[0, 0] = L/2.0 
     task.wheel_locations[0, 1] = W/2.0 
     task.wheel_locations[1, 0] = L/2.0 
@@ -44,6 +44,8 @@ def allocate_car_dynamics_tensors(task):
     task.wheel_locations[3, 0] = -L/2.0 
     task.wheel_locations[3, 1] = W/2.0 
 
+    torch.Size([2000, 5, 4, 225])
+    task.wheels_on_track_segments = torch.zeros((task.num_envs, task.num_agents, 4, task.track_num_tiles), requires_grad=False, device=task.device)>1
 
 def set_dependent_params(mod_par):
     SIZE = mod_par['SIZE']

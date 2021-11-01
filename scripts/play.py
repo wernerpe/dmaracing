@@ -5,9 +5,9 @@ import os
 
 def play():
     cfg['sim']['numEnv'] = 2000
-    cfg['sim']['numAgents'] = 5
+    cfg['sim']['numAgents'] = 1
     env = DmarEnv(cfg, args)
-    obs = env.reset_all()
+    obs = env.obs_buf
 
     actions = torch.zeros((cfg['sim']['numEnv'], cfg['sim']['numAgents'], cfg['sim']['numActions']), device=args.device,  dtype= torch.float, requires_grad=False)
     vel_cmd = 0.0

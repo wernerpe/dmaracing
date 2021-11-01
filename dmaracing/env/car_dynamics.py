@@ -23,12 +23,12 @@ def step_cars(state : torch.Tensor,
               num_envs : int,
               zero_pad : torch.Tensor,
               collide: int,
+              wheels_on_track_segments : torch.Tensor,
               A_track: torch.Tensor,
               b_track: torch.Tensor,
               S_track: torch.Tensor 
               ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     
-
     #set steering angle
     dir = torch.sign(actions[:, :, vn['A_STEER']] - state[:, :, vn['S_STEER']])
     val = torch.abs(actions[:, :, vn['A_STEER']] - state[:, :, vn['S_STEER']])
@@ -64,7 +64,7 @@ def step_cars(state : torch.Tensor,
     R[:, :, 1, 1 ] = torch.cos(theta)
     #(num_envs, num_agents, 2, 2) x (num_envs, num_agents, num_wheels, 2)
     wheel_locations_bodycentric_world = torch.einsum('klij, dj->kldi', R, wheel_locations)
-    wheel_locations_world = wheel_locations_bodycentric_world + state[:,:, vn['S_X']:vn['S_Y']+1].unsqueeze(2)
+    wheel_locations_world = wheel_locations_bodycentric_world + torch.tile(state[:,:, vn['S_X']:vn['S_Y']+1].unsqueeze(2), (1,1,4,1))
     wheel_locations_bodycentric_world = torch.nn.functional.pad(wheel_locations_bodycentric_world, (0,1))
    
     #set gas 
@@ -107,10 +107,10 @@ def step_cars(state : torch.Tensor,
     p_force *= 205000 *mod_par['SIZE']**2
     
 
-    #check which tires are on track
-    wheel_on_track_seg = 1.0 * (torch.einsum('tc, eawc  -> eawt', A_track, wheel_locations_world) - b_track +0.1>0 )
-    wheel_on_track_seg = torch.einsum('jt, eawt -> eawj', S_track, wheel_on_track_seg) == 4
-    wheel_on_track = torch.any(wheel_on_track_seg, dim = 3)
+    #check which tires are on track, wierd shit going on there with torch jit script
+    wheels_on_track_segments_concat = 1.0 * (torch.einsum('tc, eawc  -> eawt', A_track, wheel_locations_world) - b_track +0.1>=0 )
+    wheels_on_track_segments[:] = torch.einsum('jt, eawt -> eawj', S_track, wheels_on_track_segments_concat) >= 3.5
+    wheel_on_track = torch.any(wheels_on_track_segments, dim = 3)
     f_tot = torch.sqrt(torch.square(f_force) +torch.square(p_force)) + 1e-9
     f_lim = ((1-mod_par['OFFTRACK_FRICTION_SCALE'])*mod_par['FRICTION_LIMIT'])*wheel_on_track + mod_par['OFFTRACK_FRICTION_SCALE']*mod_par['FRICTION_LIMIT']
     slip = f_tot > f_lim
@@ -147,4 +147,4 @@ def step_cars(state : torch.Tensor,
                                              num_envs,
                                              zero_pad)
 
-    return state, contact_wrenches, wheel_on_track_seg
+    return state, contact_wrenches, wheels_on_track_segments
