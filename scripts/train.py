@@ -33,6 +33,7 @@ def train():
               asymmetric=(env.num_states > 0)
               )
     print('ppo created')
+    ppo.run(cfg_train['learn']['max_iterations'])
 
 
 if __name__ == "__main__":

@@ -21,7 +21,8 @@ class DmarEnv():
         self.modelParameters = cfg['model']
         set_dependent_params(self.modelParameters)
         self.simParameters = cfg['sim']
-        self.num_states = self.simParameters['numStates']
+        self.num_states = 0
+        self.num_internal_states = self.simParameters['numStates']
         self.num_actions = self.simParameters['numActions']
         self.num_obs = self.simParameters['numObservations']       
         self.num_agents = self.simParameters['numAgents']
@@ -30,7 +31,7 @@ class DmarEnv():
 
         #gym stuff
         self.obs_space = spaces.Box(np.ones(self.num_obs)*-np.Inf, np.ones(self.num_obs)*np.Inf)
-        self.state_space = spaces.Box(np.ones(self.num_states)*-np.Inf, np.ones(self.num_states)*np.Inf)
+        self.state_space = spaces.Box(np.ones(self.num_internal_states)*-np.Inf, np.ones(self.num_internal_states)*np.Inf)
         self.act_space = spaces.Box(np.ones(self.num_actions)*-np.Inf, np.ones(self.num_actions)*np.Inf)
 
         self.track, self.tile_len, self.track_num_tiles = get_track(cfg, self.device)
@@ -44,7 +45,7 @@ class DmarEnv():
 
         #allocate env tensors
         torch_zeros = lambda shape: torch.zeros(shape, device=self.device, dtype= torch.float, requires_grad=False)
-        self.states = torch_zeros((self.num_envs, self.num_agents, self.num_states))
+        self.states = torch_zeros((self.num_envs, self.num_agents, self.num_internal_states))
         self.contact_wrenches = torch_zeros((self.num_envs, self.num_agents, 3))
         self.actions = torch_zeros((self.num_envs, self.num_agents, self.num_actions))
         self.obs_buf = torch_zeros((self.num_envs, self.num_agents, self.num_obs))
@@ -58,7 +59,7 @@ class DmarEnv():
         self.active_track_tile = torch.zeros((self.num_envs, self.num_agents), dtype = torch.long, device=self.device, requires_grad=False)
         self.old_active_track_tile = torch.zeros_like(self.active_track_tile)
         #self.step(self.actions)
-        self.reset_all()
+        self.reset()
         self.step(self.actions)
         self.viewer.center_cam(self.states)
         if not self.headless:
@@ -72,8 +73,11 @@ class DmarEnv():
         ori = self.states[:,:,2].unsqueeze(2)
         vels = self.states[:,:,3:6]
         tile_idx = torch.remainder(self.active_track_tile.unsqueeze(2) + torch.arange(10, device=self.device, dtype=torch.long).unsqueeze(0).unsqueeze(0), self.track_num_tiles)
-        lookahead = self.centerline[tile_idx, :].view(self.num_envs, self.num_agents, -1)
-        self.obs_buf = torch.cat((ori, vels, lookahead), dim=2)
+        lookahead = (self.centerline[tile_idx, :] - torch.tile(self.states[:,:,0:2].unsqueeze(2), (1,1,10, 1))).view(self.num_envs, self.num_agents, -1)
+        self.obs_buf = torch.cat((ori, 
+                                  vels, 
+                                  0.1*lookahead), 
+                                  dim=2)
         
 
     def compute_rewards(self,) -> None:
@@ -96,13 +100,13 @@ class DmarEnv():
         #self.reset_buf = torch.where(torch.sum(self.wheels_on_track_segments, dim = (2,3)) < 4)[0]
         pass
 
-    def reset_all(self) -> torch.Tensor:
+    def reset(self) -> torch.Tensor:
         env_ids = torch.arange(self.num_envs, dtype = torch.long)
-        self.reset(env_ids)
+        self.reset_envs(env_ids)
         self.post_physics_step()
-        return self.obs_buf
+        return self.obs_buf[:, 0, :]
 
-    def reset(self, env_ids) -> None:
+    def reset_envs(self, env_ids) -> None:
         
         for agent in range(self.num_agents):
             tile_idx = 0*int(np.random.rand()*self.track_num_tiles) + -2*agent 
@@ -118,22 +122,22 @@ class DmarEnv():
         self.old_active_track_tile[env_ids, :] = torch.sort(dists, dim = 2)[1][:,:, 0]
         
     def step(self, actions) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, Dict[str, float]] :   
-        self.actions = actions.clone().to(self.device)
+        self.actions[:,0,:] = actions.clone().to(self.device)
         self.simulate()
         self.post_physics_step()
-        return self.obs_buf[:,0, :], self.rew_buf[:,0], self.reset_buf, self.info
+        return self.obs_buf[:,0, :], self.rew_buf[:,0], self.reset_buf[:,0], self.info
     
     def post_physics_step(self) -> None:
         #get current tile positions
         #dists = self.states[:,:, 0:2] - self.track[1].unsqueeze(0) 
         dists = torch.norm(self.states[:,:, 0:2].unsqueeze(2)-self.centerline.unsqueeze(0).unsqueeze(0), dim=3)
         self.active_track_tile = torch.sort(dists, dim = 2)[1][:,:, 0]
-        print(self.rew_buf[0,0])
+        #print(self.rew_buf[0,0])
         
         self.check_termination()
         env_ids = torch.where(self.reset_buf)[0]
         if len(env_ids):
-            self.reset(env_ids)
+            self.reset_envs(env_ids)
         self.compute_observations()
         self.compute_rewards()
 
@@ -171,6 +175,8 @@ class DmarEnv():
                                                                                       self.track[5],
                                                                                       self.track[6]
                                                                                      )
+    def get_state(self):
+        return self.states[:,0,:]
 
     #gym stuff
     @property
@@ -179,9 +185,5 @@ class DmarEnv():
     
     @property
     def action_space(self):
-        return self.obs_space
-    
-    @property
-    def observation_space(self):
-        return self.obs_space
+        return self.act_space
     
