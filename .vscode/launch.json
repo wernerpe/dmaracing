@@ -5,6 +5,15 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "playManual",
+            "type": "python",
+            "request": "launch",
+            "program": "scripts/playManual.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": false
+        },
+        {
             "name": "play",
             "type": "python",
             "request": "launch",

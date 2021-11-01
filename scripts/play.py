@@ -5,39 +5,21 @@ import os
 
 def play():
     env = DmarEnv(cfg, args)
-    obs = env.obs_buf
-
-    #actions = torch.zeros((cfg['sim']['numEnv'], cfg['sim']['numAgents'], cfg['sim']['numActions']), device=args.device,  dtype= torch.float, requires_grad=False)
-    actions = torch.zeros((cfg['sim']['numEnv'], cfg['sim']['numActions']), device=args.device,  dtype= torch.float, requires_grad=False)
-    vel_cmd = 0.0
-    steer_cmd = 0.0
-    brk_cmd = 0.0
-      
+    obs = env.obs_buf[:,0,:]
+    dir, model = get_run(logdir, run = -1, chkpt=-1)
+    cfg_train['learn']['resume'] = model
+    ppo = get_ppo(args, env, cfg_train, dir)
+    policy = ppo.actor_critic.act_inference
+   
     while True:
-        actions[0 , 0] = steer_cmd 
-        actions[0 , 1] = vel_cmd
-        actions[0 , 2] = brk_cmd
-        
+        actions = policy(obs)
         obs, rew, dones, info = env.step(actions)
         
-        evt = env.viewer_events
-        if evt == 105:
-            vel_cmd += 0.1
-            brk_cmd = 0
-            print('vel_cmd', vel_cmd, env.states[0,0,env.vn['S_DX']])
-        elif evt == 107:
-            vel_cmd = 0.1
-            brk_cmd = 0.9
-            print('vel_cmd', vel_cmd, env.states[0,0,env.vn['S_DX']])
-        elif evt == 106:
-            steer_cmd += 0.4 * (steer_cmd < 1)
-        elif evt == 108:
-            steer_cmd -= 0.4 * (steer_cmd> -1)
-       
 if __name__ == "__main__":
     args = CmdLineArguments()
     args.device = 'cuda:0'
     args.headless = False 
+    args.test = True
     path_cfg = os.getcwd() + '/cfg'
     cfg, cfg_train, logdir = getcfg(path_cfg)
     play()    

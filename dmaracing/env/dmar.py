@@ -120,8 +120,11 @@ class DmarEnv():
         dists = torch.norm(self.states[env_ids,:, 0:2].unsqueeze(2)-self.centerline.unsqueeze(0).unsqueeze(0), dim=3)
         self.old_active_track_tile[env_ids, :] = torch.sort(dists, dim = 2)[1][:,:, 0]
     
-    def step(self, actions) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, Dict[str, float]] :   
-        self.actions[:,0,:] = actions.clone().to(self.device)
+    def step(self, actions) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, Dict[str, float]] : 
+        actions = actions.clone().to(self.device)
+        if actions.requires_grad:
+           actions = actions.detach()   
+        self.actions[:,0,:] = actions
         self.actions[:,:,1] += 1.0
         self.actions[:,:,2] *= 0.1
 

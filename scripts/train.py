@@ -1,6 +1,7 @@
 from rl_pytorch.ppo import PPO, ActorCritic
 from dmaracing.env.dmar import DmarEnv
 from dmaracing.utils.helpers import *
+from datetime import date, datetime
 import os
 
 def train():
@@ -33,7 +34,7 @@ def train():
               asymmetric=(env.num_states > 0)
               )
     print('ppo created')
-    ppo.run(cfg_train['learn']['max_iterations'])
+    ppo.run(cfg_train['learn']['max_iterations'],cfg_train['learn']['save_interval'])
 
 
 if __name__ == "__main__":
@@ -42,4 +43,7 @@ if __name__ == "__main__":
     args.headless = False 
     path_cfg = os.getcwd() + '/cfg'
     cfg, cfg_train, logdir = getcfg(path_cfg)
+    now = datetime.now()
+    timestamp = now.strftime("%y_%m_%d_%H_%M_%S")
+    logdir = logdir+'/'+timestamp
     train()

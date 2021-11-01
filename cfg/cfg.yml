@@ -37,4 +37,4 @@ track:
   BORDER: 8 
   BORDER_MIN_COUNT: 4
   verbose: False
-  seed: 0
+  seed: 1
