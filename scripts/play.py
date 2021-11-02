@@ -4,6 +4,7 @@ from dmaracing.utils.helpers import *
 import os
 
 def play():
+    cfg['sim']['numEnv'] = 20
     env = DmarEnv(cfg, args)
     obs = env.obs_buf[:,0,:]
     dir, model = get_run(logdir, run = -1, chkpt=-1)

@@ -25,6 +25,7 @@ viewer:
   height: 1200
   scale: 250.0 #[m/width*px] indicates how wide the window is in pixels
   linethickness: 1
+  multiagent: False
 
 track:
   #https://github.com/openai/gym/blob/master/gym/envs/box2d/car_racing.py
@@ -38,3 +39,12 @@ track:
   BORDER_MIN_COUNT: 4
   verbose: False
   seed: 1
+
+learn:
+  resetrand: [3.0, 3.0, 0.6]
+  
+  defaultactions: [0., 1., 0.]
+  actionscale: [2.0, 1.0, 0.2]
+
+  progressRewardScale: 1.0
+  offtrackRewardScale: -5.0

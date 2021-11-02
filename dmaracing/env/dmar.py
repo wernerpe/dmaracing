@@ -4,6 +4,7 @@ from gym import spaces
 from dmaracing.env.car_dynamics import step_cars
 from dmaracing.env.car_dynamics_utils import get_varnames, set_dependent_params, allocate_car_dynamics_tensors 
 from dmaracing.env.viewer import Viewer
+from dmaracing.utils.helpers import rand
 from typing import Tuple, Dict
 import numpy as np
 from dmaracing.utils.trackgen import get_track
@@ -51,6 +52,14 @@ class DmarEnv():
         self.rew_buf = torch_zeros((self.num_envs, self.num_agents,))
         self.reset_buf = torch_zeros((self.num_envs, self.num_agents))>1
 
+        self.reward_scales = {}
+        self.reward_scales['offtrack'] = cfg['learn']['offtrackRewardScale']
+        self.reward_scales['progress'] = cfg['learn']['progressRewardScale']
+
+        self.default_actions = cfg['learn']['defaultactions']
+        self.action_scales = cfg['learn']['actionscale']
+
+        self.reset_randomization = cfg['learn']['resetrand']
 
         allocate_car_dynamics_tensors(self)
 
@@ -71,7 +80,7 @@ class DmarEnv():
         #do stuff...
         ori = self.states[:,:,2].unsqueeze(2)
         vels = self.states[:,:,3:6]
-        tile_idx = torch.remainder(self.active_track_tile.unsqueeze(2) + torch.arange(10, device=self.device, dtype=torch.long).unsqueeze(0).unsqueeze(0), self.track_num_tiles)
+        tile_idx = torch.remainder(self.active_track_tile.unsqueeze(2) + 2*torch.arange(10, device=self.device, dtype=torch.long).unsqueeze(0).unsqueeze(0), self.track_num_tiles)
         lookahead = (self.centerline[tile_idx, :] - torch.tile(self.states[:,:,0:2].unsqueeze(2), (1,1,10, 1))).view(self.num_envs, self.num_agents, -1)
         self.obs_buf = torch.cat((ori, 
                                   vels, 
@@ -82,7 +91,7 @@ class DmarEnv():
     def compute_rewards(self,) -> None:
         
  
-        rew_prog = self.active_track_tile - self.old_active_track_tile
+        rew_prog = 1.0*(self.active_track_tile - self.old_active_track_tile)
         linecrossing_forward = torch.where(rew_prog < -self.track_num_tiles + 5)[0]
         linecrossing_backward = torch.where(rew_prog > self.track_num_tiles - 5)[0]
         
@@ -90,9 +99,9 @@ class DmarEnv():
         rew_prog[linecrossing_forward] = 1.0
         rew_prog[linecrossing_backward] = -1.0
 
-        rew_prog *= 1 #self.rew_scales['progress']
+        rew_prog *= self.reward_scales['progress']
 
-        rew_on_track = 1.0*self.is_on_track # * self.rew_scales['progress']
+        rew_on_track = self.reward_scales['offtrack']*~self.is_on_track 
         self.rew_buf = rew_prog + rew_on_track 
 
     def check_termination(self) -> None:
@@ -110,13 +119,16 @@ class DmarEnv():
         for agent in range(self.num_agents):
             tile_idx = torch.randint(0, self.track_num_tiles, (len(env_ids),))  
             startpos = torch.tensor(self.track[1][tile_idx, :], device=self.device, dtype=torch.float).view(len(env_ids), 2)
-            offset_x = np.cos(self.track[3][tile_idx] + np.pi/2)* self.modelParameters['L'] + np.cos(self.track[3][tile_idx])* self.modelParameters['L']
-            offset_y = np.sin(self.track[3][tile_idx] + np.pi/2)* self.modelParameters['L'] + np.sin(self.track[3][tile_idx])* self.modelParameters['L']
-            self.states[env_ids, agent, self.vn['S_X']] = startpos[:,0] #+ 0*offset_x
-            self.states[env_ids, agent, self.vn['S_Y']] = startpos[:,1] #+ 0*offset_y
-            self.states[env_ids, agent, self.vn['S_THETA']] = torch.tensor(self.track[3][tile_idx], device=self.device, dtype=torch.float) + np.pi/2 
-            self.states[env_ids, agent, self.vn['S_THETA']+1:] = 0.0
-        
+            angs = torch.tensor(self.track[3][tile_idx], device=self.device, dtype=torch.float) + np.pi/2
+            vels = rand(-10, 10, (len(env_ids),), device=self.device)
+            dir_x = torch.cos(angs)
+            dir_y = torch.sin(angs)
+            self.states[env_ids, agent, self.vn['S_X']] = startpos[:,0] + rand(-self.reset_randomization[0], self.reset_randomization[0], (len(env_ids),), device=self.device)
+            self.states[env_ids, agent, self.vn['S_Y']] = startpos[:,1] + rand(-self.reset_randomization[1], self.reset_randomization[1], (len(env_ids),), device=self.device)
+            self.states[env_ids, agent, self.vn['S_THETA']] = angs + rand(-self.reset_randomization[2], self.reset_randomization[2], (len(env_ids),), device=self.device) 
+            self.states[env_ids, agent, self.vn['S_DX']] = dir_x * vels
+            self.states[env_ids, agent, self.vn['S_DY']] = dir_y * vels
+                
         dists = torch.norm(self.states[env_ids,:, 0:2].unsqueeze(2)-self.centerline.unsqueeze(0).unsqueeze(0), dim=3)
         self.old_active_track_tile[env_ids, :] = torch.sort(dists, dim = 2)[1][:,:, 0]
     
@@ -124,10 +136,11 @@ class DmarEnv():
         actions = actions.clone().to(self.device)
         if actions.requires_grad:
            actions = actions.detach()   
-        self.actions[:,0,:] = actions
-        self.actions[:,:,1] += 1.0
-        self.actions[:,:,2] *= 0.1
-
+        
+        self.actions[:,0, 0] = self.action_scales[0]*actions[:,0] + self.default_actions[0]
+        self.actions[:,0, 1] = self.action_scales[1]*actions[:,1] + self.default_actions[1]
+        self.actions[:,0, 2] = self.action_scales[2]*actions[:,2] + self.default_actions[2]
+        
         #print(self.actions[0,0,:])
         self.simulate()
         self.post_physics_step()

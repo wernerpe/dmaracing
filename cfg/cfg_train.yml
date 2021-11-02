@@ -15,7 +15,7 @@ learn:
   print_log: True
 
   # number of policy updates
-  max_iterations: 100
+  max_iterations: 200
 
   # training params
   cliprange: 0.2

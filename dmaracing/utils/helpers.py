@@ -1,6 +1,7 @@
 import yaml
 from rl_pytorch.ppo import PPO, ActorCritic
 import os
+import torch
 
 class CmdLineArguments:
     pass
@@ -71,3 +72,9 @@ def get_ppo(args, env, cfg_train, logdir):
         print("Loading model from {}/model_{}.pt".format(logdir, chkpt))
         ppo.test("{}/model_{}.pt".format(logdir, chkpt))
     return ppo
+
+
+def rand(min, max, shape, device):
+    r = torch.rand(shape, device=device, dtype = torch.float, requires_grad=False)
+    dist = max-min
+    return dist*r + min

@@ -17,7 +17,11 @@ class Viewer:
         self.scale_x = self.cfg['viewer']['scale']
         self.scale_y = self.height/self.width*self.scale_x
         self.thickness = self.cfg['viewer']['linethickness']
-        self.num_agents = self.cfg['sim']['numAgents']
+        self.draw_multiagent = self.cfg['viewer']['multiagent']
+        if self.draw_multiagent:
+            self.num_cars = self.cfg['sim']['numAgents']
+        else:
+            self.num_cars = self.cfg['sim']['numEnv']
         self.num_envs = self.cfg['sim']['numEnv']
 
         #bounding box of car in model frame
@@ -25,14 +29,14 @@ class Viewer:
         lf = self.cfg['model']['lf']  
         lr = self.cfg['model']['lr']
         self.car_box_m = torch.tensor([[lf, -w/2],[lf, w/2],[-lr, w/2], [-lr, -w/2]], device = self.device)
-        self.car_box_m = self.car_box_m.unsqueeze(2).repeat(1, 1, self.num_agents)
+        self.car_box_m = self.car_box_m.unsqueeze(2).repeat(1, 1, self.num_cars)
         self.car_box_m = torch.transpose(self.car_box_m, 0,1) 
         self.car_heading_m = torch.tensor([[0, 0],[lf, 0]], device = self.device)
-        self.car_heading_m = self.car_heading_m.unsqueeze(2).repeat(1, 1, self.num_agents)
+        self.car_heading_m = self.car_heading_m.unsqueeze(2).repeat(1, 1, self.num_cars)
         self.car_heading_m = torch.transpose(self.car_heading_m, 0,1)
-        self.R = torch.zeros((2, 2, self.num_agents), device=self.device, dtype = torch.float)
+        self.R = torch.zeros((2, 2, self.num_cars), device=self.device, dtype = torch.float)
         self.img = 255*np.ones((self.height, self.width, 3), np.uint8)
-        self.colors = 255.0/self.num_agents*np.arange(self.num_agents) 
+        self.colors = 255.0/self.num_cars*np.arange(self.num_cars) 
         self.font = cv.FONT_HERSHEY_SIMPLEX
         self.do_render = True
         self.env_idx_render = 0
@@ -56,36 +60,11 @@ class Viewer:
             #do drawing
             #listen for keypressed events
             self.img = self.track[0].copy()#255*np.ones((self.height, self.width, 3), np.uint8)
-            transl = state[self.env_idx_render, :, 0:2]
-            theta = state[self.env_idx_render, :, 2]
-            delta = state[self.env_idx_render, :, 3]
-            self.R[0, 0, :] = torch.cos(theta)
-            self.R[0, 1, :] = -torch.sin(theta)
-            self.R[1, 0, :] = torch.sin(theta)
-            self.R[1, 1, :] = torch.cos(theta)
-
-            car_box_rot = torch.einsum ('ijl, jkl -> ikl', self.R, self.car_box_m)
-            car_box_world = torch.transpose(car_box_rot + transl.T.unsqueeze(1).repeat(1,4,1), 0,1)
-            
-            self.R[0, 0, :] = torch.cos(theta+delta)
-            self.R[0, 1, :] = -torch.sin(theta+delta)
-            self.R[1, 0, :] = torch.sin(theta+delta)
-            self.R[1, 1, :] = torch.cos(theta+delta)
-            car_heading_rot = torch.einsum ('ijl, jkl -> ikl', self.R, self.car_heading_m)
-            car_heading_world = torch.transpose(car_heading_rot + transl.T.unsqueeze(1).repeat(1,2,1), 0,1)
-
-            px_car_box_world = self.cords2px(car_box_world)
-            px_car_heading_world = self.cords2px(car_heading_world)
-
-            for idx in range(self.num_agents):
-                px_x_number = (self.width/self.scale_x*transl[idx, 0] + self.width/2.0).cpu().numpy().astype(np.int32).item()
-                px_y_number = (-self.height/self.scale_y*transl[idx, 1] + self.height/2.0).cpu().numpy().astype(np.int32).item()
-                px_pts_car = px_car_box_world[..., idx].reshape(-1,1,2)
-                px_pts_heading = px_car_heading_world[..., idx].reshape(-1,1,2)
-                cv.polylines(self.img, [px_pts_car], isClosed = True, color = (int(self.colors[idx]),0,int(self.colors[idx])), thickness = self.thickness)
-                cv.polylines(self.img, [px_pts_heading], isClosed = True, color = (int(self.colors[idx]),0,int(self.colors[idx])), thickness = self.thickness)
-                cv.putText(self.img, str(idx), (px_x_number+ self.x_offset, px_y_number + self.y_offset), self.font, 0.5, (int(self.colors[idx]),0,int(self.colors[idx])), 1, cv.LINE_AA)
-            cv.putText(self.img, "env:" + str(self.env_idx_render), (50, 50), self.font, 2, (int(self.colors[idx]),  0, int(self.colors[idx])), 1, cv.LINE_AA)
+            if self.draw_multiagent:
+                self.draw_multiagent_rep(state)
+            else:
+                self.draw_singleagent_rep(state)
+            cv.putText(self.img, "env:" + str(self.env_idx_render), (50, 50), self.font, 2, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
             self.draw_points()
 
         cv.imshow("dmaracing", self.img)
@@ -128,6 +107,68 @@ class Viewer:
                 draw_track(self.track, self.cords2px_np)
         
         return key
+    
+    def draw_multiagent_rep(self, state):
+            transl = state[self.env_idx_render, :, 0:2]
+            theta = state[self.env_idx_render, :, 2]
+            delta = state[self.env_idx_render, :, 3]
+            self.R[0, 0, :] = torch.cos(theta)
+            self.R[0, 1, :] = -torch.sin(theta)
+            self.R[1, 0, :] = torch.sin(theta)
+            self.R[1, 1, :] = torch.cos(theta)
+
+            car_box_rot = torch.einsum ('ijl, jkl -> ikl', self.R, self.car_box_m)
+            car_box_world = torch.transpose(car_box_rot + transl.T.unsqueeze(1).repeat(1,4,1), 0,1)
+            
+            self.R[0, 0, :] = torch.cos(theta+delta)
+            self.R[0, 1, :] = -torch.sin(theta+delta)
+            self.R[1, 0, :] = torch.sin(theta+delta)
+            self.R[1, 1, :] = torch.cos(theta+delta)
+            car_heading_rot = torch.einsum ('ijl, jkl -> ikl', self.R, self.car_heading_m)
+            car_heading_world = torch.transpose(car_heading_rot + transl.T.unsqueeze(1).repeat(1,2,1), 0,1)
+
+            px_car_box_world = self.cords2px(car_box_world)
+            px_car_heading_world = self.cords2px(car_heading_world)
+
+            for idx in range(self.num_cars):
+                px_x_number = (self.width/self.scale_x*transl[idx, 0] + self.width/2.0).cpu().numpy().astype(np.int32).item()
+                px_y_number = (-self.height/self.scale_y*transl[idx, 1] + self.height/2.0).cpu().numpy().astype(np.int32).item()
+                px_pts_car = px_car_box_world[..., idx].reshape(-1,1,2)
+                px_pts_heading = px_car_heading_world[..., idx].reshape(-1,1,2)
+                cv.polylines(self.img, [px_pts_car], isClosed = True, color = (int(self.colors[idx]),0,int(self.colors[idx])), thickness = self.thickness)
+                cv.polylines(self.img, [px_pts_heading], isClosed = True, color = (int(self.colors[idx]),0,int(self.colors[idx])), thickness = self.thickness)
+                cv.putText(self.img, str(idx), (px_x_number+ self.x_offset, px_y_number + self.y_offset), self.font, 0.5, (int(self.colors[idx]),0,int(self.colors[idx])), 1, cv.LINE_AA)   
+
+    def draw_singleagent_rep(self, state):
+            transl = state[:, 0, 0:2]
+            theta = state[:, 0, 2]
+            delta = state[:, 0, 3]
+            self.R[0, 0, :] = torch.cos(theta)
+            self.R[0, 1, :] = -torch.sin(theta)
+            self.R[1, 0, :] = torch.sin(theta)
+            self.R[1, 1, :] = torch.cos(theta)
+
+            car_box_rot = torch.einsum ('ijl, jkl -> ikl', self.R, self.car_box_m)
+            car_box_world = torch.transpose(car_box_rot + transl.T.unsqueeze(1).repeat(1,4,1), 0,1)
+            
+            self.R[0, 0, :] = torch.cos(theta+delta)
+            self.R[0, 1, :] = -torch.sin(theta+delta)
+            self.R[1, 0, :] = torch.sin(theta+delta)
+            self.R[1, 1, :] = torch.cos(theta+delta)
+            car_heading_rot = torch.einsum ('ijl, jkl -> ikl', self.R, self.car_heading_m)
+            car_heading_world = torch.transpose(car_heading_rot + transl.T.unsqueeze(1).repeat(1,2,1), 0,1)
+
+            px_car_box_world = self.cords2px(car_box_world)
+            px_car_heading_world = self.cords2px(car_heading_world)
+
+            for idx in range(self.num_cars):
+                px_x_number = (self.width/self.scale_x*transl[idx, 0] + self.width/2.0).cpu().numpy().astype(np.int32).item()
+                px_y_number = (-self.height/self.scale_y*transl[idx, 1] + self.height/2.0).cpu().numpy().astype(np.int32).item()
+                px_pts_car = px_car_box_world[..., idx].reshape(-1,1,2)
+                px_pts_heading = px_car_heading_world[..., idx].reshape(-1,1,2)
+                cv.polylines(self.img, [px_pts_car], isClosed = True, color = (int(self.colors[idx]),0,int(self.colors[idx])), thickness = self.thickness)
+                cv.polylines(self.img, [px_pts_heading], isClosed = True, color = (int(self.colors[idx]),0,int(self.colors[idx])), thickness = self.thickness)
+                cv.putText(self.img, str(idx), (px_x_number+ self.x_offset, px_y_number + self.y_offset), self.font, 0.5, (int(self.colors[idx]),0,int(self.colors[idx])), 1, cv.LINE_AA)
 
     def cords2px(self, pts):
         pts = pts.cpu().numpy()
