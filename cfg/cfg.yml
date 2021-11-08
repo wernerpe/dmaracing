@@ -11,8 +11,8 @@ sim:
   
 model:
   SIZE: 0.02 #[px/m]
-  BREAKFORCE: 1
-  ENGINE_POWER_SCALE: 2000000
+  BREAKFORCE: 1.5
+  ENGINE_POWER_SCALE: 2500000
   WHEEL_MOMENT_OF_INERTIA_SCALE: 4000
   FRICTION_LIMIT_SCALE: 1000000
   OFFTRACK_FRICTION_SCALE: 0.3
@@ -27,6 +27,7 @@ viewer:
   scale: 250.0 #[m/width*px] indicates how wide the window is in pixels
   linethickness: 1
   multiagent: False
+  maxAgents: 30
 
 track:
   #https://github.com/openai/gym/blob/master/gym/envs/box2d/car_racing.py
@@ -42,14 +43,15 @@ track:
   seed: 1
 
 learn:
-  resetrand: [1.0, 1.0, 0.6]
+#pos x, y, theta, vel x y theta
+  resetrand: [4.0, 4.0, 0.6, 40.0, 1, 0]
   
-  defaultactions: [0., 0.0, 0.0]
-  actionscale: [0.4, 1.0, 0.5]
+  defaultactions: [0., 0.0, 0.00]
+  actionscale: [0.5, 1.0, 1.0]
 
   progressRewardScale: 1.0
   offtrackRewardScale: -0.5
 
   horizon: 10
   
-  timeout: 5 #[s]
+  timeout: 20 #[s]

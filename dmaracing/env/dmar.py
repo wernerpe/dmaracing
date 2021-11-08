@@ -97,8 +97,8 @@ class DmarEnv():
         self.vels_body[..., :-1] = torch.einsum('eaij, eaj -> eai',self.R, vels[..., :-1])
         
         self.obs_buf = torch.cat((self.vels_body, 
-                                  0.1*self.lookahead_body[:,:,0],
-                                  0.1*self.lookahead_body[:,:,1],
+                                  0.1*self.lookahead_body[:,:,:,0],
+                                  0.1*self.lookahead_body[:,:,:,1],
                                   ), 
                                   dim=2)
         
@@ -138,15 +138,19 @@ class DmarEnv():
             tile_idx = torch.randint(0, self.track_num_tiles, (len(env_ids),))  
             startpos = torch.tensor(self.track[1][tile_idx, :], device=self.device, dtype=torch.float).view(len(env_ids), 2)
             angs = torch.tensor(self.track[3][tile_idx], device=self.device, dtype=torch.float) + np.pi/2
-            vels = 0#rand(-.0, 3.0, (len(env_ids),), device=self.device)
+            vels_long = rand(-0.1*self.reset_randomization[3], self.reset_randomization[3], (len(env_ids),), device=self.device)
+            vels_lat = rand(-self.reset_randomization[4], self.reset_randomization[4], (len(env_ids),), device=self.device)
             dir_x = torch.cos(angs)
             dir_y = torch.sin(angs)
             self.states[env_ids, agent, self.vn['S_X']] = startpos[:,0] + rand(-self.reset_randomization[0], self.reset_randomization[0], (len(env_ids),), device=self.device)
             self.states[env_ids, agent, self.vn['S_Y']] = startpos[:,1] + rand(-self.reset_randomization[1], self.reset_randomization[1], (len(env_ids),), device=self.device)
             self.states[env_ids, agent, self.vn['S_THETA']] = angs + rand(-self.reset_randomization[2], self.reset_randomization[2], (len(env_ids),), device=self.device) 
-            self.states[env_ids, agent, self.vn['S_DX']] = dir_x * vels
-            self.states[env_ids, agent, self.vn['S_DY']] = dir_y * vels
-            self.states[env_ids, agent, self.vn['S_DY']+1:] = 0.0    
+            self.states[env_ids, agent, self.vn['S_DX']] = dir_x * vels_long - dir_y*vels_lat
+            self.states[env_ids, agent, self.vn['S_DY']] = dir_y * vels_long + dir_x*vels_lat
+            self.states[env_ids, agent, self.vn['S_DTHETA']] = rand(-self.reset_randomization[5], self.reset_randomization[5], (len(env_ids),), device=self.device) 
+            self.states[env_ids, agent, self.vn['S_DTHETA']+1:] = 0.0 
+            #self.states[env_ids, agent, self.vn['S_W0']:self.vn['S_W3']+1] = 10.0
+        
         dists = torch.norm(self.states[env_ids,:, 0:2].unsqueeze(2)-self.centerline.unsqueeze(0).unsqueeze(0), dim=3)
         self.old_active_track_tile[env_ids, :] = torch.sort(dists, dim = 2)[1][:,:, 0]
         self.progress_buf[env_ids] = 0
@@ -191,10 +195,10 @@ class DmarEnv():
         self.compute_observations()
         self.compute_rewards()
  
-        self.lookahead_markers = self.lookahead + torch.tile(self.states[:,:,0:2].unsqueeze(2), (1,1,self.horizon, 1))
+        #self.lookahead_markers = self.lookahead + torch.tile(self.states[:,:,0:2].unsqueeze(2), (1,1,self.horizon, 1))
         #pts = self.lookahead_markers[0,0,:,:].cpu().numpy()
         #self.viewer.clear_markers()
-        #Aself.viewer.add_point(pts, 10,(5,10,222))
+        #self.viewer.add_point(pts, 10,(5,10,222))
 
         self.old_active_track_tile = self.active_track_tile
         self.old_track_progress = self.track_progress

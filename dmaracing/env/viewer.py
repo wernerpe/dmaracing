@@ -18,12 +18,15 @@ class Viewer:
         self.scale_y = self.height/self.width*self.scale_x
         self.thickness = self.cfg['viewer']['linethickness']
         self.draw_multiagent = self.cfg['viewer']['multiagent']
-        if self.draw_multiagent:
-            self.num_cars = self.cfg['sim']['numAgents']
-        else:
-            self.num_cars = self.cfg['sim']['numEnv']
+        self.max_agents = self.cfg['viewer']['maxAgents']
+        self.num_agents = self.cfg['sim']['numAgents']
         self.num_envs = self.cfg['sim']['numEnv']
-
+        
+        if self.draw_multiagent:
+            self.num_cars = self.num_agents
+        else:
+            self.num_cars = min(self.max_agents, self.num_envs)
+        
         #bounding box of car in model frame
         w = self.cfg['model']['W']
         lf = self.cfg['model']['lf']  
@@ -63,7 +66,7 @@ class Viewer:
             if self.draw_multiagent:
                 self.draw_multiagent_rep(state)
             else:
-                self.draw_singleagent_rep(state)
+                self.draw_singleagent_rep(state[:self.num_cars])
             cv.putText(self.img, "env:" + str(self.env_idx_render), (50, 50), self.font, 2, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
             self.draw_points()
 
