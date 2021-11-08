@@ -80,11 +80,11 @@ def step_cars(state : torch.Tensor,
     #set brake
     #break >0.9 -> lock up wheels
     dir =  -torch.sign(state[:, :, vn['S_W0']:vn['S_W3']+1])
-    val = mod_par['BREAKFORCE'] * actions[:, :, vn['A_BREAK']].unsqueeze(2)
+    val = mod_par['BREAKFORCE'] * actions[:, :, vn['A_BRAKE']].unsqueeze(2)
     need_clip = torch.abs(val)>torch.abs(state[:, :, vn['S_W0']:vn['S_W3']+1])
     val = need_clip * torch.abs(state[:, :, vn['S_W0']:vn['S_W3']+1]) + ~need_clip*val
     state[:, :, vn['S_W0']:vn['S_W3']+1] += dir*val
-    state[:, :, vn['S_W0']:vn['S_W3']+1] = (0.9 >= actions[:, :, vn['A_BREAK']]).unsqueeze(2) * state[:, :, vn['S_W0']:vn['S_W3']+1]
+    state[:, :, vn['S_W0']:vn['S_W3']+1] = (0.9 >= actions[:, :, vn['A_BRAKE']]).unsqueeze(2) * state[:, :, vn['S_W0']:vn['S_W3']+1]
     
     vr = state[:, :, vn['S_W0']:vn['S_W3']+1] * mod_par['WHEEL_R']
     omega_body  = torch.nn.functional.pad(state[:, :, vn['S_DTHETA']].unsqueeze(2), (2, 0))

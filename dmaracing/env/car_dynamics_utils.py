@@ -19,7 +19,7 @@ def get_varnames()->Dict[str, int]:
     
     varnames['A_STEER'] = 0
     varnames['A_GAS'] = 1
-    varnames['A_BREAK'] = 2
+    varnames['A_BRAKE'] = 2
     return varnames
 
 def allocate_car_dynamics_tensors(task):

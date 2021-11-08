@@ -4,10 +4,10 @@ sim:
   numAgents: 1 #6
   dt: 0.01 #[s]
   numStates: 12
-  numObservations: 23 
+  numObservations: 25 
   numActions: 3
   collide: 1
-  decimation: 1
+  decimation: 2
   
 model:
   SIZE: 0.02 #[px/m]
@@ -15,7 +15,7 @@ model:
   ENGINE_POWER_SCALE: 2500000
   WHEEL_MOMENT_OF_INERTIA_SCALE: 4000
   FRICTION_LIMIT_SCALE: 1000000
-  OFFTRACK_FRICTION_SCALE: 0.3
+  OFFTRACK_FRICTION_SCALE: 0.2
   WHEEL_R_SCALE: 27
   LENGTH_SCALE: 200
   MASS_SCALE: 230
@@ -44,9 +44,9 @@ track:
 
 learn:
 #pos x, y, theta, vel x y theta
-  resetrand: [4.0, 4.0, 0.6, 40.0, 1, 0]
+  resetrand: [4.0, 4.0, 0.3, 40.0, 1, 0, 0.7]
   
-  defaultactions: [0., 0.0, 0.00]
+  defaultactions: [0., 0.1, 0.00]
   actionscale: [0.5, 1.0, 1.0]
 
   progressRewardScale: 1.0
@@ -55,3 +55,4 @@ learn:
   horizon: 10
   
   timeout: 20 #[s]
+  offtrack_reset: 3.0 #[s]

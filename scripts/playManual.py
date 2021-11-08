@@ -22,9 +22,12 @@ def play():
         obs, rew, dones, info = env.step(actions)
         obs = obs.cpu().numpy()
         rew = rew.cpu().numpy()
+        print("-------------------------------")
         print("rewards      :", rew[0])
         print("velocity     :", obs[0, :2])
         print("ang velocity :", obs[0, 2])
+        print("steer        :", obs[0, 3])
+        print("gas          :", obs[0, 4])
         
         evt = env.viewer_events
         if evt == 105:

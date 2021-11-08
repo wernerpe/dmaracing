@@ -52,6 +52,7 @@ class DmarEnv():
         self.rew_buf = torch_zeros((self.num_envs, self.num_agents,))
         self.reset_buf = torch_zeros((self.num_envs, self.num_agents))>1
         self.progress_buf = torch_zeros((self.num_envs,1))
+        self.time_off_track = torch_zeros((self.num_envs, self.num_agents))
         self.dt = cfg['sim']['dt']
         self.reward_scales = {}
         self.reward_scales['offtrack'] = cfg['learn']['offtrackRewardScale']*self.dt
@@ -62,7 +63,10 @@ class DmarEnv():
         self.horizon = cfg['learn']['horizon']
         self.reset_randomization = cfg['learn']['resetrand']
         self.timeout_s = cfg['learn']['timeout']
-        self.timeout_steps = int(self.timeout_s/self.dt)
+        self.offtrack_reset_s = cfg['learn']['offtrack_reset']
+        self.offtrack_reset = int(self.offtrack_reset_s/(self.decimation*self.dt))
+        self.timeout_steps = int(self.timeout_s/(self.decimation*self.dt))
+
         allocate_car_dynamics_tensors(self)
 
         #other tensor
@@ -82,7 +86,10 @@ class DmarEnv():
     def compute_observations(self,) -> None:
         #get points along centerline
         #get track boundary polys for every point
-        #do stuff...
+        steer =  self.states[:,:,self.vn['S_STEER']].unsqueeze(2)
+        gas = self.states[:,:,self.vn['S_GAS']].unsqueeze(2)
+        #brake = self.states[:,:,self.vn['S_BRAKE']]
+        
         theta = self.states[:,:,2].unsqueeze(2)
         vels = self.states[:,:,3:6].clone()
         tile_idx = torch.remainder(self.active_track_tile.unsqueeze(2) + 2*torch.arange(self.horizon, device=self.device, dtype=torch.long).unsqueeze(0).unsqueeze(0), self.track_num_tiles)
@@ -96,9 +103,11 @@ class DmarEnv():
         self.vels_body = vels
         self.vels_body[..., :-1] = torch.einsum('eaij, eaj -> eai',self.R, vels[..., :-1])
         
-        self.obs_buf = torch.cat((self.vels_body, 
-                                  0.1*self.lookahead_body[:,:,:,0],
-                                  0.1*self.lookahead_body[:,:,:,1],
+        self.obs_buf = torch.cat((self.vels_body,
+                                  steer,
+                                  gas, 
+                                  0.2*self.lookahead_body[:,:,:,0],
+                                  0.2*self.lookahead_body[:,:,:,1],
                                   ), 
                                   dim=2)
         
@@ -123,7 +132,7 @@ class DmarEnv():
         self.reward_terms['offtrack'] += rew_on_track
         
     def check_termination(self) -> None:
-        self.reset_buf = ~self.is_on_track
+        self.reset_buf = self.time_off_track > 80
         self.reset_buf |= self.progress_buf > self.timeout_steps
 
     def reset(self) -> torch.Tensor:
@@ -149,12 +158,14 @@ class DmarEnv():
             self.states[env_ids, agent, self.vn['S_DY']] = dir_y * vels_long + dir_x*vels_lat
             self.states[env_ids, agent, self.vn['S_DTHETA']] = rand(-self.reset_randomization[5], self.reset_randomization[5], (len(env_ids),), device=self.device) 
             self.states[env_ids, agent, self.vn['S_DTHETA']+1:] = 0.0 
+            self.states[env_ids, agent, self.vn['S_STEER']] = rand(-self.reset_randomization[6], self.reset_randomization[6], (len(env_ids),), device=self.device)
             #self.states[env_ids, agent, self.vn['S_W0']:self.vn['S_W3']+1] = 10.0
         
         dists = torch.norm(self.states[env_ids,:, 0:2].unsqueeze(2)-self.centerline.unsqueeze(0).unsqueeze(0), dim=3)
         self.old_active_track_tile[env_ids, :] = torch.sort(dists, dim = 2)[1][:,:, 0]
         self.progress_buf[env_ids] = 0
         self.old_track_progress [env_ids] = 0.0
+        self.time_off_track[env_ids, :] = 0.0
         self.info = {}
         for key in self.reward_terms.keys():
             self.info['reward_'+key] = (torch.mean(self.reward_terms[key][env_ids])/self.timeout_s).view(-1,1)
@@ -188,6 +199,7 @@ class DmarEnv():
         #check if any tire is off track
         self.is_on_track = ~torch.any(~torch.any(self.wheels_on_track_segments, dim = 3), dim=2)
         
+        self.time_off_track += 1.0*~self.is_on_track
         self.check_termination()
         env_ids = torch.where(self.reset_buf)[0]
         if len(env_ids):
