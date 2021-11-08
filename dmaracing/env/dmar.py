@@ -84,7 +84,7 @@ class DmarEnv():
         #get track boundary polys for every point
         #do stuff...
         theta = self.states[:,:,2].unsqueeze(2)
-        vels = self.states[:,:,3:6]
+        vels = self.states[:,:,3:6].clone()
         tile_idx = torch.remainder(self.active_track_tile.unsqueeze(2) + 2*torch.arange(self.horizon, device=self.device, dtype=torch.long).unsqueeze(0).unsqueeze(0), self.track_num_tiles)
         self.lookahead = (self.centerline[tile_idx, :] - torch.tile(self.states[:,:,0:2].unsqueeze(2), (1,1,self.horizon, 1)))
         

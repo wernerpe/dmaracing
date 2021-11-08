@@ -7,12 +7,12 @@ sim:
   numObservations: 23 
   numActions: 3
   collide: 1
-  decimation: 5
+  decimation: 1
   
 model:
   SIZE: 0.02 #[px/m]
   BREAKFORCE: 1
-  ENGINE_POWER_SCALE: 500000
+  ENGINE_POWER_SCALE: 2000000
   WHEEL_MOMENT_OF_INERTIA_SCALE: 4000
   FRICTION_LIMIT_SCALE: 1000000
   OFFTRACK_FRICTION_SCALE: 0.3
