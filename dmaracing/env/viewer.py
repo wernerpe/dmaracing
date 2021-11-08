@@ -50,8 +50,8 @@ class Viewer:
     def center_cam(self, state):
         self.scale_x /= 0.8
         self.scale_y /= 0.8 
-        self.x_offset = 0#int(-self.width/self.scale_x*state[0,0,0])
-        self.y_offset = 0#int(self.height/self.scale_y*state[0,0,1])
+        self.x_offset = int(-self.width/self.scale_x*state[0,0,0])
+        self.y_offset = int(self.height/self.scale_y*state[0,0,1])
         draw_track(self.track, self.cords2px_np)
         
 
@@ -190,5 +190,6 @@ class Viewer:
         self.points = []   
 
     def draw_points(self,):
-        for pt in self.points:
-            cv.circle(self.img, (pt[0][0, 0], pt[0][0, 1]), pt[1], pt[2])
+        for group in self.points: 
+            for idx in range(len(group[0])):
+                cv.circle(self.img, (group[0][idx, 0], group[0][idx, 1]), group[1], group[2])

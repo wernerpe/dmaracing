@@ -4,7 +4,7 @@ from dmaracing.utils.helpers import *
 import os
 
 def play():
-    cfg['sim']['numEnv'] = 20
+    cfg['sim']['numEnv'] = 10
     env = DmarEnv(cfg, args)
     obs = env.obs_buf[:,0,:]
     dir, model = get_run(logdir, run = -1, chkpt=-1)
@@ -14,7 +14,9 @@ def play():
    
     while True:
         actions = policy(obs)
+        print(actions[0,:])
         obs, rew, dones, info = env.step(actions)
+        print(obs)
         
 if __name__ == "__main__":
     args = CmdLineArguments()

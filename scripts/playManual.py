@@ -4,6 +4,7 @@ from dmaracing.utils.helpers import *
 import os
 
 def play():
+    cfg['sim']['numEnv'] = 2
     env = DmarEnv(cfg, args)
     obs = env.obs_buf
 
@@ -19,6 +20,11 @@ def play():
         actions[0 , 2] = brk_cmd
         
         obs, rew, dones, info = env.step(actions)
+        #obs = obs.cpu().numpy()
+        #rew = rew.cpu().numpy()
+        #print("rewards      :", rew[0])
+        #print("velocity     :", obs[0, :2])
+        #print("ang velocity :", obs[0, 2])
         
         evt = env.viewer_events
         if evt == 105:

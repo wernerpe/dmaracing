@@ -4,14 +4,15 @@ sim:
   numAgents: 1 #6
   dt: 0.01 #[s]
   numStates: 12
-  numObservations: 24 
+  numObservations: 23 
   numActions: 3
   collide: 1
+  decimation: 5
   
 model:
   SIZE: 0.02 #[px/m]
   BREAKFORCE: 1
-  ENGINE_POWER_SCALE: 4000000
+  ENGINE_POWER_SCALE: 500000
   WHEEL_MOMENT_OF_INERTIA_SCALE: 4000
   FRICTION_LIMIT_SCALE: 1000000
   OFFTRACK_FRICTION_SCALE: 0.3
@@ -30,10 +31,10 @@ viewer:
 track:
   #https://github.com/openai/gym/blob/master/gym/envs/box2d/car_racing.py
   SCALE: 6.0  # Track scale
-  TRACK_RAD: 500   # Track is heavily morphed circle with this radius
-  CHECKPOINTS: 12
+  TRACK_RAD: 300   # Track is heavily morphed circle with this radius
+  CHECKPOINTS: 15
   TRACK_DETAIL_STEP: 15 
-  TRACK_TURN_RATE: 0.31
+  TRACK_TURN_RATE: 0.41
   TRACK_WIDTH: 40 
   BORDER: 8 
   BORDER_MIN_COUNT: 4
@@ -41,10 +42,14 @@ track:
   seed: 1
 
 learn:
-  resetrand: [3.0, 3.0, 0.6]
+  resetrand: [1.0, 1.0, 0.6]
   
-  defaultactions: [0., 1., 0.]
-  actionscale: [2.0, 1.0, 0.2]
+  defaultactions: [0., 0.0, 0.0]
+  actionscale: [0.4, 1.0, 0.5]
 
   progressRewardScale: 1.0
-  offtrackRewardScale: -5.0
+  offtrackRewardScale: -0.5
+
+  horizon: 10
+  
+  timeout: 5 #[s]

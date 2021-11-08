@@ -37,7 +37,7 @@ def step_cars(state : torch.Tensor,
     delta = state[:, :, vn['S_STEER']]
 
     state[:, :, vn['S_STEER']] += sim_par['dt']*dir * torch.min(50.0 * val, 3.0 +  0*val)
-    torch.clamp(state[:, :, vn['S_STEER']], -np.pi/3, np.pi/3)
+    torch.clamp(state[:, :, vn['S_STEER']], -np.pi/4, np.pi/4)
     
     #compute wheel forward and side directions, plus locations in the global frame
     dir_fwd_ft = torch.cat((torch.cos(theta + delta).unsqueeze(2), torch.sin(theta + delta).unsqueeze(2)), dim = 2)

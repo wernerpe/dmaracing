@@ -15,15 +15,15 @@ learn:
   print_log: True
 
   # number of policy updates
-  max_iterations: 200
+  max_iterations: 500
 
   # training params
   cliprange: 0.2
   ent_coef: 0.00
-  nsteps: 48
+  nsteps: 32
   noptepochs: 8
   nminibatches: 4 # this is per agent
-  optim_stepsize: 1.e-2
+  optim_stepsize: 1.e-4
   schedule: adaptive # could be adaptive, linear or fixed
   gamma: 0.99
   lam: 0.95

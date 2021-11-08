@@ -29,7 +29,7 @@ class DmarEnv():
         self.num_agents = self.simParameters['numAgents']
         self.num_envs = self.simParameters['numEnv']
         self.collide = self.simParameters['collide']
-
+        self.decimation = self.simParameters['decimation']
         #gym stuff
         self.obs_space = spaces.Box(np.ones(self.num_obs)*-np.Inf, np.ones(self.num_obs)*np.Inf)
         self.state_space = spaces.Box(np.ones(self.num_internal_states)*-np.Inf, np.ones(self.num_internal_states)*np.Inf)
@@ -38,10 +38,10 @@ class DmarEnv():
         self.track, self.tile_len, self.track_num_tiles = get_track(cfg, self.device)
         print("track loaded with ", self.track_num_tiles, " tiles")
         self.centerline = torch.tensor(self.track[1], dtype=torch.float, device=self.device, requires_grad=False)
-
+        self.tile_heading = torch.tensor(self.track[3], device=self.device, dtype=torch.float, requires_grad=False) + np.pi/2
         if not self.headless:
             self.viewer = Viewer(cfg, self.track)
-        self.info = []
+        self.info = {}
         
         #allocate env tensors
         torch_zeros = lambda shape: torch.zeros(shape, device=self.device, dtype= torch.float, requires_grad=False)
@@ -51,21 +51,26 @@ class DmarEnv():
         self.obs_buf = torch_zeros((self.num_envs, self.num_agents, self.num_obs))
         self.rew_buf = torch_zeros((self.num_envs, self.num_agents,))
         self.reset_buf = torch_zeros((self.num_envs, self.num_agents))>1
-
+        self.progress_buf = torch_zeros((self.num_envs,1))
+        self.dt = cfg['sim']['dt']
         self.reward_scales = {}
-        self.reward_scales['offtrack'] = cfg['learn']['offtrackRewardScale']
-        self.reward_scales['progress'] = cfg['learn']['progressRewardScale']
+        self.reward_scales['offtrack'] = cfg['learn']['offtrackRewardScale']*self.dt
+        self.reward_scales['progress'] = cfg['learn']['progressRewardScale']*self.dt
 
         self.default_actions = cfg['learn']['defaultactions']
         self.action_scales = cfg['learn']['actionscale']
-
+        self.horizon = cfg['learn']['horizon']
         self.reset_randomization = cfg['learn']['resetrand']
-
+        self.timeout_s = cfg['learn']['timeout']
+        self.timeout_steps = int(self.timeout_s/self.dt)
         allocate_car_dynamics_tensors(self)
 
         #other tensor
         self.active_track_tile = torch.zeros((self.num_envs, self.num_agents), dtype = torch.long, device=self.device, requires_grad=False)
         self.old_active_track_tile = torch.zeros_like(self.active_track_tile)
+        self.old_track_progress = torch.zeros_like(self.rew_buf)
+        self.reward_terms = {'progress': torch_zeros((self.num_envs,1)), 'offtrack': torch_zeros((self.num_envs,1))}
+        
         #self.step(self.actions)
         self.reset()
         self.step(self.actions[:,0,:])
@@ -78,35 +83,48 @@ class DmarEnv():
         #get points along centerline
         #get track boundary polys for every point
         #do stuff...
-        ori = self.states[:,:,2].unsqueeze(2)
+        theta = self.states[:,:,2].unsqueeze(2)
         vels = self.states[:,:,3:6]
-        tile_idx = torch.remainder(self.active_track_tile.unsqueeze(2) + 2*torch.arange(10, device=self.device, dtype=torch.long).unsqueeze(0).unsqueeze(0), self.track_num_tiles)
-        lookahead = (self.centerline[tile_idx, :] - torch.tile(self.states[:,:,0:2].unsqueeze(2), (1,1,10, 1))).view(self.num_envs, self.num_agents, -1)
-        self.obs_buf = torch.cat((ori, 
-                                  vels, 
-                                  0.1*lookahead), 
+        tile_idx = torch.remainder(self.active_track_tile.unsqueeze(2) + 2*torch.arange(self.horizon, device=self.device, dtype=torch.long).unsqueeze(0).unsqueeze(0), self.track_num_tiles)
+        self.lookahead = (self.centerline[tile_idx, :] - torch.tile(self.states[:,:,0:2].unsqueeze(2), (1,1,self.horizon, 1)))
+        
+        self.R[:, :, 0, 0 ] = torch.cos(theta[:,:,0])
+        self.R[:, :, 0, 1 ] = torch.sin(theta[:,:,0])
+        self.R[:, :, 1, 0 ] = -torch.sin(theta[:,:,0])
+        self.R[:, :, 1, 1 ] = torch.cos(theta[:,:,0])
+        self.lookahead_body = torch.einsum('eaij, eatj->eati', self.R, self.lookahead)
+        self.vels_body = vels
+        self.vels_body[..., :-1] = torch.einsum('eaij, eaj -> eai',self.R, vels[..., :-1])
+        
+        self.obs_buf = torch.cat((self.vels_body, 
+                                  0.1*self.lookahead_body[:,:,0],
+                                  0.1*self.lookahead_body[:,:,1],
+                                  ), 
                                   dim=2)
         
 
     def compute_rewards(self,) -> None:
         
- 
-        rew_prog = 1.0*(self.active_track_tile - self.old_active_track_tile)
-        linecrossing_forward = torch.where(rew_prog < -self.track_num_tiles + 5)[0]
-        linecrossing_backward = torch.where(rew_prog > self.track_num_tiles - 5)[0]
-        
-        #edge cases
-        rew_prog[linecrossing_forward] = 1.0
-        rew_prog[linecrossing_backward] = -1.0
+        #print((self.active_track_tile[0,0])*self.tile_len)
+        tile_car_vec = self.states[:,:, 0:2] - self.centerline[self.active_track_tile, :]        
+        angs = self.tile_heading[self.active_track_tile]
+        trackdir = torch.stack((torch.cos(angs), torch.sin(angs)), dim = 2) 
+        trackperp = torch.stack((- torch.sin(angs), torch.cos(angs)), dim = 2) 
 
-        rew_prog *= self.reward_scales['progress']
+        sub_tile_progress = torch.einsum('eac, eac-> ea', trackdir, tile_car_vec)
+        self.track_progress = self.active_track_tile[0,0]*self.tile_len + sub_tile_progress
+        conturing_err = torch.einsum('eac, eac-> ea', trackperp, tile_car_vec)
+        rew_progress = torch.clip(self.track_progress-self.old_track_progress, min = -10, max = 10) 
 
         rew_on_track = self.reward_scales['offtrack']*~self.is_on_track 
-        self.rew_buf = rew_prog + rew_on_track 
+        self.rew_buf = rew_progress + rew_on_track 
 
+        self.reward_terms['progress'] += rew_progress
+        self.reward_terms['offtrack'] += rew_on_track
+        
     def check_termination(self) -> None:
         self.reset_buf = ~self.is_on_track
-        
+        self.reset_buf |= self.progress_buf > self.timeout_steps
 
     def reset(self) -> torch.Tensor:
         env_ids = torch.arange(self.num_envs, dtype = torch.long)
@@ -120,7 +138,7 @@ class DmarEnv():
             tile_idx = torch.randint(0, self.track_num_tiles, (len(env_ids),))  
             startpos = torch.tensor(self.track[1][tile_idx, :], device=self.device, dtype=torch.float).view(len(env_ids), 2)
             angs = torch.tensor(self.track[3][tile_idx], device=self.device, dtype=torch.float) + np.pi/2
-            vels = rand(-10, 10, (len(env_ids),), device=self.device)
+            vels = 0#rand(-.0, 3.0, (len(env_ids),), device=self.device)
             dir_x = torch.cos(angs)
             dir_y = torch.sin(angs)
             self.states[env_ids, agent, self.vn['S_X']] = startpos[:,0] + rand(-self.reset_randomization[0], self.reset_randomization[0], (len(env_ids),), device=self.device)
@@ -128,10 +146,16 @@ class DmarEnv():
             self.states[env_ids, agent, self.vn['S_THETA']] = angs + rand(-self.reset_randomization[2], self.reset_randomization[2], (len(env_ids),), device=self.device) 
             self.states[env_ids, agent, self.vn['S_DX']] = dir_x * vels
             self.states[env_ids, agent, self.vn['S_DY']] = dir_y * vels
-                
+            self.states[env_ids, agent, self.vn['S_DY']+1:] = 0.0    
         dists = torch.norm(self.states[env_ids,:, 0:2].unsqueeze(2)-self.centerline.unsqueeze(0).unsqueeze(0), dim=3)
         self.old_active_track_tile[env_ids, :] = torch.sort(dists, dim = 2)[1][:,:, 0]
-    
+        self.progress_buf[env_ids] = 0
+        self.old_track_progress [env_ids] = 0.0
+        self.info = {}
+        for key in self.reward_terms.keys():
+            self.info['reward_'+key] = (torch.mean(self.reward_terms[key][env_ids])/self.timeout_s).view(-1,1)
+            self.reward_terms[key][env_ids] = 0
+
     def step(self, actions) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, Dict[str, float]] : 
         actions = actions.clone().to(self.device)
         if actions.requires_grad:
@@ -140,18 +164,23 @@ class DmarEnv():
         self.actions[:,0, 0] = self.action_scales[0]*actions[:,0] + self.default_actions[0]
         self.actions[:,0, 1] = self.action_scales[1]*actions[:,1] + self.default_actions[1]
         self.actions[:,0, 2] = self.action_scales[2]*actions[:,2] + self.default_actions[2]
-        
+    
         #print(self.actions[0,0,:])
-        self.simulate()
+        for _ in range(self.decimation):
+            self.simulate()
         self.post_physics_step()
         return self.obs_buf[:,0, :], self.rew_buf[:,0], self.reset_buf[:,0], self.info
     
     def post_physics_step(self) -> None:
+        self.progress_buf +=1
         #get current tile positions
         #dists = self.states[:,:, 0:2] - self.track[1].unsqueeze(0) 
         dists = torch.norm(self.states[:,:, 0:2].unsqueeze(2)-self.centerline.unsqueeze(0).unsqueeze(0), dim=3)
-        self.active_track_tile = torch.sort(dists, dim = 2)[1][:,:, 0]
-
+        
+        sort = torch.sort(dists, dim = 2)
+        self.dist_active_track_tile = sort[0][:,:, 0]
+        self.active_track_tile = sort[1][:,:, 0]
+        
         #check if any tire is off track
         self.is_on_track = ~torch.any(~torch.any(self.wheels_on_track_segments, dim = 3), dim=2)
         
@@ -161,9 +190,14 @@ class DmarEnv():
             self.reset_envs(env_ids)
         self.compute_observations()
         self.compute_rewards()
+ 
+        self.lookahead_markers = self.lookahead + torch.tile(self.states[:,:,0:2].unsqueeze(2), (1,1,self.horizon, 1))
+        #pts = self.lookahead_markers[0,0,:,:].cpu().numpy()
+        #self.viewer.clear_markers()
+        #Aself.viewer.add_point(pts, 10,(5,10,222))
 
         self.old_active_track_tile = self.active_track_tile
-
+        self.old_track_progress = self.track_progress
         if not self.headless:
             self.render()
 
