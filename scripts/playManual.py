@@ -20,21 +20,21 @@ def play():
         actions[0 , 2] = brk_cmd
         
         obs, rew, dones, info = env.step(actions)
-        obs = obs.cpu().numpy()
-        rew = rew.cpu().numpy()
-        print("-------------------------------")
-        print("rewards      :", rew[0])
-        print("velocity     :", obs[0, :2])
-        print("ang velocity :", obs[0, 2])
-        print("steer        :", obs[0, 3])
-        print("gas          :", obs[0, 4])
+        obsnp = obs.cpu().numpy()
+        rewnp = rew.cpu().numpy()
+        #print("-------------------------------")
+        #print("rewards      :", rew[0])
+        #print("velocity     :", obs[0, :2])
+        #print("ang velocity :", obs[0, 2])
+        #print("steer        :", obs[0, 3])
+        #print("gas          :", obs[0, 4])
         
-        viewermsg = [(f"""{'rewards:':>{10}}{' '}{rew[0]:.2f}"""   ),
-                     (f"""{'velocity x:':>{10}}{' '}{obs[0, 0]:.2f}"""),
-                     (f"""{'velocity y:':>{10}}{' '}{obs[0, 1]:.2f}"""),
-                     (f"""{'ang vel:':>{10}}{' '}{obs[0, 2]:.2f}"""),
-                     (f"""{'steer:':>{10}}{' '}{obs[0, 3]:.2f}"""),
-                     (f"""{'gas:':>{10}}{' '}{obs[0, 4]:.2f}""")
+        viewermsg = [(f"""{'rewards:':>{10}}{' '}{rewnp[0]:.2f}"""   ),
+                     (f"""{'velocity x:':>{10}}{' '}{obsnp[0, 0]:.2f}"""),
+                     (f"""{'velocity y:':>{10}}{' '}{obsnp[0, 1]:.2f}"""),
+                     (f"""{'ang vel:':>{10}}{' '}{obsnp[0, 2]:.2f}"""),
+                     (f"""{'steer:':>{10}}{' '}{obsnp[0, 3]:.2f}"""),
+                     (f"""{'gas:':>{10}}{' '}{obsnp[0, 4]:.2f}""")
                      ]
         env.viewer.clear_string()
         for msg in viewermsg:

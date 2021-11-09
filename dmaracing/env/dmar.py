@@ -48,6 +48,7 @@ class DmarEnv():
         self.states = torch_zeros((self.num_envs, self.num_agents, self.num_internal_states))
         self.contact_wrenches = torch_zeros((self.num_envs, self.num_agents, 3))
         self.actions = torch_zeros((self.num_envs, self.num_agents, self.num_actions))
+        self.last_actions = torch_zeros((self.num_envs, self.num_agents, self.num_actions))
         self.obs_buf = torch_zeros((self.num_envs, self.num_agents, self.num_obs))
         self.rew_buf = torch_zeros((self.num_envs, self.num_agents,))
         self.reset_buf = torch_zeros((self.num_envs, self.num_agents))>1
@@ -56,6 +57,7 @@ class DmarEnv():
         self.dt = cfg['sim']['dt']
         self.reward_scales = {}
         self.reward_scales['offtrack'] = cfg['learn']['offtrackRewardScale']*self.dt
+        self.reward_scales['contouring'] = cfg['learn']['contouringRewardScale']*self.dt
         self.reward_scales['progress'] = cfg['learn']['progressRewardScale']*self.dt
 
         self.default_actions = cfg['learn']['defaultactions']
@@ -73,7 +75,9 @@ class DmarEnv():
         self.active_track_tile = torch.zeros((self.num_envs, self.num_agents), dtype = torch.long, device=self.device, requires_grad=False)
         self.old_active_track_tile = torch.zeros_like(self.active_track_tile)
         self.old_track_progress = torch.zeros_like(self.rew_buf)
-        self.reward_terms = {'progress': torch_zeros((self.num_envs,1)), 'offtrack': torch_zeros((self.num_envs,1))}
+        self.reward_terms = {'progress': torch_zeros((self.num_envs,1)), 
+                             'contouring':torch_zeros((self.num_envs,1)),
+                             'offtrack': torch_zeros((self.num_envs,1))}
         
         #self.step(self.actions)
         self.reset()
@@ -92,7 +96,7 @@ class DmarEnv():
         
         theta = self.states[:,:,2].unsqueeze(2)
         vels = self.states[:,:,3:6].clone()
-        tile_idx = torch.remainder(self.active_track_tile.unsqueeze(2) + 2*torch.arange(self.horizon, device=self.device, dtype=torch.long).unsqueeze(0).unsqueeze(0), self.track_num_tiles)
+        tile_idx = torch.remainder(self.active_track_tile.unsqueeze(2) + 4*torch.arange(self.horizon, device=self.device, dtype=torch.long).unsqueeze(0).unsqueeze(0), self.track_num_tiles)
         self.lookahead = (self.centerline[tile_idx, :] - torch.tile(self.states[:,:,0:2].unsqueeze(2), (1,1,self.horizon, 1)))
         
         self.R[:, :, 0, 0 ] = torch.cos(theta[:,:,0])
@@ -108,6 +112,7 @@ class DmarEnv():
                                   gas, 
                                   0.2*self.lookahead_body[:,:,:,0],
                                   0.2*self.lookahead_body[:,:,:,1],
+                                  self.last_actions
                                   ), 
                                   dim=2)
         
@@ -124,12 +129,16 @@ class DmarEnv():
         self.track_progress = self.active_track_tile[0,0]*self.tile_len + sub_tile_progress
         conturing_err = torch.einsum('eac, eac-> ea', trackperp, tile_car_vec)
         rew_progress = torch.clip(self.track_progress-self.old_track_progress, min = -10, max = 10) 
-
+        rew_contouring = -torch.square(conturing_err) * self.reward_scales['contouring']
         rew_on_track = self.reward_scales['offtrack']*~self.is_on_track 
-        self.rew_buf = rew_progress + rew_on_track 
+        self.rew_buf = rew_progress + rew_on_track + rew_contouring
+
+        #clip rewards
+
 
         self.reward_terms['progress'] += rew_progress
         self.reward_terms['offtrack'] += rew_on_track
+        self.reward_terms['contouring'] += rew_contouring
         
     def check_termination(self) -> None:
         self.reset_buf = self.time_off_track > 80
@@ -166,6 +175,8 @@ class DmarEnv():
         self.progress_buf[env_ids] = 0
         self.old_track_progress [env_ids] = 0.0
         self.time_off_track[env_ids, :] = 0.0
+        self.last_actions[env_ids, : ,:] = 0.0
+        
         self.info = {}
         for key in self.reward_terms.keys():
             self.info['reward_'+key] = (torch.mean(self.reward_terms[key][env_ids])/self.timeout_s).view(-1,1)
@@ -184,26 +195,28 @@ class DmarEnv():
         for _ in range(self.decimation):
             self.simulate()
         self.post_physics_step()
-        return self.obs_buf[:,0, :], self.rew_buf[:,0], self.reset_buf[:,0], self.info
+        return self.obs_buf[:,0, :].clone(), self.rew_buf[:,0].clone(), self.reset_buf[:,0].clone(), self.info
     
     def post_physics_step(self) -> None:
         self.progress_buf +=1
-        #get current tile positions
-        #dists = self.states[:,:, 0:2] - self.track[1].unsqueeze(0) 
-        dists = torch.norm(self.states[:,:, 0:2].unsqueeze(2)-self.centerline.unsqueeze(0).unsqueeze(0), dim=3)
         
+        #get current tile positions
+        dists = torch.norm(self.states[:,:, 0:2].unsqueeze(2)-self.centerline.unsqueeze(0).unsqueeze(0), dim=3)
         sort = torch.sort(dists, dim = 2)
         self.dist_active_track_tile = sort[0][:,:, 0]
         self.active_track_tile = sort[1][:,:, 0]
         
         #check if any tire is off track
         self.is_on_track = ~torch.any(~torch.any(self.wheels_on_track_segments, dim = 3), dim=2)
-        
         self.time_off_track += 1.0*~self.is_on_track
+        
+        #get env_ids to reset
         self.check_termination()
+        
         env_ids = torch.where(self.reset_buf)[0]
         if len(env_ids):
             self.reset_envs(env_ids)
+        
         self.compute_observations()
         self.compute_rewards()
  
@@ -214,6 +227,8 @@ class DmarEnv():
 
         self.old_active_track_tile = self.active_track_tile
         self.old_track_progress = self.track_progress
+        self.last_actions = self.actions
+
         if not self.headless:
             self.render()
 
@@ -246,7 +261,7 @@ class DmarEnv():
                                                                                       self.track[5],
                                                                                       self.track[6]
                                                                                      )
-    def get_state(self):
+    def get_state(self) -> torch.Tensor:
         return self.states[:,0,:]
 
     #gym stuff

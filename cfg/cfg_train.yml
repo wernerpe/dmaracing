@@ -11,7 +11,7 @@ learn:
   experiment: exp
   test: False
   resume: 0
-  save_interval: 50 # check for potential saves every this many iterations
+  save_interval: 20 # check for potential saves every this many iterations
   print_log: True
 
   # number of policy updates
@@ -20,10 +20,10 @@ learn:
   # training params
   cliprange: 0.2
   ent_coef: 0.00
-  nsteps: 60
+  nsteps: 32
   noptepochs: 8
   nminibatches: 4 # this is per agent
-  optim_stepsize: 1.e-4
+  optim_stepsize: 5.e-5
   schedule: adaptive # could be adaptive, linear or fixed
   gamma: 0.99
   lam: 0.95
