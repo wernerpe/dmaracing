@@ -47,6 +47,7 @@ class Viewer:
         self.x_offset = -50
         self.y_offset = 0
         self.points = []
+        self.msg = []
         draw_track(self.track, self.cords2px_np)
         cv.imshow('dmaracing', self.img)
 
@@ -69,7 +70,7 @@ class Viewer:
                 self.draw_singleagent_rep(state[:self.num_cars])
             cv.putText(self.img, "env:" + str(self.env_idx_render), (50, 50), self.font, 2, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
             self.draw_points()
-
+            self.draw_string()
         cv.imshow("dmaracing", self.img)
         key = cv.waitKey(1)
         #print(key)
@@ -196,3 +197,16 @@ class Viewer:
         for group in self.points: 
             for idx in range(len(group[0])):
                 cv.circle(self.img, (group[0][idx, 0], group[0][idx, 1]), group[1], group[2])
+
+    def add_string(self, string):
+        self.msg.append(string) 
+
+    def clear_string(self,):
+        self.msg = []
+
+    def draw_string(self,):
+        if len(self.msg):
+            idx = 0
+            for msg in self.msg:
+                cv.putText(self.img, msg, (10, 100 + 40*idx), self.font, 1, (0, 0, 0), 1, cv.LINE_AA)
+                idx+=1

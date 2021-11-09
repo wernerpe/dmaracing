@@ -4,7 +4,7 @@ from dmaracing.utils.helpers import *
 import os
 
 def play():
-    cfg['sim']['numEnv'] = 2
+    cfg['sim']['numEnv'] = 4
     env = DmarEnv(cfg, args)
     obs = env.obs_buf
 
@@ -29,6 +29,16 @@ def play():
         print("steer        :", obs[0, 3])
         print("gas          :", obs[0, 4])
         
+        viewermsg = [(f"""{'rewards:':>{10}}{' '}{rew[0]:.2f}"""   ),
+                     (f"""{'velocity x:':>{10}}{' '}{obs[0, 0]:.2f}"""),
+                     (f"""{'velocity y:':>{10}}{' '}{obs[0, 1]:.2f}"""),
+                     (f"""{'ang vel:':>{10}}{' '}{obs[0, 2]:.2f}"""),
+                     (f"""{'steer:':>{10}}{' '}{obs[0, 3]:.2f}"""),
+                     (f"""{'gas:':>{10}}{' '}{obs[0, 4]:.2f}""")
+                     ]
+        env.viewer.clear_string()
+        for msg in viewermsg:
+            env.viewer.add_string(msg)
         evt = env.viewer_events
         if evt == 105:
             vel_cmd += 0.1

@@ -207,10 +207,10 @@ class DmarEnv():
         self.compute_observations()
         self.compute_rewards()
  
-        #self.lookahead_markers = self.lookahead + torch.tile(self.states[:,:,0:2].unsqueeze(2), (1,1,self.horizon, 1))
-        #pts = self.lookahead_markers[0,0,:,:].cpu().numpy()
-        #self.viewer.clear_markers()
-        #self.viewer.add_point(pts, 10,(5,10,222))
+        self.lookahead_markers = self.lookahead_body# + torch.tile(self.states[:,:,0:2].unsqueeze(2), (1,1,self.horizon, 1))
+        pts = self.lookahead_markers[self.viewer.env_idx_render,0,:,:].cpu().numpy()
+        self.viewer.clear_markers()
+        self.viewer.add_point(pts, 10,(5,10,222))
 
         self.old_active_track_tile = self.active_track_tile
         self.old_track_progress = self.track_progress

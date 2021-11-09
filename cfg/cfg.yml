@@ -33,7 +33,7 @@ track:
   #https://github.com/openai/gym/blob/master/gym/envs/box2d/car_racing.py
   SCALE: 6.0  # Track scale
   TRACK_RAD: 300   # Track is heavily morphed circle with this radius
-  CHECKPOINTS: 15
+  CHECKPOINTS: 3
   TRACK_DETAIL_STEP: 15 
   TRACK_TURN_RATE: 0.41
   TRACK_WIDTH: 40 
@@ -44,15 +44,15 @@ track:
 
 learn:
 #pos x, y, theta, vel x y theta
-  resetrand: [4.0, 4.0, 0.3, 40.0, 1, 0, 0.7]
+  resetrand: [4.0, 4.0, 0.3, 0.0, 1, 0, 0.7]
   
   defaultactions: [0., 0.1, 0.00]
-  actionscale: [0.5, 1.0, 1.0]
+  actionscale: [1.0, 0.0, 0.0]
 
   progressRewardScale: 1.0
-  offtrackRewardScale: -0.5
+  offtrackRewardScale: -5.0
 
   horizon: 10
   
   timeout: 20 #[s]
-  offtrack_reset: 3.0 #[s]
+  offtrack_reset: 1.0 #[s]

@@ -241,8 +241,18 @@ def draw_track(track, cords2px):
     for idx in range(len(cl_px)):
         cv.circle(img, (cl_px[idx, 0], cl_px[idx, 1]),1,(0,0,255))
     img = cv.addWeighted(overlay, 0.1, img, 0.9, 0)
+    draw_cord_axs(img, cords2px)
     track[0] = img
     
+def draw_cord_axs(img, cords2px):
+    xverts = np.array([[-10,0],[10,0]])
+    yverts = np.array([[0,10],[0,-10]])
+    xverts = cords2px(xverts)
+    yverts = cords2px(yverts)
+
+    cv.polylines(img, [xverts], isClosed = True,  color = (0,0,0), thickness = 3)
+    cv.polylines(img, [yverts], isClosed = True,  color = (0,0,0), thickness = 3)
+
 
 def construct_poly_track_eqns(track_poly_verts, device):
     A = torch.zeros((4*len(track_poly_verts), 2), device = device, dtype = torch.float, requires_grad = False)
