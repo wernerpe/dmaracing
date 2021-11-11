@@ -5,7 +5,7 @@ from dmaracing.env.car_dynamics import step_cars
 from dmaracing.env.car_dynamics_utils import get_varnames, set_dependent_params, allocate_car_dynamics_tensors 
 from dmaracing.env.viewer import Viewer
 from dmaracing.utils.helpers import rand
-from typing import Tuple, Dict
+from typing import Tuple, Dict, Union
 import numpy as np
 from dmaracing.utils.trackgen import get_track
 
@@ -22,7 +22,11 @@ class DmarEnv():
         self.modelParameters = cfg['model']
         set_dependent_params(self.modelParameters)
         self.simParameters = cfg['sim']
+        
         self.num_states = 0
+        self.num_privileged_obs = None
+        self.privileged_obs = None
+
         self.num_internal_states = self.simParameters['numStates']
         self.num_actions = self.simParameters['numActions']
         self.num_obs = self.simParameters['numObservations']       
@@ -30,6 +34,7 @@ class DmarEnv():
         self.num_envs = self.simParameters['numEnv']
         self.collide = self.simParameters['collide']
         self.decimation = self.simParameters['decimation']
+
         #gym stuff
         self.obs_space = spaces.Box(np.ones(self.num_obs)*-np.Inf, np.ones(self.num_obs)*np.Inf)
         self.state_space = spaces.Box(np.ones(self.num_internal_states)*-np.Inf, np.ones(self.num_internal_states)*np.Inf)
@@ -52,7 +57,7 @@ class DmarEnv():
         self.obs_buf = torch_zeros((self.num_envs, self.num_agents, self.num_obs))
         self.rew_buf = torch_zeros((self.num_envs, self.num_agents,))
         self.reset_buf = torch_zeros((self.num_envs, self.num_agents))>1
-        self.progress_buf = torch_zeros((self.num_envs,1))
+        self.episode_length_buf = torch_zeros((self.num_envs,1))
         self.time_off_track = torch_zeros((self.num_envs, self.num_agents))
         self.dt = cfg['sim']['dt']
         self.reward_scales = {}
@@ -67,7 +72,7 @@ class DmarEnv():
         self.timeout_s = cfg['learn']['timeout']
         self.offtrack_reset_s = cfg['learn']['offtrack_reset']
         self.offtrack_reset = int(self.offtrack_reset_s/(self.decimation*self.dt))
-        self.timeout_steps = int(self.timeout_s/(self.decimation*self.dt))
+        self.max_episode_length = int(self.timeout_s/(self.decimation*self.dt))
 
         allocate_car_dynamics_tensors(self)
 
@@ -142,13 +147,13 @@ class DmarEnv():
         
     def check_termination(self) -> None:
         self.reset_buf = self.time_off_track > 80
-        self.reset_buf |= self.progress_buf > self.timeout_steps
+        self.reset_buf |= self.episode_length_buf > self.max_episode_length
 
-    def reset(self) -> torch.Tensor:
+    def reset(self) -> Tuple[torch.Tensor, Union[None, torch.Tensor]]:
         env_ids = torch.arange(self.num_envs, dtype = torch.long)
         self.reset_envs(env_ids)
         self.post_physics_step()
-        return self.obs_buf[:, 0, :]
+        return self.obs_buf[:, 0, :], self.privileged_obs
 
     def reset_envs(self, env_ids) -> None:
         
@@ -172,7 +177,7 @@ class DmarEnv():
         
         dists = torch.norm(self.states[env_ids,:, 0:2].unsqueeze(2)-self.centerline.unsqueeze(0).unsqueeze(0), dim=3)
         self.old_active_track_tile[env_ids, :] = torch.sort(dists, dim = 2)[1][:,:, 0]
-        self.progress_buf[env_ids] = 0
+        self.episode_length_buf[env_ids] = 0
         self.old_track_progress [env_ids] = 0.0
         self.time_off_track[env_ids, :] = 0.0
         self.last_actions[env_ids, : ,:] = 0.0
@@ -182,7 +187,7 @@ class DmarEnv():
             self.info['reward_'+key] = (torch.mean(self.reward_terms[key][env_ids])/self.timeout_s).view(-1,1)
             self.reward_terms[key][env_ids] = 0
 
-    def step(self, actions) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, Dict[str, float]] : 
+    def step(self, actions) -> Tuple[torch.Tensor, Union[None, torch.Tensor], torch.Tensor, Dict[str, float]] : 
         actions = actions.clone().to(self.device)
         if actions.requires_grad:
            actions = actions.detach()   
@@ -195,10 +200,10 @@ class DmarEnv():
         for _ in range(self.decimation):
             self.simulate()
         self.post_physics_step()
-        return self.obs_buf[:,0, :].clone(), self.rew_buf[:,0].clone(), self.reset_buf[:,0].clone(), self.info
+        return self.obs_buf[:,0, :].clone(), self.privileged_obs, self.rew_buf[:,0].clone(), self.reset_buf[:,0].clone(), self.info
     
     def post_physics_step(self) -> None:
-        self.progress_buf +=1
+        self.episode_length_buf +=1
         
         #get current tile positions
         dists = torch.norm(self.states[:,:, 0:2].unsqueeze(2)-self.centerline.unsqueeze(0).unsqueeze(0), dim=3)
@@ -263,7 +268,13 @@ class DmarEnv():
                                                                                      )
     def get_state(self) -> torch.Tensor:
         return self.states[:,0,:]
+    
+    def get_observations(self,) -> torch.Tensor:
+        return self.obs_buf[:,0,:]
 
+    def get_privileged_observations(self,)->Union[None, torch.Tensor]:
+        return self.privileged_obs
+ 
     #gym stuff
     @property
     def observation_space(self):

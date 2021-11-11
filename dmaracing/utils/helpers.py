@@ -1,5 +1,4 @@
 import yaml
-from rl_pytorch.ppo import PPO, ActorCritic
 import os
 import torch
 
@@ -14,8 +13,9 @@ def getcfg(path):
         cfg = yaml.safe_load(stream)
     with open(pth_cfg_train, 'r') as stream:
         cfg_train = yaml.safe_load(stream)
-    logdir = 'logs/'+cfg_train['learn']['experiment']
+    logdir = 'logs/'+cfg_train['runner']['experiment_name']
     return cfg, cfg_train, logdir
+
 
 def  get_run(logdir, run, chkpt):
     
@@ -70,7 +70,7 @@ def get_ppo(args, env, cfg_train, logdir):
 
     if args.test:
         print("Loading model from {}/model_{}.pt".format(logdir, chkpt))
-        ppo.test("{}/model_{}.pt".format(logdir, chkpt))
+        ppo.test()
     return ppo
 
 
