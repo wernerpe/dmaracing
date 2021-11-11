@@ -250,8 +250,8 @@ def draw_cord_axs(img, cords2px):
     xverts = cords2px(xverts)
     yverts = cords2px(yverts)
 
-    cv.polylines(img, [xverts], isClosed = True,  color = (0,0,0), thickness = 3)
-    cv.polylines(img, [yverts], isClosed = True,  color = (0,0,0), thickness = 3)
+    cv.polylines(img, [xverts], isClosed = True,  color = (0,0,0), thickness = 2)
+    cv.polylines(img, [yverts], isClosed = True,  color = (0,0,0), thickness = 2)
 
 
 def construct_poly_track_eqns(track_poly_verts, device):

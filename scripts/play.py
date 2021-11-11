@@ -8,6 +8,7 @@ import os
 def play():
     chkpt = -1
     cfg['sim']['numEnv'] = 30
+    cfg['sim']['numAgents'] = 1
     env = DmarEnv(cfg, args)
     obs = env.obs_buf[:,0,:]
 

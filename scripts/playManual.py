@@ -5,6 +5,11 @@ import os
 
 def play():
     cfg['sim']['numEnv'] = 4
+    cfg['sim']['numAgents'] = 1
+    cfg['viewer']['multiagent'] = True
+    cfg['learn']['defaultactions'] = [0,0,0]
+    cfg['learn']['actionscale'] = [1,1,1]
+    
     env = DmarEnv(cfg, args)
     obs = env.obs_buf
 
@@ -19,7 +24,7 @@ def play():
         actions[0 , 1] = vel_cmd
         actions[0 , 2] = brk_cmd
         
-        obs, rew, dones, info = env.step(actions)
+        obs, _, rew, dones, info = env.step(actions)
         obsnp = obs.cpu().numpy()
         rewnp = rew.cpu().numpy()
         #print("-------------------------------")

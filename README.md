@@ -9,9 +9,9 @@ Tensorised verison of the OpenAI gym car racing environment
 4. Install
 
     ```pip3 install torch==1.10.0+cu113 torchvision==0.11.1+cu113 torchaudio==0.10.0+cu113 -f https://download.pytorch.org/whl/cu113/torch_stable.html```
-5. Get the rl library, in same terminal run:
+5. Get the forked rl library, in same terminal run:
 
-    ```cd .. && git clone git@github.com:leggedrobotics/rsl_rl.git```
+    ```cd .. && git clone git@github.com:wernerpe/rsl_rl.git```
 
     ```cd rsl-rl && pip install -e . ```
 

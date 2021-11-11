@@ -11,8 +11,9 @@ algorithm:
   schedule: adaptive # could be adaptive, linear or fixed
   gamma: 0.99
   lam: 0.95
-  desired_kl: 0.01
+  desired_kl: 0.005
   value_loss_coef: 1.0
+  use_clipped_value_loss: False
   max_grad_norm: 0.5
   use_clipped_value_loss: True
 
@@ -24,7 +25,7 @@ runner:
 
   # logging
   save_interval: 20 # check for potential saves every this many iterations
-  experiment_name: 'exp_rsl'
+  experiment_name: 'singleagent'
   run_name: ''
   # load and resume
   resume: False
@@ -33,8 +34,8 @@ runner:
   resume_path: None # updated from load_run and chkpt
 
 policy: 
-  actor_hidden_dims: [64, 32]
-  critic_hidden_dims: [64, 32]
+  actor_hidden_dims: [64, 32, 16]
+  critic_hidden_dims: [64, 32, 16]
   activation: elu # can be elu, relu, selu, crelu, lrelu, tanh, sigmoid
   init_noise_std: 1.0
   

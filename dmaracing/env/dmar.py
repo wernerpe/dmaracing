@@ -64,6 +64,7 @@ class DmarEnv():
         self.reward_scales['offtrack'] = cfg['learn']['offtrackRewardScale']*self.dt
         self.reward_scales['contouring'] = cfg['learn']['contouringRewardScale']*self.dt
         self.reward_scales['progress'] = cfg['learn']['progressRewardScale']*self.dt
+        self.reward_scales['actionrate'] = cfg['learn']['actionRateRewardScale']*self.dt
 
         self.default_actions = cfg['learn']['defaultactions']
         self.action_scales = cfg['learn']['actionscale']
@@ -80,9 +81,10 @@ class DmarEnv():
         self.active_track_tile = torch.zeros((self.num_envs, self.num_agents), dtype = torch.long, device=self.device, requires_grad=False)
         self.old_active_track_tile = torch.zeros_like(self.active_track_tile)
         self.old_track_progress = torch.zeros_like(self.rew_buf)
-        self.reward_terms = {'progress': torch_zeros((self.num_envs,1)), 
-                             'contouring':torch_zeros((self.num_envs,1)),
-                             'offtrack': torch_zeros((self.num_envs,1))}
+        self.reward_terms = {'progress': torch_zeros((self.num_envs, self.num_agents)), 
+                             'contouring':torch_zeros((self.num_envs, self.num_agents)),
+                             'offtrack': torch_zeros((self.num_envs, self.num_agents)),
+                             'actionrate': torch_zeros((self.num_envs, self.num_agents))}
         
         #self.step(self.actions)
         self.reset()
@@ -136,17 +138,19 @@ class DmarEnv():
         rew_progress = torch.clip(self.track_progress-self.old_track_progress, min = -10, max = 10) 
         rew_contouring = -torch.square(conturing_err) * self.reward_scales['contouring']
         rew_on_track = self.reward_scales['offtrack']*~self.is_on_track 
-        self.rew_buf = rew_progress + rew_on_track + rew_contouring
-
+        rew_actionrate = -torch.sum(torch.square(self.actions-self.last_actions), dim = 2) *self.reward_scales['actionrate']
+        self.rew_buf = torch.clip(rew_progress + rew_on_track + rew_contouring + rew_actionrate, min = 0, max = None)
+        
         #clip rewards
 
 
         self.reward_terms['progress'] += rew_progress
         self.reward_terms['offtrack'] += rew_on_track
         self.reward_terms['contouring'] += rew_contouring
+        self.reward_terms['actionrate'] += rew_actionrate
         
     def check_termination(self) -> None:
-        self.reset_buf = self.time_off_track > 80
+        self.reset_buf = self.time_off_track > self.offtrack_reset
         self.reset_buf |= self.episode_length_buf > self.max_episode_length
 
     def reset(self) -> Tuple[torch.Tensor, Union[None, torch.Tensor]]:
@@ -183,9 +187,11 @@ class DmarEnv():
         self.last_actions[env_ids, : ,:] = 0.0
         
         self.info = {}
+        self.info['episode'] = {}
+        
         for key in self.reward_terms.keys():
-            self.info['reward_'+key] = (torch.mean(self.reward_terms[key][env_ids])/self.timeout_s).view(-1,1)
-            self.reward_terms[key][env_ids] = 0
+            self.info['episode']['reward_'+key] = (torch.mean(self.reward_terms[key][env_ids])/self.timeout_s).view(-1,1)
+            self.reward_terms[key][env_ids] = 0.
 
     def step(self, actions) -> Tuple[torch.Tensor, Union[None, torch.Tensor], torch.Tensor, Dict[str, float]] : 
         actions = actions.clone().to(self.device)
@@ -225,14 +231,14 @@ class DmarEnv():
         self.compute_observations()
         self.compute_rewards()
  
-        self.lookahead_markers = self.lookahead_body# + torch.tile(self.states[:,:,0:2].unsqueeze(2), (1,1,self.horizon, 1))
-        pts = self.lookahead_markers[self.viewer.env_idx_render,0,:,:].cpu().numpy()
-        self.viewer.clear_markers()
-        self.viewer.add_point(pts, 10,(5,10,222))
+        #self.lookahead_markers = self.lookahead_body# + torch.tile(self.states[:,:,0:2].unsqueeze(2), (1,1,self.horizon, 1))
+        #pts = self.lookahead_markers[self.viewer.env_idx_render,0,:,:].cpu().numpy()
+        #self.viewer.clear_markers()
+        #self.viewer.add_point(pts, 10,(5,10,222))
 
         self.old_active_track_tile = self.active_track_tile
         self.old_track_progress = self.track_progress
-        self.last_actions = self.actions
+        self.last_actions = self.actions.clone()
 
         if not self.headless:
             self.render()

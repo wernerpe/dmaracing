@@ -16,6 +16,8 @@ if __name__ == "__main__":
     path_cfg = os.getcwd() + '/cfg'
     cfg, cfg_train, logdir = getcfg(path_cfg)
     cfg['viewer']['multiagent'] = False
+    cfg['sim']['numAgents'] = 1
+    cfg['sim']['collide'] = 0
     now = datetime.now()
     timestamp = now.strftime("%y_%m_%d_%H_%M_%S")
     logdir = logdir+'/'+timestamp
