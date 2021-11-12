@@ -50,9 +50,9 @@ learn:
   defaultactions: [0., 0.1, 0.00]
   actionscale: [0.5, 0.0, 0.0]
 
-  progressRewardScale: 0.1
-  contouringRewardScale: 0.2
-  offtrackRewardScale: -20.0
+  progressRewardScale: 1.0
+  contouringRewardScale: 0.01
+  offtrackRewardScale: -2.0
   actionRateRewardScale: 0.1 
   
   horizon: 10

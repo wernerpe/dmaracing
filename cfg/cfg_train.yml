@@ -6,12 +6,12 @@ algorithm:
   clip_param: 0.2
   entropy_coef: 0.00
   num_learning_epochs: 5
-  num_mini_batches: 4 # this is per agent
+  num_mini_batches: 6 # this is per agent
   learning_rate: 5.e-5
   schedule: adaptive # could be adaptive, linear or fixed
   gamma: 0.99
   lam: 0.95
-  desired_kl: 0.005
+  desired_kl: 0.008
   value_loss_coef: 1.0
   max_grad_norm: 0.5
   use_clipped_value_loss: True

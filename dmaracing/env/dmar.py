@@ -56,6 +56,7 @@ class DmarEnv():
         self.states = torch_zeros((self.num_envs, self.num_agents, self.num_internal_states))
         self.contact_wrenches = torch_zeros((self.num_envs, self.num_agents, 3))
         self.actions = torch_zeros((self.num_envs, self.num_agents, self.num_actions))
+        self.actions_means = torch_zeros((self.num_envs, self.num_agents, self.num_actions))
         self.last_actions = torch_zeros((self.num_envs, self.num_agents, self.num_actions))
         self.obs_buf = torch_zeros((self.num_envs, self.num_agents, self.num_obs))
         self.rew_buf = torch_zeros((self.num_envs, self.num_agents,))
@@ -139,7 +140,7 @@ class DmarEnv():
         sub_tile_progress = torch.einsum('eac, eac-> ea', trackdir, tile_car_vec)
         self.track_progress = self.active_track_tile[0,0]*self.tile_len + sub_tile_progress
         conturing_err = torch.einsum('eac, eac-> ea', trackperp, tile_car_vec)
-        rew_progress = torch.clip(self.track_progress-self.old_track_progress, min = -10, max = 10) 
+        rew_progress = torch.clip(self.track_progress-self.old_track_progress, min = -10, max = 10) * self.reward_scales['progress']
         rew_contouring = -torch.square(conturing_err) * self.reward_scales['contouring']
         rew_on_track = self.reward_scales['offtrack']*~self.is_on_track 
         rew_actionrate = -torch.sum(torch.square(self.actions-self.last_actions), dim = 2) *self.reward_scales['actionrate']
@@ -154,6 +155,8 @@ class DmarEnv():
         self.reward_terms['actionrate'] += rew_actionrate
         
     def check_termination(self) -> None:
+        #dithering step
+        self.reset_buf = torch.rand((self.num_envs, 1), device=self.device) < 0.03
         self.reset_buf = self.time_off_track > self.offtrack_reset
         self.time_out_buf = self.episode_length_buf > self.max_episode_length
         self.reset_buf |= self.time_out_buf
@@ -186,7 +189,7 @@ class DmarEnv():
         
         dists = torch.norm(self.states[env_ids,:, 0:2].unsqueeze(2)-self.centerline.unsqueeze(0).unsqueeze(0), dim=3)
         self.old_active_track_tile[env_ids, :] = torch.sort(dists, dim = 2)[1][:,:, 0]
-        self.episode_length_buf[env_ids] = 0
+        self.episode_length_buf[env_ids] = 0.0
         self.old_track_progress [env_ids] = 0.0
         self.time_off_track[env_ids, :] = 0.0
         self.last_actions[env_ids, : ,:] = 0.0
