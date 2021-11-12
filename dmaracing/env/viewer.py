@@ -48,6 +48,8 @@ class Viewer:
         self.y_offset = 0
         self.points = []
         self.msg = []
+        self.marked_env = None
+        self.state = []
         draw_track(self.track, self.cords2px_np)
         cv.imshow('dmaracing', self.img)
 
@@ -60,6 +62,7 @@ class Viewer:
         
 
     def render(self, state):
+        self.state = state.clone()
         if self.do_render:
             #do drawing
             #listen for keypressed events
@@ -71,6 +74,8 @@ class Viewer:
             cv.putText(self.img, "env:" + str(self.env_idx_render), (50, 50), self.font, 2, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
             self.draw_points()
             self.draw_string()
+            self.draw_marked_agents()
+
         cv.imshow("dmaracing", self.img)
         key = cv.waitKey(1)
         #print(key)
@@ -210,3 +215,12 @@ class Viewer:
             for msg in self.msg:
                 cv.putText(self.img, msg, (10, 100 + 40*idx), self.font, 1, (0, 0, 0), 1, cv.LINE_AA)
                 idx+=1
+
+    def mark_env(self, idx):
+        self.marked_env = idx
+
+    def draw_marked_agents(self):
+        if self.marked_env is not None:
+            pos = self.state[self.marked_env, 0, 0:2].view(1,-1).cpu().numpy()
+            px = self.cords2px_np(pos)
+            cv.circle(self.img, (px[0,0],px[0,1]), 100, (250,150,0))

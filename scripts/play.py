@@ -17,6 +17,7 @@ def play():
     #cfg['viewer']['maxAgents'] = 300
 
     env = DmarEnv(cfg, args)
+    env.viewer.mark_env(0)
     obs = env.obs_buf[:,0,:]
 
     dir, model = get_run(logdir, run = -1, chkpt=chkpt)
