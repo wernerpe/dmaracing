@@ -13,7 +13,6 @@ algorithm:
   lam: 0.95
   desired_kl: 0.005
   value_loss_coef: 1.0
-  use_clipped_value_loss: False
   max_grad_norm: 0.5
   use_clipped_value_loss: True
 

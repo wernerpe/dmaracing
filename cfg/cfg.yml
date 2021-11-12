@@ -11,7 +11,7 @@ sim:
   
 model:
   SIZE: 0.02 #[px/m]
-  BREAKFORCE: 1.5
+  BREAKFORCE: 0.2
   ENGINE_POWER_SCALE: 2500000
   WHEEL_MOMENT_OF_INERTIA_SCALE: 4000
   FRICTION_LIMIT_SCALE: 1000000
@@ -33,7 +33,7 @@ track:
   #https://github.com/openai/gym/blob/master/gym/envs/box2d/car_racing.py
   SCALE: 6.0  # Track scale
   TRACK_RAD: 500   # Track is heavily morphed circle with this radius
-  CHECKPOINTS: 15
+  CHECKPOINTS: 3
   TRACK_DETAIL_STEP: 15 
   TRACK_TURN_RATE: 0.41
   TRACK_WIDTH: 40 
@@ -43,8 +43,9 @@ track:
   seed: 1
 
 learn:
+  use_timeouts: True
   #[posx, posy, theta, vellong, vellat, dtheta, steer]
-  resetrand: [1.0, 1.0, 0.5, 10.0, 5.0, 0, 0.7]
+  resetrand: [3.0, 3.0, 0.5, 20.0, 5.0, 1, 0.1]
   
   defaultactions: [0., 0.1, 0.00]
   actionscale: [0.5, 0.0, 0.0]
@@ -56,5 +57,5 @@ learn:
   
   horizon: 10
   
-  timeout: 100.0 #[s]
+  timeout: 20.0 #[s]
   offtrack_reset: 3.0 #[s]

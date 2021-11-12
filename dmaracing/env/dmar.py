@@ -22,6 +22,9 @@ class DmarEnv():
         self.modelParameters = cfg['model']
         set_dependent_params(self.modelParameters)
         self.simParameters = cfg['sim']
+
+        #use bootstrapping on vf
+        self.use_timeouts = cfg['learn']['use_timeouts']
         
         self.num_states = 0
         self.num_privileged_obs = None
@@ -56,6 +59,7 @@ class DmarEnv():
         self.last_actions = torch_zeros((self.num_envs, self.num_agents, self.num_actions))
         self.obs_buf = torch_zeros((self.num_envs, self.num_agents, self.num_obs))
         self.rew_buf = torch_zeros((self.num_envs, self.num_agents,))
+        self.time_out_buf = torch_zeros((self.num_envs, 1)) > 1
         self.reset_buf = torch_zeros((self.num_envs, self.num_agents))>1
         self.episode_length_buf = torch_zeros((self.num_envs,1))
         self.time_off_track = torch_zeros((self.num_envs, self.num_agents))
@@ -151,7 +155,8 @@ class DmarEnv():
         
     def check_termination(self) -> None:
         self.reset_buf = self.time_off_track > self.offtrack_reset
-        self.reset_buf |= self.episode_length_buf > self.max_episode_length
+        self.time_out_buf = self.episode_length_buf > self.max_episode_length
+        self.reset_buf |= self.time_out_buf
 
     def reset(self) -> Tuple[torch.Tensor, Union[None, torch.Tensor]]:
         env_ids = torch.arange(self.num_envs, dtype = torch.long)
@@ -177,7 +182,7 @@ class DmarEnv():
             self.states[env_ids, agent, self.vn['S_DTHETA']] = rand(-self.reset_randomization[5], self.reset_randomization[5], (len(env_ids),), device=self.device) 
             self.states[env_ids, agent, self.vn['S_DTHETA']+1:] = 0.0 
             self.states[env_ids, agent, self.vn['S_STEER']] = rand(-self.reset_randomization[6], self.reset_randomization[6], (len(env_ids),), device=self.device)
-            #self.states[env_ids, agent, self.vn['S_W0']:self.vn['S_W3']+1] = 10.0
+            self.states[env_ids, agent, self.vn['S_W0']:self.vn['S_W3']+1] = (vels_long/self.modelParameters['WHEEL_R']).unsqueeze(1)
         
         dists = torch.norm(self.states[env_ids,:, 0:2].unsqueeze(2)-self.centerline.unsqueeze(0).unsqueeze(0), dim=3)
         self.old_active_track_tile[env_ids, :] = torch.sort(dists, dim = 2)[1][:,:, 0]
@@ -192,6 +197,9 @@ class DmarEnv():
         for key in self.reward_terms.keys():
             self.info['episode']['reward_'+key] = (torch.mean(self.reward_terms[key][env_ids])/self.timeout_s).view(-1,1)
             self.reward_terms[key][env_ids] = 0.
+        
+        if self.use_timeouts:
+            self.info['time_outs'] = self.time_out_buf.view(-1,)
 
     def step(self, actions) -> Tuple[torch.Tensor, Union[None, torch.Tensor], torch.Tensor, Dict[str, float]] : 
         actions = actions.clone().to(self.device)
@@ -222,6 +230,7 @@ class DmarEnv():
         self.time_off_track += 1.0*~self.is_on_track
         
         #get env_ids to reset
+        self.time_out_buf *= False
         self.check_termination()
         
         env_ids = torch.where(self.reset_buf)[0]
