@@ -232,4 +232,4 @@ class Viewer:
             cv.circle(self.img, (px[0,0],px[0,1]), 100, (250,150,0))
     
     def draw_track(self,):
-        draw_track(self.track, self.cords2px_np)
+        draw_track(self.track, self.cords2px_np, self.cfg['track']['draw_centerline'])

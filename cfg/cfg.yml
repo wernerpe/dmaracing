@@ -41,6 +41,8 @@ track:
   BORDER_MIN_COUNT: 4
   verbose: False
   seed: 1
+  ccw: True
+  draw_centerline: False
 
 learn:
   use_timeouts: True

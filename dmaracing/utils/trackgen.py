@@ -7,7 +7,7 @@ import cv2 as cv
 from scipy.sparse import coo_matrix
 import torch
  
-def get_track(cfg, device, ccw = False):
+def get_track(cfg, device, ccw = True):
     SCALE = cfg['track']['SCALE'] # Track scale
     TRACK_RAD = cfg['track']['TRACK_RAD'] / SCALE  # Track is heavily morphed circle with this radius
     CHECKPOINTS = cfg['track']['CHECKPOINTS']
@@ -236,7 +236,7 @@ def get_track(cfg, device, ccw = False):
     A, b, S_mat = construct_poly_track_eqns(track_poly_verts, device)
     return [img, centerline, np.array(track_poly_verts), alphas, A, b, S_mat, border_poly_verts, border_poly_col], TRACK_DETAIL_STEP, len(track_poly_verts)
 
-def draw_track(track, cords2px, cl = True):
+def draw_track(track, cords2px, cl = False):
     img = track[0]
     centerline = track[1].copy()
     track_poly_verts = track[2].copy()

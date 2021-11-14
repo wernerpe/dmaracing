@@ -44,7 +44,7 @@ class DmarEnv():
         self.state_space = spaces.Box(np.ones(self.num_internal_states)*-np.Inf, np.ones(self.num_internal_states)*np.Inf)
         self.act_space = spaces.Box(np.ones(self.num_actions)*-np.Inf, np.ones(self.num_actions)*np.Inf)
 
-        self.track, self.tile_len, self.track_num_tiles = get_track(cfg, self.device)
+        self.track, self.tile_len, self.track_num_tiles = get_track(cfg, self.device, cfg['track']['ccw'])
         print("track loaded with ", self.track_num_tiles, " tiles")
         self.centerline = torch.tensor(self.track[1].copy(), dtype=torch.float, device=self.device, requires_grad=False)
         self.tile_heading = torch.tensor(self.track[3], device=self.device, dtype=torch.float, requires_grad=False) + np.pi/2
