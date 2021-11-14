@@ -1,5 +1,5 @@
 sim:
-  numEnv: 4000
+  numEnv: 10000
   #nuber of racing agents per env
   numAgents: 6
   dt: 0.01 #[s]
@@ -35,7 +35,7 @@ track:
   TRACK_RAD: 500   # Track is heavily morphed circle with this radius
   CHECKPOINTS: 3
   TRACK_DETAIL_STEP: 15 
-  TRACK_TURN_RATE: 0.41
+  TRACK_TURN_RATE: 0.21
   TRACK_WIDTH: 40 
   BORDER: 8 
   BORDER_MIN_COUNT: 4

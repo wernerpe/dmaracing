@@ -6,21 +6,21 @@ from dmaracing.utils.rl_helpers import get_ppo_runner
 import os
 
 def play():
-    chkpt = -1
-    cfg['sim']['numEnv'] = 30
+    chkpt = 240
+    cfg['sim']['numEnv'] = 10
     cfg['sim']['numAgents'] = 1
     cfg['learn']['timeout'] = 100
-    cfg['learn']['offtrack_reset'] = 100
+    cfg['learn']['offtrack_reset'] = 3
     cfg['track']['seed'] = 10
     cfg['track']['CHECKPOINTS'] = 10
     cfg['track']['TRACK_RAD'] = 700
-    #cfg['viewer']['maxAgents'] = 300
+    cfg['viewer']['multiagent'] = False
 
     env = DmarEnv(cfg, args)
     env.viewer.mark_env(0)
     obs = env.obs_buf[:,0,:]
 
-    dir, model = get_run(logdir, run = -1, chkpt=chkpt)
+    dir, model = get_run(logdir, run = -3, chkpt=chkpt)
     chkpt = model
     runner = get_ppo_runner(env, cfg_train, logdir, device = env.device)
     model_path = "{}/model_{}.pt".format(dir, model)
@@ -35,7 +35,7 @@ def play():
         rewnp = rew.cpu().numpy()
         
         viewermsg = [(f"""{'policy chckpt '+str(chkpt)+', env 0'}"""),
-                     (f"""{'rewards:':>{10}}{' '}{rewnp[0]:.2f}"""   ),
+                     (f"""{'rewards:':>{10}}{' '}{100*rewnp[0]:.2f}"""   ),
                      (f"""{'velocity x:':>{10}}{' '}{obsnp[0, 0]:.2f}"""),
                      (f"""{'velocity y:':>{10}}{' '}{obsnp[0, 1]:.2f}"""),
                      (f"""{'ang vel:':>{10}}{' '}{obsnp[0, 2]:.2f}"""),

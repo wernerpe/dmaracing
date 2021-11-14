@@ -19,6 +19,7 @@ class DmarEnv():
 
         #variable names and indices
         self.vn = get_varnames() 
+        self.cfg = cfg
         self.modelParameters = cfg['model']
         set_dependent_params(self.modelParameters)
         self.simParameters = cfg['sim']
@@ -45,7 +46,7 @@ class DmarEnv():
 
         self.track, self.tile_len, self.track_num_tiles = get_track(cfg, self.device)
         print("track loaded with ", self.track_num_tiles, " tiles")
-        self.centerline = torch.tensor(self.track[1], dtype=torch.float, device=self.device, requires_grad=False)
+        self.centerline = torch.tensor(self.track[1].copy(), dtype=torch.float, device=self.device, requires_grad=False)
         self.tile_heading = torch.tensor(self.track[3], device=self.device, dtype=torch.float, requires_grad=False) + np.pi/2
         if not self.headless:
             self.viewer = Viewer(cfg, self.track)
@@ -92,6 +93,7 @@ class DmarEnv():
                              'actionrate': torch_zeros((self.num_envs, self.num_agents))}
         
         #self.step(self.actions)
+        self.total_step = 0
         self.reset()
         self.step(self.actions[:,0,:])
         self.viewer.center_cam(self.states)
@@ -170,7 +172,7 @@ class DmarEnv():
     def reset_envs(self, env_ids) -> None:
         
         for agent in range(self.num_agents):
-            tile_idx = torch.randint(0, self.track_num_tiles, (len(env_ids),))  
+            tile_idx = 0*torch.randint(0, self.track_num_tiles, (len(env_ids),))  
             startpos = torch.tensor(self.track[1][tile_idx, :], device=self.device, dtype=torch.float).view(len(env_ids), 2)
             angs = torch.tensor(self.track[3][tile_idx], device=self.device, dtype=torch.float) + np.pi/2
             vels_long = rand(-0.1*self.reset_randomization[3], self.reset_randomization[3], (len(env_ids),), device=self.device)
@@ -199,8 +201,12 @@ class DmarEnv():
         
         for key in self.reward_terms.keys():
             self.info['episode']['reward_'+key] = (torch.mean(self.reward_terms[key][env_ids])/self.timeout_s).view(-1,1)
+            self.info['episode']['rewardstd_'+key] = (torch.std(self.reward_terms[key][env_ids])/self.timeout_s).view(-1,1)
+
             self.reward_terms[key][env_ids] = 0.
-        
+
+        self.info['episode']['resetcount'] = len(env_ids)
+
         if self.use_timeouts:
             self.info['time_outs'] = self.time_out_buf.view(-1,)
 
@@ -220,6 +226,11 @@ class DmarEnv():
         return self.obs_buf[:,0, :].clone(), self.privileged_obs, self.rew_buf[:,0].clone(), self.reset_buf[:,0].clone(), self.info
     
     def post_physics_step(self) -> None:
+        self.total_step += 1
+        #if ((self.total_step) % 1300) == 0:
+        #    self.resample_track()
+        #    self.viewer.draw_track()
+        #    self.reset()
         self.episode_length_buf +=1
         
         #get current tile positions
@@ -284,6 +295,14 @@ class DmarEnv():
                                                                                       self.track[5],
                                                                                       self.track[6]
                                                                                      )
+    def resample_track(self,) -> None:
+        seed = np.random.randint(100)
+        self.cfg['track']['seed'] = seed
+        self.track, self.tile_len, self.track_num_tiles = get_track(self.cfg, self.device)
+        print("track loaded with ", self.track_num_tiles, " tiles")
+        self.viewer.track = self.track
+        self.wheels_on_track_segments = torch.zeros((self.num_envs, self.num_agents, 4, self.track_num_tiles), requires_grad=False, device=self.device)>1
+    
     def get_state(self) -> torch.Tensor:
         return self.states[:,0,:]
     
@@ -292,7 +311,7 @@ class DmarEnv():
 
     def get_privileged_observations(self,)->Union[None, torch.Tensor]:
         return self.privileged_obs
- 
+    
     #gym stuff
     @property
     def observation_space(self):

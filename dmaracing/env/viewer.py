@@ -50,7 +50,7 @@ class Viewer:
         self.msg = []
         self.marked_env = None
         self.state = []
-        draw_track(self.track, self.cords2px_np)
+        self.draw_track()
         cv.imshow('dmaracing', self.img)
 
     def center_cam(self, state):
@@ -58,7 +58,7 @@ class Viewer:
         self.scale_y /= 0.7 
         #self.x_offset = int(-self.width/self.scale_x*state[0,0,0])
         #self.y_offset = int(self.height/self.scale_y*state[0,0,1])
-        draw_track(self.track, self.cords2px_np)
+        self.draw_track()
         
 
     def render(self, state):
@@ -67,6 +67,8 @@ class Viewer:
             #do drawing
             #listen for keypressed events
             self.img = self.track[0].copy()#255*np.ones((self.height, self.width, 3), np.uint8)
+            self.car_img = self.img.copy()
+
             if self.draw_multiagent:
                 self.draw_multiagent_rep(state)
             else:
@@ -96,24 +98,24 @@ class Viewer:
                 #print('[VIZ] env toggled to ', self.env_idx_render)
             if key == 119:
                 self.y_offset -= 40
-                draw_track(self.track, self.cords2px_np)
+                self.draw_track()
             if key == 115:
                 self.y_offset += 40
-                draw_track(self.track, self.cords2px_np)
+                self.draw_track()
             if key == 97:
                 self.x_offset += 40
-                draw_track(self.track, self.cords2px_np)
+                self.draw_track()
             if key == 100:
                 self.x_offset -= 40
-                draw_track(self.track, self.cords2px_np)
+                self.draw_track()
             if key == 46:
                 self.scale_x *= 1.2
                 self.scale_y *= 1.2
-                draw_track(self.track, self.cords2px_np)
+                self.draw_track()
             if key == 44:     
                 self.scale_x /= 1.2
                 self.scale_y /= 1.2
-                draw_track(self.track, self.cords2px_np)
+                self.draw_track()
         
         return key
     
@@ -145,8 +147,10 @@ class Viewer:
                 px_pts_car = px_car_box_world[..., idx].reshape(-1,1,2)
                 px_pts_heading = px_car_heading_world[..., idx].reshape(-1,1,2)
                 cv.polylines(self.img, [px_pts_car], isClosed = True, color = (int(self.colors[idx]),0,int(self.colors[idx])), thickness = self.thickness)
-                cv.polylines(self.img, [px_pts_heading], isClosed = True, color = (int(self.colors[idx]),0,int(self.colors[idx])), thickness = self.thickness)
-                cv.putText(self.img, str(idx), (px_x_number+ self.x_offset, px_y_number + self.y_offset), self.font, 0.5, (int(self.colors[idx]),0,int(self.colors[idx])), 1, cv.LINE_AA)   
+                cv.fillPoly(self.car_img, [px_pts_car], color = (int(self.colors[idx]),0,int(self.colors[idx]), 0.9))
+                cv.polylines(self.img, [px_pts_heading], isClosed = True, color = (0, 0, 255), thickness = 2)
+                cv.putText(self.img, str(idx), (px_x_number+ self.x_offset, px_y_number + self.y_offset-10), self.font, 0.5, (int(self.colors[idx]),0,int(self.colors[idx])), 1, cv.LINE_AA)   
+            self.img = cv.addWeighted(self.car_img, 0.3, self.img, 0.7, 0)
 
     def draw_singleagent_rep(self, state):
             transl = state[:, 0, 0:2]
@@ -176,8 +180,10 @@ class Viewer:
                 px_pts_car = px_car_box_world[..., idx].reshape(-1,1,2)
                 px_pts_heading = px_car_heading_world[..., idx].reshape(-1,1,2)
                 cv.polylines(self.img, [px_pts_car], isClosed = True, color = (int(self.colors[idx]),0,int(self.colors[idx])), thickness = self.thickness)
+                cv.fillPoly(self.car_img, [px_pts_car], color = (int(self.colors[idx]),0,int(self.colors[idx]), 0.9))
                 cv.polylines(self.img, [px_pts_heading], isClosed = True, color = (int(self.colors[idx]),0,int(self.colors[idx])), thickness = self.thickness)
-                cv.putText(self.img, str(idx), (px_x_number+ self.x_offset, px_y_number + self.y_offset), self.font, 0.5, (int(self.colors[idx]),0,int(self.colors[idx])), 1, cv.LINE_AA)
+                cv.putText(self.img, str(idx), (px_x_number+ self.x_offset, px_y_number + self.y_offset -10), self.font, 0.5, (int(self.colors[idx]),0,int(self.colors[idx])), 1, cv.LINE_AA)
+            self.img = cv.addWeighted(self.car_img, 0.3, self.img, 0.7, 0)
 
     def cords2px(self, pts):
         pts = pts.cpu().numpy()
@@ -224,3 +230,6 @@ class Viewer:
             pos = self.state[self.marked_env, 0, 0:2].view(1,-1).cpu().numpy()
             px = self.cords2px_np(pos)
             cv.circle(self.img, (px[0,0],px[0,1]), 100, (250,150,0))
+    
+    def draw_track(self,):
+        draw_track(self.track, self.cords2px_np)

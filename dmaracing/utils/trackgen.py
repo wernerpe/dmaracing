@@ -7,7 +7,7 @@ import cv2 as cv
 from scipy.sparse import coo_matrix
 import torch
  
-def get_track(cfg, device):
+def get_track(cfg, device, ccw = False):
     SCALE = cfg['track']['SCALE'] # Track scale
     TRACK_RAD = cfg['track']['TRACK_RAD'] / SCALE  # Track is heavily morphed circle with this radius
     CHECKPOINTS = cfg['track']['CHECKPOINTS']
@@ -145,6 +145,9 @@ def get_track(cfg, device):
     alphas = []
 
     track_poly_verts = []
+    border_poly_verts = []
+    border_poly_col = []
+
     for i in range(len(track)):
         good = True
         oneside = 0
@@ -189,7 +192,7 @@ def get_track(cfg, device):
         centerline[i,1] = track[i][3]            
         alphas.append(track[i][1])
         
-        '''
+        
         if border[i]:
             side = np.sign(beta2 - beta1)
             b1_l = (
@@ -208,39 +211,70 @@ def get_track(cfg, device):
                 x2 + side * (TRACK_WIDTH + BORDER) * math.cos(beta2),
                 y2 + side * (TRACK_WIDTH + BORDER) * math.sin(beta2),
             )
-            road_poly.append(
-                ([b1_l, b1_r, b2_r, b2_l], (1, 1, 1) if i % 2 == 0 else (1, 0, 0))
-            )
-        '''
-    track_poly_verts = np.array(track_poly_verts)
-    A, b, S_mat = construct_poly_track_eqns(track_poly_verts, device)
-    return [img, centerline, np.array(track_poly_verts), np.array(alphas), A, b, S_mat], TRACK_DETAIL_STEP, len(track_poly_verts)
 
-def draw_track(track, cords2px):
+            vert = np.zeros((4,2))
+            vert[0,:] = b1_l
+            vert[1,:] = b1_r
+            vert[2,:] = b2_r
+            vert[3,:] = b2_l
+            border_poly_verts.append(vert)
+            border_poly_col.append((255, 255, 255) if i % 2 == 0 else (0, 0, 255))
+            #road_poly.append(
+            #    ([b1_l, b1_r, b2_r, b2_l], (1, 1, 1) if i % 2 == 0 else (1, 0, 0))
+            #)
+
+    if ccw:    
+        track_poly_verts = np.array(track_poly_verts)
+        border_poly_verts = np.array(border_poly_verts)
+        alphas = np.array(alphas)
+    else:
+        track_poly_verts = np.array(track_poly_verts)[::-1]
+        border_poly_verts = np.array(border_poly_verts)[::-1]
+        alphas = np.array(alphas[::-1]) + np.pi 
+        centerline = centerline[::-1]
+
+    A, b, S_mat = construct_poly_track_eqns(track_poly_verts, device)
+    return [img, centerline, np.array(track_poly_verts), alphas, A, b, S_mat, border_poly_verts, border_poly_col], TRACK_DETAIL_STEP, len(track_poly_verts)
+
+def draw_track(track, cords2px, cl = True):
     img = track[0]
     centerline = track[1].copy()
     track_poly_verts = track[2].copy()
-    img[:] = 255 
-    underlay = img.copy()
+    border_poly_verts = track[7].copy()
+    border_poly_col = track[8]
+    
+    img[:, :, 0] = 130
+    img[:, :, 1] = 255
+    img[:, :, 2] = 130
+    
     overlay = img.copy()
     for idx in range(len(track_poly_verts)):
         verts = track_poly_verts[idx, :, :]
         vert_px = cords2px(verts)
-        cv.fillPoly(underlay, [vert_px], color = (int(255/len(track_poly_verts)*idx),0,0))
+        cv.fillPoly(img, [vert_px], color = (178,178,178) if idx%2 ==0 else (168,168,168))
         cv.polylines(overlay, [vert_px], isClosed = True,  color = (0,0,0), thickness = 1)
-
+    
+    
     verts = track[2][0, :, :].copy()
     vert_px = cords2px(verts)
-    #cv.fillPoly(underlay, [vert_px], color = (int(255/len(track_poly_verts)*idx),0,0))
     cv.polylines(overlay, [vert_px], isClosed = True,  color = (0,0 ,255), thickness = 3)
     
-    img = cv.addWeighted(underlay, 0.3, img, 0.9, 0)
+    #img = cv.addWeighted(underlay, 0.3, img, 0.9, 0)
+    if cl:
+        cl_px = cords2px(centerline)
+        cv.polylines(img, [cl_px], isClosed = True, color = (0,0,0), thickness = 1)
+        num_cl = len(cl_px)
+        for idx in range(num_cl):
+            cv.circle(img, (cl_px[idx, 0], cl_px[idx, 1]), 1, (0,0,int(idx/num_cl *255)))
+
+    img = cv.addWeighted(overlay, 0.01, img, 0.99, 0)
     
-    cl_px = cords2px(centerline)
-    cv.polylines(img, [cl_px], isClosed = True, color = (0,0,0), thickness = 1)
-    for idx in range(len(cl_px)):
-        cv.circle(img, (cl_px[idx, 0], cl_px[idx, 1]),1,(0,0,255))
-    img = cv.addWeighted(overlay, 0.1, img, 0.9, 0)
+    for idx in range(len(border_poly_verts)):
+        verts = border_poly_verts[idx, :, :]
+        vert_px = cords2px(verts)
+        cv.fillPoly(img, [vert_px], color = border_poly_col[idx])
+        
+
     draw_cord_axs(img, cords2px)
     track[0] = img
     
