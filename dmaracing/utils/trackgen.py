@@ -21,11 +21,6 @@ def get_track(cfg, device, ccw = True):
     width = cfg['viewer']['width']
     height = cfg['viewer']['height']
 
-    img = 255*np.ones((height, width, 3), np.uint8)
-    ov = img.copy()
-    polys = img.copy()
-    cv.imshow('dmaracing', img)
-
     np.random.seed(seed)
     # Create checkpoints
     checkpoints = []
@@ -234,14 +229,13 @@ def get_track(cfg, device, ccw = True):
         centerline = centerline[::-1]
 
     A, b, S_mat = construct_poly_track_eqns(track_poly_verts, device)
-    return [img, centerline, np.array(track_poly_verts), alphas, A, b, S_mat, border_poly_verts, border_poly_col], TRACK_DETAIL_STEP, len(track_poly_verts)
+    return [centerline, track_poly_verts, alphas, A, b, S_mat, border_poly_verts, border_poly_col], TRACK_DETAIL_STEP, len(track_poly_verts)
 
-def draw_track(track, cords2px, cl = False):
-    img = track[0]
-    centerline = track[1].copy()
-    track_poly_verts = track[2].copy()
-    border_poly_verts = track[7].copy()
-    border_poly_col = track[8]
+def draw_track(img, track, cords2px, cl = False):
+    centerline = track[0].copy()
+    track_poly_verts = track[1].copy()
+    border_poly_verts = track[6].copy()
+    border_poly_col = track[7]
     
     img[:, :, 0] = 130
     img[:, :, 1] = 255
@@ -255,7 +249,7 @@ def draw_track(track, cords2px, cl = False):
         cv.polylines(overlay, [vert_px], isClosed = True,  color = (0,0,0), thickness = 1)
     
     
-    verts = track[2][0, :, :].copy()
+    verts = track[1][0, :, :].copy()
     vert_px = cords2px(verts)
     cv.polylines(overlay, [vert_px], isClosed = True,  color = (0,0 ,255), thickness = 3)
     
@@ -267,16 +261,14 @@ def draw_track(track, cords2px, cl = False):
         for idx in range(num_cl):
             cv.circle(img, (cl_px[idx, 0], cl_px[idx, 1]), 1, (0,0,int(idx/num_cl *255)))
 
-    img = cv.addWeighted(overlay, 0.01, img, 0.99, 0)
-    
     for idx in range(len(border_poly_verts)):
         verts = border_poly_verts[idx, :, :]
         vert_px = cords2px(verts)
         cv.fillPoly(img, [vert_px], color = border_poly_col[idx])
-        
-
+    
+    img = cv.addWeighted(overlay, 0.01, img, 0.99, 0)
+      
     draw_cord_axs(img, cords2px)
-    track[0] = img
     
 def draw_cord_axs(img, cords2px):
     xverts = np.array([[-10,0],[10,0]])
@@ -310,3 +302,7 @@ def construct_poly_track_eqns(track_poly_verts, device):
     S_mat = torch.kron(S_mat, tmp)
     return A, b, S_mat
 
+def get_track_ensemble(Ntracks, cfg, device):
+    tracks = []
+    for _ in range(Ntracks):
+        tracks.append()

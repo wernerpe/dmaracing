@@ -39,6 +39,7 @@ class Viewer:
         self.car_heading_m = torch.transpose(self.car_heading_m, 0,1)
         self.R = torch.zeros((2, 2, self.num_cars), device=self.device, dtype = torch.float)
         self.img = 255*np.ones((self.height, self.width, 3), np.uint8)
+        self.track_canvas = self.img.copy()
         self.colors = 255.0/self.num_cars*np.arange(self.num_cars) 
         self.font = cv.FONT_HERSHEY_SIMPLEX
         self.do_render = True
@@ -51,7 +52,7 @@ class Viewer:
         self.marked_env = None
         self.state = []
         self.draw_track()
-        cv.imshow('dmaracing', self.img)
+        cv.imshow('dmaracing', self.track_canvas)
 
     def center_cam(self, state):
         self.scale_x /= 0.7
@@ -66,7 +67,7 @@ class Viewer:
         if self.do_render:
             #do drawing
             #listen for keypressed events
-            self.img = self.track[0].copy()#255*np.ones((self.height, self.width, 3), np.uint8)
+            self.img = self.track_canvas.copy()
             self.car_img = self.img.copy()
 
             if self.draw_multiagent:
@@ -232,4 +233,4 @@ class Viewer:
             cv.circle(self.img, (px[0,0],px[0,1]), 100, (250,150,0))
     
     def draw_track(self,):
-        draw_track(self.track, self.cords2px_np, self.cfg['track']['draw_centerline'])
+        draw_track(self.track_canvas, self.track, self.cords2px_np, self.cfg['track']['draw_centerline'])

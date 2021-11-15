@@ -46,8 +46,8 @@ class DmarEnv():
 
         self.track, self.tile_len, self.track_num_tiles = get_track(cfg, self.device, cfg['track']['ccw'])
         print("track loaded with ", self.track_num_tiles, " tiles")
-        self.centerline = torch.tensor(self.track[1].copy(), dtype=torch.float, device=self.device, requires_grad=False)
-        self.tile_heading = torch.tensor(self.track[3], device=self.device, dtype=torch.float, requires_grad=False) + np.pi/2
+        self.centerline = torch.tensor(self.track[0].copy(), dtype=torch.float, device=self.device, requires_grad=False)
+        self.tile_heading = torch.tensor(self.track[2], device=self.device, dtype=torch.float, requires_grad=False) + np.pi/2
         if not self.headless:
             self.viewer = Viewer(cfg, self.track)
         self.info = {}
@@ -173,8 +173,8 @@ class DmarEnv():
         
         for agent in range(self.num_agents):
             tile_idx = 0*torch.randint(0, self.track_num_tiles, (len(env_ids),))  
-            startpos = torch.tensor(self.track[1][tile_idx, :], device=self.device, dtype=torch.float).view(len(env_ids), 2)
-            angs = torch.tensor(self.track[3][tile_idx], device=self.device, dtype=torch.float) + np.pi/2
+            startpos = torch.tensor(self.track[0][tile_idx, :], device=self.device, dtype=torch.float).view(len(env_ids), 2)
+            angs = torch.tensor(self.track[2][tile_idx], device=self.device, dtype=torch.float) + np.pi/2
             vels_long = rand(-0.1*self.reset_randomization[3], self.reset_randomization[3], (len(env_ids),), device=self.device)
             vels_lat = rand(-self.reset_randomization[4], self.reset_randomization[4], (len(env_ids),), device=self.device)
             dir_x = torch.cos(angs)
@@ -291,9 +291,9 @@ class DmarEnv():
                                                                                       self.zero_pad,
                                                                                       self.collide,
                                                                                       self.wheels_on_track_segments,
+                                                                                      self.track[3],
                                                                                       self.track[4],
-                                                                                      self.track[5],
-                                                                                      self.track[6]
+                                                                                      self.track[5]
                                                                                      )
     def resample_track(self,) -> None:
         seed = np.random.randint(100)
