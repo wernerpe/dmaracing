@@ -43,19 +43,13 @@ class DmarEnv():
         self.obs_space = spaces.Box(np.ones(self.num_obs)*-np.Inf, np.ones(self.num_obs)*np.Inf)
         self.state_space = spaces.Box(np.ones(self.num_internal_states)*-np.Inf, np.ones(self.num_internal_states)*np.Inf)
         self.act_space = spaces.Box(np.ones(self.num_actions)*-np.Inf, np.ones(self.num_actions)*np.Inf)
-        #it = 0
-        #while it<100:
-        #    cfg['track']['seed'] = it 
-        #    val = get_track(cfg, self.device, cfg['track']['ccw'])
-        #    if val:
-        #        self.track, self.tile_len, self.track_num_tiles = val
-        #        break 
-        #    it+=3
+        
         trackidx = 4
         te, self.tile_len, self.track_tile_counts = get_track_ensemble(11, cfg, self.device)
         self.track = [te[0][trackidx], te[1][trackidx], te[2][trackidx,...], te[3][trackidx,...], te[4][trackidx,...].view(-1,), te[5][trackidx,...], te[6][trackidx], te[7][trackidx]]
-        self.track_num_tiles = np.max(self.track_tile_counts)
-        print("track loaded with ", self.track_num_tiles, " tiles")
+        self.max_track_num_tiles = np.max(self.track_tile_counts)
+        self.track_tile_counts = torch.tensor(self.track_tile_counts, device=self.device, requires_grad=False)
+        #print("track loaded with ", self.track_num_tiles, " tiles")
         self.centerline = self.track[0]
         self.tile_heading = torch.tensor(self.track[2], device=self.device, dtype=torch.float, requires_grad=False) + np.pi/2
         if not self.headless:
@@ -120,7 +114,7 @@ class DmarEnv():
         
         theta = self.states[:,:,2].unsqueeze(2)
         vels = self.states[:,:,3:6].clone()
-        tile_idx = torch.remainder(self.active_track_tile.unsqueeze(2) + 4*torch.arange(self.horizon, device=self.device, dtype=torch.long).unsqueeze(0).unsqueeze(0), self.track_num_tiles)
+        tile_idx = torch.remainder(self.active_track_tile.unsqueeze(2) + 4*torch.arange(self.horizon, device=self.device, dtype=torch.long).unsqueeze(0).unsqueeze(0), self.track_tile_counts.view(-1,1))
         self.lookahead = (self.centerline[tile_idx, :] - torch.tile(self.states[:,:,0:2].unsqueeze(2), (1,1,self.horizon, 1)))
         
         self.R[:, :, 0, 0 ] = torch.cos(theta[:,:,0])
@@ -182,7 +176,7 @@ class DmarEnv():
     def reset_envs(self, env_ids) -> None:
         
         for agent in range(self.num_agents):
-            tile_idx = 0*torch.randint(0, self.track_num_tiles, (len(env_ids),))  
+            tile_idx = 0*(torch.rand((len(env_ids),))*self.track_tile_counts).to(dtype=torch.long)  
             startpos = torch.tensor(self.track[0][tile_idx, :], device=self.device, dtype=torch.float).view(len(env_ids), 2)
             angs = torch.tensor(self.track[2][tile_idx], device=self.device, dtype=torch.float) + np.pi/2
             vels_long = rand(-0.1*self.reset_randomization[3], self.reset_randomization[3], (len(env_ids),), device=self.device)
