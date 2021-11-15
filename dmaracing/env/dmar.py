@@ -43,17 +43,20 @@ class DmarEnv():
         self.obs_space = spaces.Box(np.ones(self.num_obs)*-np.Inf, np.ones(self.num_obs)*np.Inf)
         self.state_space = spaces.Box(np.ones(self.num_internal_states)*-np.Inf, np.ones(self.num_internal_states)*np.Inf)
         self.act_space = spaces.Box(np.ones(self.num_actions)*-np.Inf, np.ones(self.num_actions)*np.Inf)
-        it = 0
-        while it<100:
-            cfg['track']['seed'] = it 
-            val = get_track(cfg, self.device, cfg['track']['ccw'])
-            if val:
-                self.track, self.tile_len, self.track_num_tiles = val
-                break 
-            it+=3
-        _ = get_track_ensemble(11, cfg, self.device)
+        #it = 0
+        #while it<100:
+        #    cfg['track']['seed'] = it 
+        #    val = get_track(cfg, self.device, cfg['track']['ccw'])
+        #    if val:
+        #        self.track, self.tile_len, self.track_num_tiles = val
+        #        break 
+        #    it+=3
+        trackidx = 4
+        te, self.tile_len, self.track_tile_counts = get_track_ensemble(11, cfg, self.device)
+        self.track = [te[0][trackidx], te[1][trackidx], te[2][trackidx,...], te[3][trackidx,...], te[4][trackidx,...].view(-1,), te[5][trackidx,...], te[6][trackidx], te[7][trackidx]]
+        self.track_num_tiles = np.max(self.track_tile_counts)
         print("track loaded with ", self.track_num_tiles, " tiles")
-        self.centerline = torch.tensor(self.track[0].copy(), dtype=torch.float, device=self.device, requires_grad=False)
+        self.centerline = self.track[0]
         self.tile_heading = torch.tensor(self.track[2], device=self.device, dtype=torch.float, requires_grad=False) + np.pi/2
         if not self.headless:
             self.viewer = Viewer(cfg, self.track)

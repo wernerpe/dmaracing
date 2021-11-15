@@ -42,7 +42,7 @@ track:
   verbose: False
   seed: 1
   ccw: True
-  draw_centerline: False
+  draw_centerline: True
 
 learn:
   use_timeouts: True
