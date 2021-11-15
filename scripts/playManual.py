@@ -9,7 +9,6 @@ def play():
     cfg['viewer']['multiagent'] = True
     cfg['learn']['defaultactions'] = [0,0,0]
     cfg['learn']['actionscale'] = [1,1,1]
-    
     env = DmarEnv(cfg, args)
     obs = env.obs_buf
 

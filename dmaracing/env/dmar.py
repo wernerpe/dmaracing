@@ -7,7 +7,7 @@ from dmaracing.env.viewer import Viewer
 from dmaracing.utils.helpers import rand
 from typing import Tuple, Dict, Union
 import numpy as np
-from dmaracing.utils.trackgen import get_track
+from dmaracing.utils.trackgen import get_track, get_track_ensemble
 
 class DmarEnv():
     def __init__(self, cfg, args) -> None:
@@ -43,8 +43,15 @@ class DmarEnv():
         self.obs_space = spaces.Box(np.ones(self.num_obs)*-np.Inf, np.ones(self.num_obs)*np.Inf)
         self.state_space = spaces.Box(np.ones(self.num_internal_states)*-np.Inf, np.ones(self.num_internal_states)*np.Inf)
         self.act_space = spaces.Box(np.ones(self.num_actions)*-np.Inf, np.ones(self.num_actions)*np.Inf)
-
-        self.track, self.tile_len, self.track_num_tiles = get_track(cfg, self.device, cfg['track']['ccw'])
+        it = 0
+        while it<100:
+            cfg['track']['seed'] = it 
+            val = get_track(cfg, self.device, cfg['track']['ccw'])
+            if val:
+                self.track, self.tile_len, self.track_num_tiles = val
+                break 
+            it+=3
+        _ = get_track_ensemble(11, cfg, self.device)
         print("track loaded with ", self.track_num_tiles, " tiles")
         self.centerline = torch.tensor(self.track[0].copy(), dtype=torch.float, device=self.device, requires_grad=False)
         self.tile_heading = torch.tensor(self.track[2], device=self.device, dtype=torch.float, requires_grad=False) + np.pi/2

@@ -106,8 +106,8 @@ def get_track(cfg, device, ccw = True):
     i = len(track)
     while True:
         i -= 1
-        #if i == 0:
-        #    return False  # Failed
+        if i == 0:
+            return False  # Failed
         pass_through_start = (
             track[i][0] > start_alpha and track[i - 1][0] <= start_alpha
         )
@@ -131,8 +131,8 @@ def get_track(cfg, device, ccw = True):
         np.square(first_perp_x * (track[0][2] - track[-1][2]))
         + np.square(first_perp_y * (track[0][3] - track[-1][3]))
     )
-    #if well_glued_together > TRACK_DETAIL_STEP:
-    #    return False
+    if well_glued_together > TRACK_DETAIL_STEP:
+        return False
 
     # Red-white border on hard turns
     border = [False] * len(track)
@@ -228,8 +228,9 @@ def get_track(cfg, device, ccw = True):
         alphas = np.array(alphas[::-1]) + np.pi 
         centerline = centerline[::-1]
 
-    A, b, S_mat = construct_poly_track_eqns(track_poly_verts, device)
-    return [centerline, track_poly_verts, alphas, A, b, S_mat, border_poly_verts, border_poly_col], TRACK_DETAIL_STEP, len(track_poly_verts)
+    As, b, S_mat = construct_poly_track_eqns(track_poly_verts, device)
+    val = [centerline, track_poly_verts, alphas, As, b, S_mat, border_poly_verts, border_poly_col], TRACK_DETAIL_STEP, len(track_poly_verts)
+    return val
 
 def draw_track(img, track, cords2px, cl = False):
     centerline = track[0].copy()
@@ -302,7 +303,46 @@ def construct_poly_track_eqns(track_poly_verts, device):
     S_mat = torch.kron(S_mat, tmp)
     return A, b, S_mat
 
+
 def get_track_ensemble(Ntracks, cfg, device):
     tracks = []
-    for _ in range(Ntracks):
-        tracks.append()
+    track_tile_counts =[]
+    centerlines = []
+    poly_verts_tracks = []
+    alphas_tracks =[]
+    A_tracks = []
+    b_tracks = []
+    S_mats = []
+    border_poly_verts =[]
+    border_poly_cols =[]
+    
+    num_tracks = 0
+    it = 0
+    while num_tracks < Ntracks+1:
+        print(it)
+        ccw = np.random.rand()<0.5
+        cfg['track']['seed'] = it
+        return_val = get_track(cfg, device, ccw)
+        
+        if not return_val:
+            track, tile_len, track_num_tiles = return_val
+            centerlines.append(track[0])
+            poly_verts_tracks.append(track[1])
+            alphas_tracks.append(track[2])
+            A_tracks.append(track[3])
+            b_tracks.append(track[4])
+            S_mats.append(track[5])
+            border_poly_verts.append(track[6])
+            border_poly_cols.append(track[7])
+            track_tile_counts.append(track_num_tiles)
+            num_tracks +=1
+        else:
+            print('failed')
+        it +=1
+
+    max_tile_count = 0#torch.max(track_tile_counts)
+
+    #[centerline, track_poly_verts, alphas, A, b, S_mat, border_poly_verts, border_poly_col]
+    return [centerlines, poly_verts_tracks, alphas_tracks, A_tracks, b_tracks, S_mats, border_poly_verts, border_poly_cols] , tile_len, track_tile_counts
+
+

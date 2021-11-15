@@ -108,7 +108,7 @@ def step_cars(state : torch.Tensor,
     p_force *= 205000 *mod_par['SIZE']**2
     
 
-    #check which tires are on track, wierd shit going on there with torch jit script
+    #check which tires are on track
     wheels_on_track_segments_concat = 1.0 * (torch.einsum('tc, eawc  -> eawt', A_track, wheel_locations_world) - b_track +0.1>=0 )
     wheels_on_track_segments[:] = torch.einsum('jt, eawt -> eawj', S_track, wheels_on_track_segments_concat) >= 3.5
     wheel_on_track = torch.any(wheels_on_track_segments, dim = 3)
