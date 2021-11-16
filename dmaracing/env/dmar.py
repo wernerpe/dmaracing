@@ -117,6 +117,7 @@ class DmarEnv():
         
         #self.step(self.actions)
         self.total_step = 0
+        self.all_envs = torch.arange(self.num_envs, dtype = torch.long)
         self.reset()
         self.step(self.actions[:,0,:])
         self.viewer.center_cam(self.states)
@@ -133,8 +134,13 @@ class DmarEnv():
         
         theta = self.states[:,:,2].unsqueeze(2)
         vels = self.states[:,:,3:6].clone()
-        tile_idx = torch.remainder(self.active_track_tile.unsqueeze(2) + 4*torch.arange(self.horizon, device=self.device, dtype=torch.long).unsqueeze(0).unsqueeze(0), self.track_tile_counts.view(-1,1))
-        self.lookahead = (self.centerline[tile_idx, :] - torch.tile(self.states[:,:,0:2].unsqueeze(2), (1,1,self.horizon, 1)))
+        tile_idx_unwrapped = self.active_track_tile.unsqueeze(2) + (4*torch.arange(self.horizon, device=self.device, dtype=torch.long)).unsqueeze(0).unsqueeze(0)
+        tile_idx = torch.remainder(tile_idx_unwrapped, self.active_track_tile_counts.view(-1,1,1))
+
+        
+        centers = self.active_centerlines[:, tile_idx, :]
+        centers = centers[self.all_envs,self.all_envs, ...]
+        self.lookahead = (centers - torch.tile(self.states[:,:,0:2].unsqueeze(2), (1,1,self.horizon, 1)))
         
         self.R[:, :, 0, 0 ] = torch.cos(theta[:,:,0])
         self.R[:, :, 0, 1 ] = torch.sin(theta[:,:,0])
@@ -157,8 +163,11 @@ class DmarEnv():
     def compute_rewards(self,) -> None:
         
         #print((self.active_track_tile[0,0])*self.tile_len)
-        tile_car_vec = self.states[:,:, 0:2] - self.centerline[self.active_track_tile, :]        
-        angs = self.tile_heading[self.active_track_tile]
+        tile_points = self.active_centerlines[:, self.active_track_tile, :]
+        tile_points = tile_points[self.all_envs, self.all_envs, ...] 
+        tile_car_vec = self.states[:,:, 0:2] - tile_points        
+        angs = self.active_alphas[:,self.active_track_tile]
+        angs = angs[self.all_envs, self.all_envs, ...]
         trackdir = torch.stack((torch.cos(angs), torch.sin(angs)), dim = 2) 
         trackperp = torch.stack((- torch.sin(angs), torch.cos(angs)), dim = 2) 
 
@@ -195,9 +204,9 @@ class DmarEnv():
     def reset_envs(self, env_ids) -> None:
         
         for agent in range(self.num_agents):
-            tile_idx = 0*(torch.rand((len(env_ids),))*self.track_tile_counts).to(dtype=torch.long)  
-            startpos = torch.tensor(self.track[0][tile_idx, :], device=self.device, dtype=torch.float).view(len(env_ids), 2)
-            angs = torch.tensor(self.track[2][tile_idx], device=self.device, dtype=torch.float) + np.pi/2
+            tile_idx = 0*(torch.rand((len(env_ids),), device=self.device) * self.active_track_tile_counts[env_ids]).to(dtype=torch.long)  
+            startpos = self.active_centerlines[env_ids, tile_idx, :]
+            angs = self.active_alphas[env_ids, tile_idx]
             vels_long = rand(-0.1*self.reset_randomization[3], self.reset_randomization[3], (len(env_ids),), device=self.device)
             vels_lat = rand(-self.reset_randomization[4], self.reset_randomization[4], (len(env_ids),), device=self.device)
             dir_x = torch.cos(angs)
@@ -212,7 +221,7 @@ class DmarEnv():
             self.states[env_ids, agent, self.vn['S_STEER']] = rand(-self.reset_randomization[6], self.reset_randomization[6], (len(env_ids),), device=self.device)
             self.states[env_ids, agent, self.vn['S_W0']:self.vn['S_W3']+1] = (vels_long/self.modelParameters['WHEEL_R']).unsqueeze(1)
         
-        dists = torch.norm(self.states[env_ids,:, 0:2].unsqueeze(2)-self.centerline.unsqueeze(0).unsqueeze(0), dim=3)
+        dists = torch.norm(self.states[env_ids,:, 0:2].unsqueeze(2)-self.active_centerlines[env_ids].unsqueeze(1), dim=3)
         self.old_active_track_tile[env_ids, :] = torch.sort(dists, dim = 2)[1][:,:, 0]
         self.episode_length_buf[env_ids] = 0.0
         self.old_track_progress [env_ids] = 0.0
@@ -257,7 +266,7 @@ class DmarEnv():
         self.episode_length_buf +=1
         
         #get current tile positions
-        dists = torch.norm(self.states[:,:, 0:2].unsqueeze(2)-self.centerline.unsqueeze(0).unsqueeze(0), dim=3)
+        dists = torch.norm(self.states[:, :, 0:2].unsqueeze(2)-self.active_centerlines.unsqueeze(1), dim=3)
         sort = torch.sort(dists, dim = 2)
         self.dist_active_track_tile = sort[0][:,:, 0]
         self.active_track_tile = sort[1][:,:, 0]
@@ -321,15 +330,13 @@ class DmarEnv():
     def resample_track(self, env_ids) -> None:
         self.active_track_ids[env_ids] = torch.randint(0, self.num_tracks, (len(env_ids),1), device = self.device, requires_grad=False, dtype = torch.long)
         
-        self.active_centerlines = self.track_centerlines[self.active_track_ids]
-        self.active_alphas =  self.track_alphas[self.active_track_ids]
-        self.active_A = self.track_A[self.active_track_ids]
-        self.active_b = self.track_b[self.active_track_ids]
-        self.active_S = self.track_S[self.active_track_ids]
-        #self.active_track_poly_verts = self.track_poly_verts[self.active_track_ids]
-        #self.active_bpv = self.track_border_poly_verts[self.active_track_ids]
-        #self.active_bpc = self.border_poly_cols[self.active_track_ids]
-
+        self.active_centerlines[env_ids] = self.track_centerlines[self.active_track_ids[env_ids]]
+        self.active_alphas =  self.track_alphas[self.active_track_ids[env_ids]]
+        self.active_A = self.track_A[self.active_track_ids[env_ids]]
+        self.active_b = self.track_b[self.active_track_ids[env_ids]]
+        self.active_S = self.track_S[self.active_track_ids[env_ids]]
+        self.active_track_tile_counts[env_ids] = self.track_tile_counts[env_ids]
+        
 
     def get_state(self) -> torch.Tensor:
         return self.states[:,0,:]

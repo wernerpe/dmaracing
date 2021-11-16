@@ -350,6 +350,7 @@ def get_track_ensemble(Ntracks, cfg, device):
         b[idx, :A_tracks[idx].shape[0]] = b_tracks[idx]
         S_mat[idx, :S_mats[idx].shape[0], :S_mats[idx].shape[1]] = S_mats[idx]
         centerline[idx, :len(centerlines[idx]), :] = torch.tensor(centerlines[idx].copy(), device = device, dtype=torch.float, requires_grad = False)
+        alpha[idx, :len(centerlines[idx])] = torch.tensor(alphas_tracks[idx].copy(), device = device, dtype=torch.float, requires_grad = False)
     #[centerline, track_poly_verts, alphas, A, b, S_mat, border_poly_verts, border_poly_col]
     return [centerline, poly_verts_tracks, alpha, A, b, S_mat, border_poly_verts, border_poly_cols] , tile_len, track_tile_counts
 
