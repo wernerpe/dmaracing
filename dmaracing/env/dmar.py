@@ -7,6 +7,7 @@ from dmaracing.env.viewer import Viewer
 from dmaracing.utils.helpers import rand
 from typing import Tuple, Dict, Union
 import numpy as np
+import time
 from dmaracing.utils.trackgen import get_track, get_track_ensemble
 
 class DmarEnv():
@@ -15,7 +16,9 @@ class DmarEnv():
         self.rl_device = args.device
         self.headless = args.headless
 
-
+        #timing
+        self.dt1 = []
+        self.dt2 = []
 
         #variable names and indices
         self.vn = get_varnames() 
@@ -120,7 +123,8 @@ class DmarEnv():
         self.viewer.center_cam(self.states)
         if not self.headless:
             self.render()
-
+        
+        
                
     def compute_observations(self,) -> None:
         #get points along centerline
@@ -249,9 +253,21 @@ class DmarEnv():
         self.actions[:,0, 2] = self.action_scales[2]*actions[:,2] + self.default_actions[2]
     
         #print(self.actions[0,0,:])
+        t1 = time.time()
         for _ in range(self.decimation):
             self.simulate()
+        t2 = time.time()
+        self.dt1.append(t2-t1)
+        t3 = time.time()
         self.post_physics_step()
+        t4 = time.time()
+        self.dt2.append(t4-t3)
+        if (self.total_step % 100)==0:
+            mdt1 = np.mean(np.array(self.dt1))
+            mdt2 = np.mean(np.array(self.dt2))
+            print('simtime avg: ', mdt1)
+            print('postphys avg: ', mdt2)
+        
         return self.obs_buf[:,0, :].clone(), self.privileged_obs, self.rew_buf[:,0].clone(), self.reset_buf[:,0].clone(), self.info
     
     def post_physics_step(self) -> None:
