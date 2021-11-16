@@ -56,11 +56,7 @@ class DmarEnv():
         self.active_A = self.track_A[self.active_track_ids]
         self.active_b = self.track_b[self.active_track_ids]
         self.active_S = self.track_S[self.active_track_ids]
-        #self.active_track_poly_verts = self.track_poly_verts[self.active_track_ids, ...]
-        #self.active_bpv = self.track_border_poly_verts[self.active_track_ids]
-        #self.active_bpc = self.border_poly_cols[self.active_track_ids]
-
-        #self.track = [te[0][trackidx], te[1][trackidx], te[2][trackidx,...], te[3][trackidx,...], te[4][trackidx,...].view(-1,), te[5][trackidx,...], te[6][trackidx], te[7][trackidx]]
+        
         self.max_track_num_tiles = np.max(self.track_tile_counts)
         self.track_tile_counts = torch.tensor(self.track_tile_counts, device=self.device, requires_grad=False)
         self.active_track_tile_counts = self.track_tile_counts[self.active_track_ids]
@@ -72,6 +68,7 @@ class DmarEnv():
                                  self.track_poly_verts, 
                                  self.track_border_poly_verts, 
                                  self.track_border_poly_cols,
+                                 self.track_tile_counts,
                                  self.active_track_ids)
         self.info = {}
         

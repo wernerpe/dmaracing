@@ -8,16 +8,16 @@ import os
 def play():
     chkpt = 240
     cfg['sim']['numEnv'] = 9
-    cfg['sim']['numAgents'] = 2
+    cfg['sim']['numAgents'] = 1
     cfg['learn']['timeout'] = 100
     cfg['learn']['offtrack_reset'] = 3
     cfg['track']['seed'] = 11
     cfg['track']['CHECKPOINTS'] = 10
     cfg['track']['TRACK_RAD'] = 700
-    cfg['viewer']['multiagent'] = False
+    cfg['viewer']['multiagent'] = True
 
     env = DmarEnv(cfg, args)
-    env.viewer.mark_env(0)
+    #env.viewer.mark_env(0)
     obs = env.obs_buf[:,0,:]
 
     dir, model = get_run(logdir, run = -3, chkpt=chkpt)

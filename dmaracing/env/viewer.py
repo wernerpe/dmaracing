@@ -13,17 +13,19 @@ class Viewer:
                  track_poly_verts, 
                  track_border_poly_verts, 
                  track_border_poly_cols,
+                 track_tile_counts,
                  active_track_ids):
 
         self.device = 'cuda:0'
         self.cfg = cfg
 
-        self.track_centerlines = track_centerlines
+        self.track_centerlines = track_centerlines.cpu().numpy()
         self.track_poly_verts = track_poly_verts
         self.track_border_poly_verts = track_border_poly_verts 
         self.track_border_poly_cols = track_border_poly_cols
         self.active_track_ids = active_track_ids
-        
+        self.track_tile_counts = track_tile_counts.cpu().numpy()
+
         #load cfg
         self.width = self.cfg['viewer']['width']
         self.height = self.cfg['viewer']['height']
@@ -109,9 +111,11 @@ class Viewer:
         if self.do_render:
             if key == 114:
                 self.env_idx_render = np.mod(self.env_idx_render+1, self.num_envs)
+                self.draw_track()
                 #print('[VIZ] env toggled to ', self.env_idx_render)
             if key == 116:
                 self.env_idx_render = np.mod(self.env_idx_render-1, self.num_envs)
+                self.draw_track()
                 #print('[VIZ] env toggled to ', self.env_idx_render)
             if key == 119:
                 self.y_offset -= 40
@@ -163,11 +167,11 @@ class Viewer:
                 px_y_number = (-self.height/self.scale_y*transl[idx, 1] + self.height/2.0).cpu().numpy().astype(np.int32).item()
                 px_pts_car = px_car_box_world[..., idx].reshape(-1,1,2)
                 px_pts_heading = px_car_heading_world[..., idx].reshape(-1,1,2)
-                cv.polylines(self.img, [px_pts_car], isClosed = True, color = (int(self.colors[idx]),0,int(self.colors[idx])), thickness = self.thickness)
-                cv.fillPoly(self.car_img, [px_pts_car], color = (int(self.colors[idx]),0,int(self.colors[idx]), 0.9))
+                cv.polylines(self.img, [px_pts_car], isClosed = True, color = (255-int(self.colors[idx]),0,int(self.colors[idx])), thickness = self.thickness)
+                cv.fillPoly(self.car_img, [px_pts_car], color = (255-int(self.colors[idx]),0,int(self.colors[idx]), 0.9))
                 cv.polylines(self.img, [px_pts_heading], isClosed = True, color = (0, 0, 255), thickness = 2)
                 cv.putText(self.img, str(idx), (px_x_number+ self.x_offset, px_y_number + self.y_offset-10), self.font, 0.5, (int(self.colors[idx]),0,int(self.colors[idx])), 1, cv.LINE_AA)   
-            self.img = cv.addWeighted(self.car_img, 0.3, self.img, 0.7, 0)
+            self.img = cv.addWeighted(self.car_img, 0.5, self.img, 0.5, 0)
 
     def draw_singleagent_rep(self, state):
             transl = state[:, 0, 0:2]
@@ -197,10 +201,10 @@ class Viewer:
                 px_pts_car = px_car_box_world[..., idx].reshape(-1,1,2)
                 px_pts_heading = px_car_heading_world[..., idx].reshape(-1,1,2)
                 cv.polylines(self.img, [px_pts_car], isClosed = True, color = (int(self.colors[idx]),0,int(self.colors[idx])), thickness = self.thickness)
-                cv.fillPoly(self.car_img, [px_pts_car], color = (int(self.colors[idx]),0,int(self.colors[idx]), 0.9))
+                cv.fillPoly(self.car_img, [px_pts_car], color = (int(255-self.colors[idx]),0,int(self.colors[idx]), 0.9))
                 cv.polylines(self.img, [px_pts_heading], isClosed = True, color = (int(self.colors[idx]),0,int(self.colors[idx])), thickness = self.thickness)
                 cv.putText(self.img, str(idx), (px_x_number+ self.x_offset, px_y_number + self.y_offset -10), self.font, 0.5, (int(self.colors[idx]),0,int(self.colors[idx])), 1, cv.LINE_AA)
-            self.img = cv.addWeighted(self.car_img, 0.3, self.img, 0.7, 0)
+            self.img = cv.addWeighted(self.car_img, 0.5, self.img, 0.5, 0)
 
     def cords2px(self, pts):
         pts = pts.cpu().numpy()
@@ -251,9 +255,10 @@ class Viewer:
     def draw_track(self,):
 
         self.track_canvas = draw_track(self.track_canvas,
-                                       self.track_centerlines[self.active_track_ids[self.env_idx_render]].cpu().numpy(),
-                                       self.track_poly_verts[self.active_track_ids[self.env_idx_render]],
-                                       self.track_border_poly_verts[self.active_track_ids[self.env_idx_render]],
-                                       self.track_border_poly_cols[self.active_track_ids[self.env_idx_render]],
+                                       self.track_centerlines[self.active_track_ids[self.env_idx_render]].copy(),
+                                       self.track_poly_verts[self.active_track_ids[self.env_idx_render]].copy(),
+                                       self.track_border_poly_verts[self.active_track_ids[self.env_idx_render]].copy(),
+                                       self.track_border_poly_cols[self.active_track_ids[self.env_idx_render]].copy(),
+                                       self.track_tile_counts[self.active_track_ids[self.env_idx_render]].copy(),
                                        self.cords2px_np, 
                                        self.cfg['track']['draw_centerline'])
