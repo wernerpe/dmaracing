@@ -24,7 +24,7 @@ runner:
 
   # logging
   save_interval: 20 # check for potential saves every this many iterations
-  experiment_name: 'singleagent'
+  experiment_name: 'singleagent_mt'
   run_name: ''
   # load and resume
   resume: False
