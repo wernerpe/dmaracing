@@ -7,10 +7,23 @@ from dmaracing.utils.trackgen import draw_track
 
 
 class Viewer:
-    def __init__(self, cfg, track):
+    def __init__(self,
+                 cfg,
+                 track_centerlines, 
+                 track_poly_verts, 
+                 track_border_poly_verts, 
+                 track_border_poly_cols,
+                 active_track_ids):
+
         self.device = 'cuda:0'
         self.cfg = cfg
 
+        self.track_centerlines = track_centerlines
+        self.track_poly_verts = track_poly_verts
+        self.track_border_poly_verts = track_border_poly_verts 
+        self.track_border_poly_cols = track_border_poly_cols
+        self.active_track_ids = active_track_ids
+        
         #load cfg
         self.width = self.cfg['viewer']['width']
         self.height = self.cfg['viewer']['height']
@@ -42,15 +55,18 @@ class Viewer:
         self.track_canvas = self.img.copy()
         self.colors = 255.0/self.num_cars*np.arange(self.num_cars) 
         self.font = cv.FONT_HERSHEY_SIMPLEX
+
         self.do_render = True
         self.env_idx_render = 0
-        self.track = track
+        
         self.x_offset = -50
         self.y_offset = 0
+        
         self.points = []
         self.msg = []
         self.marked_env = None
         self.state = []
+        
         self.draw_track()
         cv.imshow('dmaracing', self.track_canvas)
 
@@ -233,4 +249,11 @@ class Viewer:
             cv.circle(self.img, (px[0,0],px[0,1]), 100, (250,150,0))
     
     def draw_track(self,):
-        self.track_canvas = draw_track(self.track_canvas, self.track, self.cords2px_np, self.cfg['track']['draw_centerline'])
+
+        self.track_canvas = draw_track(self.track_canvas,
+                                       self.track_centerlines[self.active_track_ids[self.env_idx_render]].cpu().numpy(),
+                                       self.track_poly_verts[self.active_track_ids[self.env_idx_render]],
+                                       self.track_border_poly_verts[self.active_track_ids[self.env_idx_render]],
+                                       self.track_border_poly_cols[self.active_track_ids[self.env_idx_render]],
+                                       self.cords2px_np, 
+                                       self.cfg['track']['draw_centerline'])

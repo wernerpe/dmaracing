@@ -7,11 +7,11 @@ import os
 
 def play():
     chkpt = 240
-    cfg['sim']['numEnv'] = 10
+    cfg['sim']['numEnv'] = 9
     cfg['sim']['numAgents'] = 1
     cfg['learn']['timeout'] = 100
     cfg['learn']['offtrack_reset'] = 3
-    cfg['track']['seed'] = 10
+    cfg['track']['seed'] = 11
     cfg['track']['CHECKPOINTS'] = 10
     cfg['track']['TRACK_RAD'] = 700
     cfg['viewer']['multiagent'] = False

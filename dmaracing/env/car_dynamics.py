@@ -109,8 +109,8 @@ def step_cars(state : torch.Tensor,
     
 
     #check which tires are on track
-    wheels_on_track_segments_concat = 1.0 * (torch.einsum('tc, eawc  -> eawt', A_track, wheel_locations_world) - b_track +0.1>=0 )
-    wheels_on_track_segments[:] = torch.einsum('jt, eawt -> eawj', S_track, wheels_on_track_segments_concat) >= 3.5
+    wheels_on_track_segments_concat = 1.0 * (torch.einsum('etc, eawc  -> eawt', A_track, wheel_locations_world) - b_track +0.1>=0 )
+    wheels_on_track_segments[:] = torch.einsum('ejt, eawt -> eawj', S_track, wheels_on_track_segments_concat) >= 3.5
     wheel_on_track = torch.any(wheels_on_track_segments, dim = 3)
     f_tot = torch.sqrt(torch.square(f_force) +torch.square(p_force)) + 1e-9
     f_lim = ((1-mod_par['OFFTRACK_FRICTION_SCALE'])*mod_par['FRICTION_LIMIT'])*wheel_on_track + mod_par['OFFTRACK_FRICTION_SCALE']*mod_par['FRICTION_LIMIT']

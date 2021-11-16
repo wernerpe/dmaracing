@@ -44,16 +44,35 @@ class DmarEnv():
         self.state_space = spaces.Box(np.ones(self.num_internal_states)*-np.Inf, np.ones(self.num_internal_states)*np.Inf)
         self.act_space = spaces.Box(np.ones(self.num_actions)*-np.Inf, np.ones(self.num_actions)*np.Inf)
         
-        trackidx = 4
-        te, self.tile_len, self.track_tile_counts = get_track_ensemble(11, cfg, self.device)
-        self.track = [te[0][trackidx], te[1][trackidx], te[2][trackidx,...], te[3][trackidx,...], te[4][trackidx,...].view(-1,), te[5][trackidx,...], te[6][trackidx], te[7][trackidx]]
+        self.num_tracks = cfg['track']['num_tracks']
+        t, self.tile_len, self.track_tile_counts = get_track_ensemble(self.num_tracks, cfg, self.device)
+        self.track_centerlines, self.track_poly_verts, self.track_alphas, self.track_A, self.track_b, self.track_S,\
+        self.track_border_poly_verts, self.track_border_poly_cols = t
+        self.track_alphas = self.track_alphas + np.pi/2
+
+        self.active_track_ids = torch.randint(0, self.num_tracks, (self.num_envs, ), device = self.device, requires_grad=False, dtype = torch.long)
+        self.active_centerlines = self.track_centerlines[self.active_track_ids]
+        self.active_alphas =  self.track_alphas[self.active_track_ids]
+        self.active_A = self.track_A[self.active_track_ids]
+        self.active_b = self.track_b[self.active_track_ids]
+        self.active_S = self.track_S[self.active_track_ids]
+        #self.active_track_poly_verts = self.track_poly_verts[self.active_track_ids, ...]
+        #self.active_bpv = self.track_border_poly_verts[self.active_track_ids]
+        #self.active_bpc = self.border_poly_cols[self.active_track_ids]
+
+        #self.track = [te[0][trackidx], te[1][trackidx], te[2][trackidx,...], te[3][trackidx,...], te[4][trackidx,...].view(-1,), te[5][trackidx,...], te[6][trackidx], te[7][trackidx]]
         self.max_track_num_tiles = np.max(self.track_tile_counts)
         self.track_tile_counts = torch.tensor(self.track_tile_counts, device=self.device, requires_grad=False)
+        self.active_track_tile_counts = self.track_tile_counts[self.active_track_ids]
+
         #print("track loaded with ", self.track_num_tiles, " tiles")
-        self.centerline = self.track[0]
-        self.tile_heading = torch.tensor(self.track[2], device=self.device, dtype=torch.float, requires_grad=False) + np.pi/2
         if not self.headless:
-            self.viewer = Viewer(cfg, self.track)
+            self.viewer = Viewer(cfg,
+                                 self.track_centerlines, 
+                                 self.track_poly_verts, 
+                                 self.track_border_poly_verts, 
+                                 self.track_border_poly_cols,
+                                 self.active_track_ids)
         self.info = {}
         
         #allocate env tensors
@@ -295,18 +314,23 @@ class DmarEnv():
                                                                                       self.zero_pad,
                                                                                       self.collide,
                                                                                       self.wheels_on_track_segments,
-                                                                                      self.track[3],
-                                                                                      self.track[4],
-                                                                                      self.track[5]
+                                                                                      self.active_A,
+                                                                                      self.active_b,
+                                                                                      self.active_S
                                                                                      )
-    def resample_track(self,) -> None:
-        seed = np.random.randint(100)
-        self.cfg['track']['seed'] = seed
-        self.track, self.tile_len, self.track_num_tiles = get_track(self.cfg, self.device)
-        print("track loaded with ", self.track_num_tiles, " tiles")
-        self.viewer.track = self.track
-        self.wheels_on_track_segments = torch.zeros((self.num_envs, self.num_agents, 4, self.track_num_tiles), requires_grad=False, device=self.device)>1
-    
+    def resample_track(self, env_ids) -> None:
+        self.active_track_ids[env_ids] = torch.randint(0, self.num_tracks, (len(env_ids),1), device = self.device, requires_grad=False, dtype = torch.long)
+        
+        self.active_centerlines = self.track_centerlines[self.active_track_ids]
+        self.active_alphas =  self.track_alphas[self.active_track_ids]
+        self.active_A = self.track_A[self.active_track_ids]
+        self.active_b = self.track_b[self.active_track_ids]
+        self.active_S = self.track_S[self.active_track_ids]
+        #self.active_track_poly_verts = self.track_poly_verts[self.active_track_ids]
+        #self.active_bpv = self.track_border_poly_verts[self.active_track_ids]
+        #self.active_bpc = self.border_poly_cols[self.active_track_ids]
+
+
     def get_state(self) -> torch.Tensor:
         return self.states[:,0,:]
     

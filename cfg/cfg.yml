@@ -43,6 +43,7 @@ track:
   seed: 1
   ccw: True
   draw_centerline: True
+  num_tracks: 17
 
 learn:
   use_timeouts: True

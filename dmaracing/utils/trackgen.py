@@ -233,12 +233,14 @@ def get_track(cfg, device, ccw = True):
     val = [centerline, track_poly_verts, alphas, As, b, S_mat, border_poly_verts, border_poly_col], TRACK_DETAIL_STEP, len(track_poly_verts)
     return val
 
-def draw_track(img, track, cords2px, cl = True):
-    centerline = track[0].cpu().numpy()
-    track_poly_verts = track[1].copy()
-    border_poly_verts = track[6].copy()
-    border_poly_col = track[7]
-    
+def draw_track(img,
+               centerline,
+               track_poly_verts,
+               border_poly_verts,
+               border_poly_col,
+               cords2px, 
+               cl = True):
+
     img[:, :, 0] = 130
     img[:, :, 1] = 255
     img[:, :, 2] = 130
