@@ -7,10 +7,10 @@ import os
 
 def play():
     chkpt = 240
-    cfg['sim']['numEnv'] = 1000
+    cfg['sim']['numEnv'] = 4000
     cfg['sim']['numAgents'] = 1
-    cfg['learn']['timeout'] = 100
-    cfg['learn']['offtrack_reset'] = 3
+    cfg['learn']['timeout'] = 10
+    cfg['learn']['offtrack_reset'] = 0.5
     cfg['track']['seed'] = 11
     cfg['track']['CHECKPOINTS'] = 10
     cfg['track']['TRACK_RAD'] = 700

@@ -343,7 +343,7 @@ def get_track_ensemble(Ntracks, cfg, device):
 
     alpha = torch.zeros((Ntracks, max_tile_count), device = device, requires_grad=False, dtype=torch.float)
     A = torch.zeros((Ntracks, 4*max_tile_count, 2), device = device, requires_grad=False, dtype=torch.float)
-    b = -torch.zeros((Ntracks, 4*max_tile_count,), device = device, requires_grad=False, dtype=torch.float)
+    b = 1000*torch.ones((Ntracks, 4*max_tile_count,), device = device, requires_grad=False, dtype=torch.float)
     S_mat = torch.zeros((Ntracks, max_tile_count, 4*max_tile_count), device = device, requires_grad=False, dtype=torch.float)
     centerline = -10000*torch.ones((Ntracks, max_tile_count, 2), device = device, requires_grad=False, dtype=torch.float)
     for idx in range(Ntracks):

@@ -33,7 +33,7 @@ track:
   #https://github.com/openai/gym/blob/master/gym/envs/box2d/car_racing.py
   SCALE: 6.0  # Track scale
   TRACK_RAD: 500   # Track is heavily morphed circle with this radius
-  CHECKPOINTS: 6
+  CHECKPOINTS: 12
   TRACK_DETAIL_STEP: 15 
   TRACK_TURN_RATE: 0.21
   TRACK_WIDTH: 40 
@@ -43,7 +43,7 @@ track:
   seed: 1
   ccw: True
   draw_centerline: True
-  num_tracks: 3
+  num_tracks: 40
 
 learn:
   use_timeouts: True

@@ -62,7 +62,7 @@ class DmarEnv():
         self.active_alphas =  self.track_alphas[self.active_track_ids]
         #self.active_A = self.track_A[self.active_track_ids]
         #self.active_b = self.track_b[self.active_track_ids]
-        self.active_S = self.track_S[self.active_track_ids]
+        #self.active_S = self.track_S[self.active_track_ids]
         
         self.max_track_num_tiles = np.max(self.track_tile_counts)
         #take largest track polygon summation template
@@ -208,9 +208,10 @@ class DmarEnv():
         return self.obs_buf[:, 0, :], self.privileged_obs
 
     def reset_envs(self, env_ids) -> None:
-        
+        self.resample_track(env_ids)
+
         for agent in range(self.num_agents):
-            tile_idx = 0*(torch.rand((len(env_ids),), device=self.device) * self.active_track_tile_counts[env_ids]).to(dtype=torch.long)  
+            tile_idx = (torch.rand((len(env_ids),), device=self.device) * self.active_track_tile_counts[env_ids]).to(dtype=torch.long)  
             startpos = self.active_centerlines[env_ids, tile_idx, :]
             angs = self.active_alphas[env_ids, tile_idx]
             vels_long = rand(-0.1*self.reset_randomization[3], self.reset_randomization[3], (len(env_ids),), device=self.device)
@@ -347,16 +348,18 @@ class DmarEnv():
                                                                                       self.track_S #how to sum
                                                                                      )
     def resample_track(self, env_ids) -> None:
-        self.active_track_ids[env_ids] = torch.randint(0, self.num_tracks, (len(env_ids),1), device = self.device, requires_grad=False, dtype = torch.long)
+        self.active_track_ids[env_ids] = torch.randint(0, self.num_tracks, (len(env_ids),), device = self.device, requires_grad=False, dtype = torch.long)
+        self.active_track_mask[env_ids, ...] = 0.0
+        self.active_track_mask[env_ids, self.active_track_ids[env_ids]] = 1.0
+        self.active_centerlines[env_ids,...] = self.track_centerlines[self.active_track_ids[env_ids]]
+        self.active_alphas[env_ids,...] = self.track_alphas[self.active_track_ids[env_ids]]
         
-        self.active_centerlines[env_ids] = self.track_centerlines[self.active_track_ids[env_ids]]
-        self.active_alphas =  self.track_alphas[self.active_track_ids[env_ids]]
-        self.active_A = self.track_A[self.active_track_ids[env_ids]]
-        self.active_b = self.track_b[self.active_track_ids[env_ids]]
-        self.active_S = self.track_S[self.active_track_ids[env_ids]]
-        self.active_track_tile_counts[env_ids] = self.track_tile_counts[env_ids]
-        
-
+        #update viewer
+        self.viewer.active_track_ids[env_ids] = self.active_track_ids[env_ids]
+        #call refresh on track drawing only in render mode
+        if self.viewer.do_render: 
+            self.viewer.draw_track()
+ 
     def get_state(self) -> torch.Tensor:
         return self.states[:,0,:]
     
