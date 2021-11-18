@@ -109,6 +109,9 @@ def step_cars(state : torch.Tensor,
     
 
     #check which tires are on track
+    # Multi track A_track [ntracks, polygon = 4*300, coords = 2]
+    # single track A_track [polygon = 4*300, coords = 2]
+
     wheels_on_track_segments_concat = 1.0 * (torch.einsum('etc, eawc  -> eawt', A_track, wheel_locations_world) - b_track.view(num_envs,1,1,-1) +0.1>=0 )
     wheels_on_track_segments[:] = torch.einsum('ejt, eawt -> eawj', S_track, wheels_on_track_segments_concat) >= 3.5
     wheel_on_track = torch.any(wheels_on_track_segments, dim = 3)

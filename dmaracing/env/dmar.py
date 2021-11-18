@@ -336,9 +336,9 @@ class DmarEnv():
                                                                                       self.zero_pad,
                                                                                       self.collide,
                                                                                       self.wheels_on_track_segments,
-                                                                                      self.active_A,
+                                                                                      self.active_A, #Ax<=b
                                                                                       self.active_b,
-                                                                                      self.active_S
+                                                                                      self.active_S #how to sum
                                                                                      )
     def resample_track(self, env_ids) -> None:
         self.active_track_ids[env_ids] = torch.randint(0, self.num_tracks, (len(env_ids),1), device = self.device, requires_grad=False, dtype = torch.long)

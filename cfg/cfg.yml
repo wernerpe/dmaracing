@@ -1,5 +1,5 @@
 sim:
-  numEnv: 4000
+  numEnv: 1000
   #nuber of racing agents per env
   numAgents: 6
   dt: 0.01 #[s]
@@ -43,7 +43,7 @@ track:
   seed: 1
   ccw: True
   draw_centerline: True
-  num_tracks: 30
+  num_tracks: 3
 
 learn:
   use_timeouts: True
