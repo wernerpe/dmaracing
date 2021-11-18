@@ -4,7 +4,7 @@ import numpy as np
 
 from dmaracing.env.car_dynamics_utils import resolve_collsions
 
-@torch.jit.script
+#@torch.jit.script
 def step_cars(state : torch.Tensor, 
               actions : torch.Tensor,
               wheel_locations: torch.Tensor,
@@ -24,6 +24,7 @@ def step_cars(state : torch.Tensor,
               zero_pad : torch.Tensor,
               collide: int,
               wheels_on_track_segments : torch.Tensor,
+              active_track_mask: torch.Tensor,
               A_track: torch.Tensor,
               b_track: torch.Tensor,
               S_track: torch.Tensor 
@@ -112,8 +113,9 @@ def step_cars(state : torch.Tensor,
     # Multi track A_track [ntracks, polygon = 4*300, coords = 2]
     # single track A_track [polygon = 4*300, coords = 2]
 
-    wheels_on_track_segments_concat = 1.0 * (torch.einsum('etc, eawc  -> eawt', A_track, wheel_locations_world) - b_track.view(num_envs,1,1,-1) +0.1>=0 )
-    wheels_on_track_segments[:] = torch.einsum('ejt, eawt -> eawj', S_track, wheels_on_track_segments_concat) >= 3.5
+    wheels_on_track_segments_concat = 1.0 * (torch.einsum('es, stc, eawc  -> eawt', active_track_mask, A_track, wheel_locations_world)\
+                                             - torch.einsum('es, st -> et', active_track_mask, b_track).view(num_envs,1,1,-1) +0.1 >= 0 )
+    wheels_on_track_segments[:] = torch.einsum('jt, eawt -> eawj', S_track, wheels_on_track_segments_concat) >= 3.5
     wheel_on_track = torch.any(wheels_on_track_segments, dim = 3)
 
     f_tot = torch.sqrt(torch.square(f_force) +torch.square(p_force)) + 1e-9

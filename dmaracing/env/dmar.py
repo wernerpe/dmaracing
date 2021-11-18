@@ -47,20 +47,26 @@ class DmarEnv():
         self.state_space = spaces.Box(np.ones(self.num_internal_states)*-np.Inf, np.ones(self.num_internal_states)*np.Inf)
         self.act_space = spaces.Box(np.ones(self.num_actions)*-np.Inf, np.ones(self.num_actions)*np.Inf)
         
+        #load track
+        self.all_envs = torch.arange(self.num_envs, dtype = torch.long)
         self.num_tracks = cfg['track']['num_tracks']
         t, self.tile_len, self.track_tile_counts = get_track_ensemble(self.num_tracks, cfg, self.device)
         self.track_centerlines, self.track_poly_verts, self.track_alphas, self.track_A, self.track_b, self.track_S,\
         self.track_border_poly_verts, self.track_border_poly_cols = t
         self.track_alphas = self.track_alphas + np.pi/2
 
+        self.active_track_mask = torch.zeros((self.num_envs, self.num_tracks), device = self.device, requires_grad=False,dtype = torch.float)
         self.active_track_ids = torch.randint(0, self.num_tracks, (self.num_envs, ), device = self.device, requires_grad=False, dtype = torch.long)
+        self.active_track_mask[self.all_envs, self.active_track_ids] = 1.0
         self.active_centerlines = self.track_centerlines[self.active_track_ids]
         self.active_alphas =  self.track_alphas[self.active_track_ids]
-        self.active_A = self.track_A[self.active_track_ids]
-        self.active_b = self.track_b[self.active_track_ids]
+        #self.active_A = self.track_A[self.active_track_ids]
+        #self.active_b = self.track_b[self.active_track_ids]
         self.active_S = self.track_S[self.active_track_ids]
         
         self.max_track_num_tiles = np.max(self.track_tile_counts)
+        #take largest track polygon summation template
+        self.track_S = self.track_S[np.argmax(self.track_tile_counts), :]
         self.track_tile_counts = torch.tensor(self.track_tile_counts, device=self.device, requires_grad=False)
         self.active_track_tile_counts = self.track_tile_counts[self.active_track_ids]
 
@@ -117,7 +123,6 @@ class DmarEnv():
         
         #self.step(self.actions)
         self.total_step = 0
-        self.all_envs = torch.arange(self.num_envs, dtype = torch.long)
         self.reset()
         self.step(self.actions[:,0,:])
         self.viewer.center_cam(self.states)
@@ -336,9 +341,10 @@ class DmarEnv():
                                                                                       self.zero_pad,
                                                                                       self.collide,
                                                                                       self.wheels_on_track_segments,
-                                                                                      self.active_A, #Ax<=b
-                                                                                      self.active_b,
-                                                                                      self.active_S #how to sum
+                                                                                      self.active_track_mask,
+                                                                                      self.track_A, #Ax<=b
+                                                                                      self.track_b,
+                                                                                      self.track_S #how to sum
                                                                                      )
     def resample_track(self, env_ids) -> None:
         self.active_track_ids[env_ids] = torch.randint(0, self.num_tracks, (len(env_ids),1), device = self.device, requires_grad=False, dtype = torch.long)
