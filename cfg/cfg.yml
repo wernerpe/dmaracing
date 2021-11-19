@@ -43,7 +43,7 @@ track:
   seed: 1
   ccw: True
   draw_centerline: True
-  num_tracks: 40
+  num_tracks: 50
 
 learn:
   use_timeouts: True
@@ -54,7 +54,7 @@ learn:
   actionscale: [0.5, 0.2, 0.1]
 
   progressRewardScale: 1.0
-  contouringRewardScale: 0.01
+  contouringRewardScale: 0.001
   offtrackRewardScale: -2.0
   actionRateRewardScale: 0.1 
   

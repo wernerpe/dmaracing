@@ -18,7 +18,7 @@ if __name__ == "__main__":
     cfg['track']['seed'] = 10
     cfg['track']['CHECKPOINTS'] = 10
     cfg['track']['TRACK_RAD'] = 700
-    cfg['viewer']['multiagent'] = False
+    cfg['viewer']['multiagent'] = True
     cfg['sim']['numAgents'] = 1
     cfg['sim']['collide'] = 0
     now = datetime.now()
