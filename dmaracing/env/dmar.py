@@ -132,7 +132,7 @@ class DmarEnv():
         #self.step(self.actions)
         self.total_step = 0
         self.reset()
-        self.step(self.actions[:,0,:])
+        self.step(self.actions)
         self.viewer.center_cam(self.states)
         if not self.headless:
             self.render()
@@ -222,13 +222,13 @@ class DmarEnv():
         env_ids = torch.arange(self.num_envs, dtype = torch.long)
         self.reset_envs(env_ids)
         self.post_physics_step()
-        return self.obs_buf[:, 0, :], self.privileged_obs
+        return self.obs_buf, self.privileged_obs
 
     def reset_envs(self, env_ids) -> None:
         self.resample_track(env_ids)
-
+        tile_idx_env = (torch.rand((len(env_ids),), device=self.device) * self.active_track_tile_counts[env_ids]).to(dtype=torch.long)
         for agent in range(self.num_agents):
-            tile_idx = (torch.rand((len(env_ids),), device=self.device) * self.active_track_tile_counts[env_ids]).to(dtype=torch.long)  
+            tile_idx = torch.remainder(tile_idx_env + 3*agent, self.active_track_tile_counts[env_ids].view(-1))  
             startpos = self.active_centerlines[env_ids, tile_idx, :]
             angs = self.active_alphas[env_ids, tile_idx]
             vels_long = rand(-0.1*self.reset_randomization[3], self.reset_randomization[3], (len(env_ids),), device=self.device)
@@ -272,10 +272,15 @@ class DmarEnv():
         if actions.requires_grad:
            actions = actions.detach()   
         
-        self.actions[:,0, 0] = self.action_scales[0]*actions[:,0] + self.default_actions[0]
-        self.actions[:,0, 1] = self.action_scales[1]*actions[:,1] + self.default_actions[1]
-        self.actions[:,0, 2] = self.action_scales[2]*actions[:,2] + self.default_actions[2]
-    
+        if len(actions.shape) == 2:
+            self.actions[:, 0, 0] = self.action_scales[0]*actions[...,0] + self.default_actions[0]
+            self.actions[:, 0, 1] = self.action_scales[1]*actions[...,1] + self.default_actions[1]
+            self.actions[:, 0, 2] = self.action_scales[2]*actions[...,2] + self.default_actions[2]
+        else:
+            self.actions[:, :, 0] = self.action_scales[0]*actions[...,0] + self.default_actions[0]
+            self.actions[:, :, 1] = self.action_scales[1]*actions[...,1] + self.default_actions[1]
+            self.actions[:, :, 2] = self.action_scales[2]*actions[...,2] + self.default_actions[2]
+            
         #print(self.actions[0,0,:])
         #t1 = time.time()
         for _ in range(self.decimation):
@@ -292,7 +297,7 @@ class DmarEnv():
         #    print('simtime avg: ', mdt1)
         #    print('postphys avg: ', mdt2)
         
-        return self.obs_buf[:,0, :].clone(), self.privileged_obs, self.rew_buf[:,0].clone(), self.reset_buf[:,0].clone(), self.info
+        return self.obs_buf.clone().squeeze(), self.privileged_obs, self.rew_buf.clone().squeeze(), self.reset_buf.clone(), self.info
     
     def post_physics_step(self) -> None:
         self.total_step += 1
@@ -381,10 +386,10 @@ class DmarEnv():
                 self.viewer.draw_track()
  
     def get_state(self) -> torch.Tensor:
-        return self.states[:,0,:]
+        return self.states.squeeze()
     
     def get_observations(self,) -> torch.Tensor:
-        return self.obs_buf[:,0,:]
+        return self.obs_buf.squeeze()
 
     def get_privileged_observations(self,)->Union[None, torch.Tensor]:
         return self.privileged_obs

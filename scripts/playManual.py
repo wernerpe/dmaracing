@@ -13,28 +13,28 @@ def play():
     cfg['learn']['actionscale'] = [1,1,1]
     cfg['learn']['offtrack_reset'] = 100
     cfg['learn']['timeout'] = 100
-    cfg['model']['OFFTRACK_FRICTION_SCALE'] = 100
+    cfg['model']['OFFTRACK_FRICTION_SCALE'] = 1
     
     
     env = DmarEnv(cfg, args)
     obs = env.obs_buf
 
     #actions = torch.zeros((cfg['sim']['numEnv'], cfg['sim']['numAgents'], cfg['sim']['numActions']), device=args.device,  dtype= torch.float, requires_grad=False)
-    actions = torch.zeros((cfg['sim']['numEnv'], cfg['sim']['numActions']), device=args.device,  dtype= torch.float, requires_grad=False)
+    actions = torch.zeros((cfg['sim']['numEnv'], cfg['sim']['numAgents'], cfg['sim']['numActions']), device=args.device,  dtype= torch.float, requires_grad=False)
     vel_cmd = 0.0
     steer_cmd = 0.0
     brk_cmd = 0.0
       
     while True:
-        actions[0 , 0] = steer_cmd 
-        actions[0 , 1] = vel_cmd
-        actions[0 , 2] = brk_cmd
+        actions[0 , 0, 0] = steer_cmd 
+        actions[0 , 0, 1] = vel_cmd
+        actions[0 , 0, 2] = brk_cmd
         
         obs, _, rew, dones, info = env.step(actions)
-        obsnp = obs.cpu().numpy()
-        rewnp = rew.cpu().numpy()
+        obsnp = obs[:,:].cpu().numpy()
+        rewnp = rew[:].cpu().numpy()
         cont = env.conturing_err.cpu().numpy()
-        act = actions.cpu().detach().numpy()
+        act = actions[:,0,:].cpu().detach().numpy()
         states = env.states.cpu().numpy()
         om_mean = np.mean(states[env.viewer.env_idx_render,0, env.vn['S_W0']:env.vn['S_W3'] +1 ])
 
