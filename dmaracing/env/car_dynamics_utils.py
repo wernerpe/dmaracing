@@ -44,7 +44,7 @@ def allocate_car_dynamics_tensors(task):
     task.wheel_locations[3, 0] = -L/2.0 
     task.wheel_locations[3, 1] = W/2.0 
 
-    task.wheels_on_track_segments = torch.zeros((task.num_envs, task.num_agents, 4, task.track_num_tiles), requires_grad=False, device=task.device)>1
+    task.wheels_on_track_segments = torch.zeros((task.num_envs, task.num_agents, 4, task.max_track_num_tiles), requires_grad=False, device=task.device)>1
 
 def set_dependent_params(mod_par):
     SIZE = mod_par['SIZE']
@@ -54,8 +54,8 @@ def set_dependent_params(mod_par):
     mod_par['WHEEL_R'] = SIZE*mod_par['WHEEL_R_SCALE']
     L = 160.0 *SIZE
     W = L/2
-    M = L*W *230
-    mod_par['M'] = L
+    M = L*W *mod_par['MASS_SCALE']
+    mod_par['M'] = M
     mod_par['L'] = L
     mod_par['W'] = W 
     mod_par['I'] = mod_par['MOMENT_OF_INERTIA_SCALE']*M*(L**2 + W**2 )/12.0

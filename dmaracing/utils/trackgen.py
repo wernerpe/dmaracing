@@ -6,6 +6,7 @@ import math
 import cv2 as cv
 from scipy.sparse import coo_matrix
 import torch
+from torch._C import dtype
  
 def get_track(cfg, device, ccw = True):
     SCALE = cfg['track']['SCALE'] # Track scale
@@ -20,11 +21,6 @@ def get_track(cfg, device, ccw = True):
     seed = cfg['track']['seed']
     width = cfg['viewer']['width']
     height = cfg['viewer']['height']
-
-    img = 255*np.ones((height, width, 3), np.uint8)
-    ov = img.copy()
-    polys = img.copy()
-    cv.imshow('dmaracing', img)
 
     np.random.seed(seed)
     # Create checkpoints
@@ -111,8 +107,8 @@ def get_track(cfg, device, ccw = True):
     i = len(track)
     while True:
         i -= 1
-        #if i == 0:
-        #    return False  # Failed
+        if i == 0:
+            return False  # Failed
         pass_through_start = (
             track[i][0] > start_alpha and track[i - 1][0] <= start_alpha
         )
@@ -136,8 +132,8 @@ def get_track(cfg, device, ccw = True):
         np.square(first_perp_x * (track[0][2] - track[-1][2]))
         + np.square(first_perp_y * (track[0][3] - track[-1][3]))
     )
-    #if well_glued_together > TRACK_DETAIL_STEP:
-    #    return False
+    if well_glued_together > TRACK_DETAIL_STEP:
+        return False
 
     # Red-white border on hard turns
     border = [False] * len(track)
@@ -233,50 +229,46 @@ def get_track(cfg, device, ccw = True):
         alphas = np.array(alphas[::-1]) + np.pi 
         centerline = centerline[::-1]
 
-    A, b, S_mat = construct_poly_track_eqns(track_poly_verts, device)
-    return [img, centerline, np.array(track_poly_verts), alphas, A, b, S_mat, border_poly_verts, border_poly_col], TRACK_DETAIL_STEP, len(track_poly_verts)
+    As, b, S_mat = construct_poly_track_eqns(track_poly_verts, device)
+    val = [centerline, track_poly_verts, alphas, As, b, S_mat, border_poly_verts, border_poly_col], TRACK_DETAIL_STEP, len(track_poly_verts)
+    return val
 
-def draw_track(track, cords2px, cl = False):
-    img = track[0]
-    centerline = track[1].copy()
-    track_poly_verts = track[2].copy()
-    border_poly_verts = track[7].copy()
-    border_poly_col = track[8]
-    
+def draw_track(img,
+               centerline,
+               track_poly_verts,
+               border_poly_verts,
+               border_poly_col,
+               track_tile_count,
+               cords2px, 
+               cl = True):
+
     img[:, :, 0] = 130
     img[:, :, 1] = 255
     img[:, :, 2] = 130
     
     overlay = img.copy()
-    for idx in range(len(track_poly_verts)):
+    for idx in range(track_tile_count):
         verts = track_poly_verts[idx, :, :]
         vert_px = cords2px(verts)
         cv.fillPoly(img, [vert_px], color = (178,178,178) if idx%2 ==0 else (168,168,168))
         cv.polylines(overlay, [vert_px], isClosed = True,  color = (0,0,0), thickness = 1)
     
-    
-    verts = track[2][0, :, :].copy()
-    vert_px = cords2px(verts)
-    cv.polylines(overlay, [vert_px], isClosed = True,  color = (0,0 ,255), thickness = 3)
-    
-    #img = cv.addWeighted(underlay, 0.3, img, 0.9, 0)
     if cl:
-        cl_px = cords2px(centerline)
+        cl_px = cords2px(centerline[:track_tile_count,...])
         cv.polylines(img, [cl_px], isClosed = True, color = (0,0,0), thickness = 1)
         num_cl = len(cl_px)
         for idx in range(num_cl):
             cv.circle(img, (cl_px[idx, 0], cl_px[idx, 1]), 1, (0,0,int(idx/num_cl *255)))
 
-    img = cv.addWeighted(overlay, 0.01, img, 0.99, 0)
-    
     for idx in range(len(border_poly_verts)):
         verts = border_poly_verts[idx, :, :]
         vert_px = cords2px(verts)
-        cv.fillPoly(img, [vert_px], color = border_poly_col[idx])
-        
-
+        cv.fillPoly(img, [vert_px], color = (0,0,255) if idx%2 ==0 else (255,255,255))
+    
+    img = cv.addWeighted(overlay, 0.1, img, 0.9, 0)
+      
     draw_cord_axs(img, cords2px)
-    track[0] = img
+    return img
     
 def draw_cord_axs(img, cords2px):
     xverts = np.array([[-10,0],[10,0]])
@@ -309,4 +301,58 @@ def construct_poly_track_eqns(track_poly_verts, device):
     tmp = torch.ones((1,4), device = device, dtype = torch.float, requires_grad = False)
     S_mat = torch.kron(S_mat, tmp)
     return A, b, S_mat
+
+
+def get_track_ensemble(Ntracks, cfg, device):
+    track_tile_counts =[]
+    centerlines = []
+    poly_verts_tracks = []
+    alphas_tracks =[]
+    A_tracks = []
+    b_tracks = []
+    S_mats = []
+    border_poly_verts =[]
+    border_poly_cols =[]
+    
+    num_tracks = 0
+    it = 0
+    while num_tracks < Ntracks:
+        print(it)
+        ccw = np.random.rand()<0.5
+        cfg['track']['seed'] = it*10
+        return_val = get_track(cfg, device, ccw)
+        
+        if return_val:
+            track, tile_len, track_num_tiles = return_val
+            centerlines.append(track[0])
+            poly_verts_tracks.append(track[1])
+            alphas_tracks.append(track[2])
+            A_tracks.append(track[3])
+            b_tracks.append(track[4])
+            S_mats.append(track[5])
+            border_poly_verts.append(track[6])
+            border_poly_cols.append(track[7])
+            track_tile_counts.append(track_num_tiles)
+            num_tracks +=1
+        else:
+            print('failed')
+        it +=1
+    
+    #size trackmatrices according to largest track, make redundant poly infeasible by default
+    max_tile_count = np.max(track_tile_counts)
+
+    alpha = torch.zeros((Ntracks, max_tile_count), device = device, requires_grad=False, dtype=torch.float)
+    A = torch.zeros((Ntracks, 4*max_tile_count, 2), device = device, requires_grad=False, dtype=torch.float)
+    b = 1000*torch.ones((Ntracks, 4*max_tile_count,), device = device, requires_grad=False, dtype=torch.float)
+    S_mat = torch.zeros((Ntracks, max_tile_count, 4*max_tile_count), device = device, requires_grad=False, dtype=torch.float)
+    centerline = -10000*torch.ones((Ntracks, max_tile_count, 2), device = device, requires_grad=False, dtype=torch.float)
+    for idx in range(Ntracks):
+        A[idx, :A_tracks[idx].shape[0], :] = A_tracks[idx]
+        b[idx, :A_tracks[idx].shape[0]] = b_tracks[idx]
+        S_mat[idx, :S_mats[idx].shape[0], :S_mats[idx].shape[1]] = S_mats[idx]
+        centerline[idx, :len(centerlines[idx]), :] = torch.tensor(centerlines[idx].copy(), device = device, dtype=torch.float, requires_grad = False)
+        alpha[idx, :len(centerlines[idx])] = torch.tensor(alphas_tracks[idx].copy(), device = device, dtype=torch.float, requires_grad = False)
+    #[centerline, track_poly_verts, alphas, A, b, S_mat, border_poly_verts, border_poly_col]
+    return [centerline, poly_verts_tracks, alpha, A, b, S_mat, border_poly_verts, border_poly_cols] , tile_len, track_tile_counts
+
 

@@ -4,7 +4,7 @@ clip_actions: 4.0
 
 algorithm:
   clip_param: 0.2
-  entropy_coef: 0.00
+  entropy_coef: 0.005
   num_learning_epochs: 5
   num_mini_batches: 6 # this is per agent
   learning_rate: 5.e-5
@@ -24,7 +24,7 @@ runner:
 
   # logging
   save_interval: 20 # check for potential saves every this many iterations
-  experiment_name: 'singleagent'
+  experiment_name: 'singleagent_mt'
   run_name: ''
   # load and resume
   resume: False

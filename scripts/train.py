@@ -15,10 +15,6 @@ if __name__ == "__main__":
     args.headless = False 
     path_cfg = os.getcwd() + '/cfg'
     cfg, cfg_train, logdir = getcfg(path_cfg)
-    cfg['track']['seed'] = 10
-    cfg['track']['CHECKPOINTS'] = 10
-    cfg['track']['TRACK_RAD'] = 700
-    cfg['viewer']['multiagent'] = False
     cfg['sim']['numAgents'] = 1
     cfg['sim']['collide'] = 0
     now = datetime.now()
