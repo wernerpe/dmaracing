@@ -101,6 +101,8 @@ class DmarEnv():
         self.reward_scales['contouring'] = cfg['learn']['contouringRewardScale']*self.dt
         self.reward_scales['progress'] = cfg['learn']['progressRewardScale']*self.dt
         self.reward_scales['actionrate'] = cfg['learn']['actionRateRewardScale']*self.dt
+        self.reward_scales['sidevel'] = cfg['learn']['sidevelRewardScale']*self.dt
+        self.reward_scales['energy'] = cfg['learn']['energyRewardScale']*self.dt
 
         self.default_actions = cfg['learn']['defaultactions']
         self.action_scales = cfg['learn']['actionscale']
@@ -120,7 +122,9 @@ class DmarEnv():
         self.reward_terms = {'progress': torch_zeros((self.num_envs, self.num_agents)), 
                              'contouring':torch_zeros((self.num_envs, self.num_agents)),
                              'offtrack': torch_zeros((self.num_envs, self.num_agents)),
-                             'actionrate': torch_zeros((self.num_envs, self.num_agents))}
+                             'actionrate': torch_zeros((self.num_envs, self.num_agents)),
+                             'sidevel': torch_zeros((self.num_envs, self.num_agents)),
+                             'energy': torch_zeros((self.num_envs, self.num_agents))}
         
         self.lookahead_scaler = 1/(4*(1+torch.arange(self.horizon, device = self.device , requires_grad=False, dtype=torch.float))*self.tile_len)
         self.lookahead_scaler = self.lookahead_scaler.unsqueeze(0).unsqueeze(0).unsqueeze(3)
@@ -189,15 +193,21 @@ class DmarEnv():
         rew_contouring = -torch.square(0.1*self.conturing_err) * self.reward_scales['contouring']
         rew_on_track = self.reward_scales['offtrack']*~self.is_on_track 
         rew_actionrate = -torch.sum(torch.square(self.actions-self.last_actions), dim = 2) *self.reward_scales['actionrate']
-        self.rew_buf = torch.clip(rew_progress + rew_on_track + rew_contouring + rew_actionrate, min = 0, max = None)
+        rew_energy = -torch.sum(torch.square(self.states[:,:,self.vn['S_W0']:self.vn['S_W3']+1]), dim = 2) *self.reward_scales['energy']
+        rew_sidevel = -torch.square(self.vels_body[:,:,1])*self.reward_scales['sidevel']
+        
         
         #clip rewards
+        self.rew_buf = torch.clip(rew_progress + rew_on_track + rew_contouring + rew_actionrate + rew_sidevel, min = 0, max = None)
 
 
         self.reward_terms['progress'] += rew_progress
         self.reward_terms['offtrack'] += rew_on_track
         self.reward_terms['contouring'] += rew_contouring
         self.reward_terms['actionrate'] += rew_actionrate
+        self.reward_terms['energy'] += rew_energy
+        self.reward_terms['sidevel'] += rew_sidevel
+
         if torch.any(torch.isnan(rew_actionrate)):
             print('nan detected')
 
@@ -313,10 +323,10 @@ class DmarEnv():
         self.compute_observations()
         self.compute_rewards()
  
-        #self.lookahead_markers = self.lookahead_body# + torch.tile(self.states[:,:,0:2].unsqueeze(2), (1,1,self.horizon, 1))
+        #self.lookahead_markers = self.lookahead + torch.tile(self.states[:,:,0:2].unsqueeze(2), (1,1,self.horizon, 1))
         #pts = self.lookahead_markers[self.viewer.env_idx_render,0,:,:].cpu().numpy()
         #self.viewer.clear_markers()
-        #self.viewer.add_point(pts, 10,(5,10,222))
+        #self.viewer.add_point(pts, 5,(5,10,222))
 
         self.old_active_track_tile = self.active_track_tile
         self.old_track_progress = self.track_progress
@@ -366,8 +376,9 @@ class DmarEnv():
         #update viewer
         self.viewer.active_track_ids[env_ids] = self.active_track_ids[env_ids]
         #call refresh on track drawing only in render mode
-        if self.viewer.do_render: 
-            self.viewer.draw_track()
+        if self.viewer.do_render:
+            if self.viewer.env_idx_render in env_ids:
+                self.viewer.draw_track()
  
     def get_state(self) -> torch.Tensor:
         return self.states[:,0,:]

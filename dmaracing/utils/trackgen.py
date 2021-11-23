@@ -263,7 +263,7 @@ def draw_track(img,
     for idx in range(len(border_poly_verts)):
         verts = border_poly_verts[idx, :, :]
         vert_px = cords2px(verts)
-        cv.fillPoly(img, [vert_px], color = border_poly_col[idx])
+        cv.fillPoly(img, [vert_px], color = (0,0,255) if idx%2 ==0 else (255,255,255))
     
     img = cv.addWeighted(overlay, 0.1, img, 0.9, 0)
       
@@ -316,10 +316,10 @@ def get_track_ensemble(Ntracks, cfg, device):
     
     num_tracks = 0
     it = 0
-    while num_tracks < Ntracks+1:
+    while num_tracks < Ntracks:
         print(it)
         ccw = np.random.rand()<0.5
-        cfg['track']['seed'] = it
+        cfg['track']['seed'] = it*10
         return_val = get_track(cfg, device, ccw)
         
         if return_val:

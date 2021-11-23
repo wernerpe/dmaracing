@@ -1,25 +1,25 @@
 sim:
-  numEnv: 1000
+  numEnv: 4000
   #nuber of racing agents per env
   numAgents: 6
   dt: 0.01 #[s]
   numStates: 12
-  numObservations: 28 
+  numObservations: 38 
   numActions: 3
   collide: 1
   decimation: 4
   
 model:
   SIZE: 0.02 #[px/m]
-  BREAKFORCE: 0.2
-  ENGINE_POWER_SCALE: 2500000
+  BREAKFORCE: 45
+  ENGINE_POWER_SCALE: 20000000
   WHEEL_MOMENT_OF_INERTIA_SCALE: 4000
-  FRICTION_LIMIT_SCALE: 100000
+  FRICTION_LIMIT_SCALE: 5000000
   OFFTRACK_FRICTION_SCALE: 0.2
   WHEEL_R_SCALE: 27
   LENGTH_SCALE: 200
   MASS_SCALE: 230
-  MOMENT_OF_INERTIA_SCALE: 0.3
+  MOMENT_OF_INERTIA_SCALE: 7.0
 
 viewer:
   width: 1200
@@ -32,33 +32,34 @@ viewer:
 track:
   #https://github.com/openai/gym/blob/master/gym/envs/box2d/car_racing.py
   SCALE: 6.0  # Track scale
-  TRACK_RAD: 500   # Track is heavily morphed circle with this radius
-  CHECKPOINTS: 12
-  TRACK_DETAIL_STEP: 15 
-  TRACK_TURN_RATE: 0.21
+  TRACK_RAD: 700   # Track is heavily morphed circle with this radius
+  CHECKPOINTS: 15
+  TRACK_DETAIL_STEP: 25 
+  TRACK_TURN_RATE: 0.51
   TRACK_WIDTH: 40 
   BORDER: 8 
-  BORDER_MIN_COUNT: 4
+  BORDER_MIN_COUNT: 3
   verbose: False
   seed: 1
   ccw: True
   draw_centerline: True
-  num_tracks: 50
+  num_tracks: 200
 
 learn:
   use_timeouts: True
   #[posx, posy, theta, vellong, vellat, dtheta, steer]
-  resetrand: [3.0, 3.0, 0.5, 20.0, 5.0, 1, 0.1]
+  resetrand: [2.0, 2.0, 0.2, 3.0, 0.12,  0.1, 0.0]
   
-  defaultactions: [0., 0.1, 0.00]
-  actionscale: [0.5, 0.2, 0.1]
+  defaultactions: [0., 0.2, 0.0]
+  actionscale: [1.0, 0.5, 0.2]
 
-  progressRewardScale: 1.0
-  contouringRewardScale: 0.001
+  progressRewardScale: 5.0
+  contouringRewardScale: 0.0
   offtrackRewardScale: -2.0
   actionRateRewardScale: 0.1 
+  energyRewardScale: 0.00001
+  sidevelRewardScale: 0.0
+  horizon: 15
   
-  horizon: 10
-  
-  timeout: 20.0 #[s]
-  offtrack_reset: 3.0 #[s]
+  timeout: 60.0 #[s]
+  offtrack_reset: 1.0 #[s]

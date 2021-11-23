@@ -4,7 +4,7 @@ import numpy as np
 
 from dmaracing.env.car_dynamics_utils import resolve_collsions
 
-#@torch.jit.script
+@torch.jit.script
 def step_cars(state : torch.Tensor, 
               actions : torch.Tensor,
               wheel_locations: torch.Tensor,
@@ -104,7 +104,7 @@ def step_cars(state : torch.Tensor,
     vf = torch.einsum('ijkl, ijkl -> ijk', wheel_vels, wheel_dirs_forward)                        
     vs = torch.einsum('ijkl, ijkl -> ijk', wheel_vels, wheel_dirs_side)                        
     f_force = -vf + vr
-    p_force = -vs
+    p_force = -vs*10.0
     f_force *= 205000 *mod_par['SIZE']**2
     p_force *= 205000 *mod_par['SIZE']**2
     
