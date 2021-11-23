@@ -9,16 +9,16 @@ import time
 
 def play():
     chkpt = -1
-    cfg['sim']['numEnv'] = 30
+    cfg['sim']['numEnv'] = 10
     cfg['sim']['numAgents'] = 1
     cfg['learn']['timeout'] = 300
     cfg['learn']['offtrack_reset'] = 3.0
-    cfg['track']['seed'] = 11000
-    cfg['track']['num_tracks'] = 10
-    
-    cfg['track']['CHECKPOINTS'] = 10
+    cfg['track']['seed'] = 31
+    cfg['track']['num_tracks'] = 1
+
+    cfg['track']['CHECKPOINTS'] = 12
     cfg['track']['TRACK_RAD'] = 700
-    cfg['viewer']['multiagent'] = True
+    cfg['viewer']['multiagent'] = False
 
     env = DmarEnv(cfg, args)
     #env.viewer.mark_env(0)

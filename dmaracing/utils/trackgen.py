@@ -319,7 +319,7 @@ def get_track_ensemble(Ntracks, cfg, device):
     while num_tracks < Ntracks:
         print(it)
         ccw = np.random.rand()<0.5
-        cfg['track']['seed'] = it*10
+        cfg['track']['seed'] += it*10
         return_val = get_track(cfg, device, ccw)
         
         if return_val:
