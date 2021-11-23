@@ -104,7 +104,7 @@ def step_cars(state : torch.Tensor,
     vf = torch.einsum('ijkl, ijkl -> ijk', wheel_vels, wheel_dirs_forward)                        
     vs = torch.einsum('ijkl, ijkl -> ijk', wheel_vels, wheel_dirs_side)                        
     f_force = -vf + vr
-    p_force = -vs*10.0
+    p_force = -vs*15.0
     f_force *= 205000 *mod_par['SIZE']**2
     p_force *= 205000 *mod_par['SIZE']**2
     
@@ -121,8 +121,8 @@ def step_cars(state : torch.Tensor,
     f_tot = torch.sqrt(torch.square(f_force) +torch.square(p_force)) + 1e-9
     f_lim = ((1-mod_par['OFFTRACK_FRICTION_SCALE'])*mod_par['FRICTION_LIMIT'])*wheel_on_track + mod_par['OFFTRACK_FRICTION_SCALE']*mod_par['FRICTION_LIMIT']
     slip = f_tot > f_lim
-    f_force = slip * (f_lim * torch.div(f_force, f_tot)) + ~slip * f_force
-    p_force = slip * (f_lim * torch.div(p_force, f_tot)) + ~slip * p_force
+    f_force = slip * (0.9*f_lim * torch.div(f_force, f_tot)) + ~slip * f_force
+    p_force = slip * (0.9*f_lim * torch.div(p_force, f_tot)) + ~slip * p_force
 
     state[:, :, vn['S_W0']:vn['S_W3']+1] -= sim_par['dt']*mod_par['WHEEL_R']/mod_par['WHEEL_MOMENT_OF_INERTIA'] * f_force
 
