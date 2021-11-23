@@ -1,6 +1,6 @@
 # Deep Multi-Agent Racing
 Tensorised verison of the OpenAI gym car racing environment
-(image rendering is not yet supported for more than one environment at once)
+
 ![plot](media/env.png )
 ## Setting up the Environment: 
 1. get anaconda (e.g. https://linuxize.com/post/how-to-install-anaconda-on-ubuntu-20-04/)
