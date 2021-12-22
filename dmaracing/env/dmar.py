@@ -10,6 +10,9 @@ import numpy as np
 import time
 from dmaracing.utils.trackgen import get_track, get_track_ensemble
 
+from torch.utils.tensorboard import SummaryWriter
+
+
 class DmarEnv():
     def __init__(self, cfg, args) -> None:
         self.device = args.device
@@ -72,14 +75,15 @@ class DmarEnv():
 
        
         #print("track loaded with ", self.track_num_tiles, " tiles")
-        if not self.headless:
-            self.viewer = Viewer(cfg,
-                                 self.track_centerlines, 
-                                 self.track_poly_verts, 
-                                 self.track_border_poly_verts, 
-                                 self.track_border_poly_cols,
-                                 self.track_tile_counts,
-                                 self.active_track_ids)
+        self.log_video_freq = cfg["viewer"]["logEvery"]
+        self.viewer = Viewer(cfg,
+                              self.track_centerlines, 
+                              self.track_poly_verts, 
+                              self.track_border_poly_verts, 
+                              self.track_border_poly_cols,
+                              self.track_tile_counts,
+                              self.active_track_ids,
+                              self.headless)
         self.info = {}
         
         #allocate env tensors
@@ -128,15 +132,19 @@ class DmarEnv():
         
         self.lookahead_scaler = 1/(4*(1+torch.arange(self.horizon, device = self.device , requires_grad=False, dtype=torch.float))*self.tile_len)
         self.lookahead_scaler = self.lookahead_scaler.unsqueeze(0).unsqueeze(0).unsqueeze(3)
+
+        self._global_step = 0
+        self._logdir = cfg["logdir"]
+        self._writer = SummaryWriter(log_dir=self._logdir, flush_secs=10)
         
         #self.step(self.actions)
         self.total_step = 0
+        self.viewer.center_cam(self.states)
         self.reset()
         self.step(self.actions[:,0,:])
-        self.viewer.center_cam(self.states)
-        if not self.headless:
-            self.render()
-        
+        # if not self.headless:
+        # self.viewer.center_cam(self.states)
+        # self.render()      
         
                
     def compute_observations(self,) -> None:
@@ -251,6 +259,17 @@ class DmarEnv():
         self.old_track_progress [env_ids] = 0.0
         self.time_off_track[env_ids, :] = 0.0
         self.last_actions[env_ids, : ,:] = 0.0
+
+        if 0 in env_ids:
+          if len(self.viewer._frames):
+
+              frames = np.stack(self.viewer._frames, axis=0)  # (T, W, H, C)
+              frames = np.transpose(frames, (0, 3, 1, 2))  # (T, C, W, H)
+              frames = np.expand_dims(frames, axis=0)  # (N, T, C, W, H)
+              self._writer.add_video('Train/video', frames, global_step=self._global_step, fps=15)
+            
+          self.viewer._frames = []
+          self._global_step += 1
         
         self.info = {}
         self.info['episode'] = {}
@@ -332,11 +351,12 @@ class DmarEnv():
         self.old_track_progress = self.track_progress
         self.last_actions = self.actions.clone()
 
-        if not self.headless:
-            self.render()
+        # if not self.headless:
+        self.render()
 
     def render(self,) -> None:
-        self.viewer_events = self.viewer.render(self.states[:,:,[0,1,2,10]])
+        if self._global_step % self.log_video_freq == 0:
+          self.viewer_events = self.viewer.render(self.states[:,:,[0,1,2,10]])
 
     
     def simulate(self) -> None:
@@ -373,12 +393,13 @@ class DmarEnv():
         self.active_alphas[env_ids,...] = self.track_alphas[self.active_track_ids[env_ids]]
         self.active_track_tile_counts[env_ids] = self.track_tile_counts[self.active_track_ids[env_ids]]
 
-        #update viewer
-        self.viewer.active_track_ids[env_ids] = self.active_track_ids[env_ids]
-        #call refresh on track drawing only in render mode
-        if self.viewer.do_render:
-            if self.viewer.env_idx_render in env_ids:
-                self.viewer.draw_track()
+        if not self.headless:
+          #update viewer
+          self.viewer.active_track_ids[env_ids] = self.active_track_ids[env_ids]
+
+          #call refresh on track drawing only in render mode
+          if self.viewer.env_idx_render in env_ids:
+              self.viewer.draw_track()
  
     def get_state(self) -> torch.Tensor:
         return self.states[:,0,:]

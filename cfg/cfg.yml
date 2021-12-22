@@ -22,12 +22,13 @@ model:
   MOMENT_OF_INERTIA_SCALE: 7.0
 
 viewer:
-  width: 1200
-  height: 1200
+  width: 600  #1200
+  height: 600 # 1200
   scale: 240.0 #[m/width*px] indicates how wide the window is in pixels
   linethickness: 1
-  multiagent: False
+  multiagent: True  #False
   maxAgents: 100
+  logEvery: 5
 
 track:
   #https://github.com/openai/gym/blob/master/gym/envs/box2d/car_racing.py
@@ -43,7 +44,7 @@ track:
   seed: 1
   ccw: True
   draw_centerline: False
-  num_tracks: 400
+  num_tracks: 400  # 400
 
 learn:
   use_timeouts: True

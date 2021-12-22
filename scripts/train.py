@@ -12,7 +12,7 @@ def train():
 if __name__ == "__main__":
     args = CmdLineArguments()
     args.device = 'cuda:0'
-    args.headless = False 
+    args.headless = True  # False 
     path_cfg = os.getcwd() + '/cfg'
     cfg, cfg_train, logdir = getcfg(path_cfg)
     cfg['sim']['numAgents'] = 1
@@ -20,5 +20,7 @@ if __name__ == "__main__":
     now = datetime.now()
     timestamp = now.strftime("%y_%m_%d_%H_%M_%S")
     logdir = logdir+'/'+timestamp
+
+    cfg["logdir"] = logdir
 
     train()
