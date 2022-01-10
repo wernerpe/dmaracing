@@ -1,4 +1,4 @@
-name: dmaracing
+name: dmaracing_peter
 channels:
   - pytorch
   - conda-forge

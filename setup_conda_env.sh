@@ -1,7 +1,7 @@
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # should match env name from YAML
-ENV_NAME=dmaracing
+ENV_NAME=dmaracing_peter
 
 
 
