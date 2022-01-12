@@ -51,6 +51,7 @@ class DmarEnv():
         self.all_envs = torch.arange(self.num_envs, dtype = torch.long)
         self.num_tracks = cfg['track']['num_tracks']
         t, self.tile_len, self.track_tile_counts = get_track_ensemble(self.num_tracks, cfg, self.device)
+        self.track_lengths = torch.tensor(self.track_tile_counts, device = self.device) * self.tile_len
         self.track_centerlines, self.track_poly_verts, self.track_alphas, self.track_A, self.track_b, self.track_S,\
         self.track_border_poly_verts, self.track_border_poly_cols = t
         self.track_alphas = self.track_alphas + np.pi/2
@@ -92,7 +93,7 @@ class DmarEnv():
         self.obs_buf = torch_zeros((self.num_envs, self.num_agents, self.num_obs))
         self.rew_buf = torch_zeros((self.num_envs, self.num_agents,))
         self.time_out_buf = torch_zeros((self.num_envs, 1)) > 1
-        self.reset_buf = torch_zeros((self.num_envs, self.num_agents))>1
+        self.reset_buf = torch_zeros((self.num_envs,1))>1
         self.episode_length_buf = torch_zeros((self.num_envs,1))
         self.time_off_track = torch_zeros((self.num_envs, self.num_agents))
         self.dt = cfg['sim']['dt']
@@ -113,6 +114,9 @@ class DmarEnv():
         self.offtrack_reset = int(self.offtrack_reset_s/(self.decimation*self.dt))
         self.max_episode_length = int(self.timeout_s/(self.decimation*self.dt))
 
+        self.lap_counter = torch.zeros((self.num_envs, self.num_agents), requires_grad=False, device=self.device, dtype=torch.int)
+        self.track_progress = torch.zeros((self.num_envs, self.num_agents), requires_grad=False, device=self.device, dtype=torch.float)
+        
         allocate_car_dynamics_tensors(self)
 
         #other tensor
@@ -187,7 +191,7 @@ class DmarEnv():
         trackperp = torch.stack((- torch.sin(angs), torch.cos(angs)), dim = 2) 
 
         sub_tile_progress = torch.einsum('eac, eac-> ea', trackdir, tile_car_vec)
-        self.track_progress = self.active_track_tile[0,0]*self.tile_len + sub_tile_progress
+        self.track_progress = self.active_track_tile*self.tile_len + sub_tile_progress
         self.conturing_err = torch.einsum('eac, eac-> ea', trackperp, tile_car_vec)
         rew_progress = torch.clip(self.track_progress-self.old_track_progress, min = -10, max = 10) * self.reward_scales['progress']
         rew_contouring = -torch.square(0.1*self.conturing_err) * self.reward_scales['contouring']
@@ -214,7 +218,7 @@ class DmarEnv():
     def check_termination(self) -> None:
         #dithering step
         #self.reset_buf = torch.rand((self.num_envs, 1), device=self.device) < 0.03
-        self.reset_buf = self.time_off_track > self.offtrack_reset
+        self.reset_buf = self.time_off_track[:, 0].view(-1,1) > self.offtrack_reset
         self.time_out_buf = self.episode_length_buf > self.max_episode_length
         self.reset_buf |= self.time_out_buf
 
@@ -226,9 +230,9 @@ class DmarEnv():
 
     def reset_envs(self, env_ids) -> None:
         self.resample_track(env_ids)
-        tile_idx_env = (torch.rand((len(env_ids),), device=self.device) * self.active_track_tile_counts[env_ids]).to(dtype=torch.long)
+        tile_idx_env = (torch.rand((len(env_ids),self.num_agents), device=self.device) * self.active_track_tile_counts[env_ids].view(-1,1)).to(dtype=torch.long)
         for agent in range(self.num_agents):
-            tile_idx = torch.remainder(tile_idx_env + 3*agent, self.active_track_tile_counts[env_ids].view(-1))  
+            tile_idx = tile_idx_env[:, agent]  
             startpos = self.active_centerlines[env_ids, tile_idx, :]
             angs = self.active_alphas[env_ids, tile_idx]
             vels_long = rand(-0.1*self.reset_randomization[3], self.reset_randomization[3], (len(env_ids),), device=self.device)
@@ -247,10 +251,6 @@ class DmarEnv():
         
         dists = torch.norm(self.states[env_ids,:, 0:2].unsqueeze(2)-self.active_centerlines[env_ids].unsqueeze(1), dim=3)
         self.old_active_track_tile[env_ids, :] = torch.sort(dists, dim = 2)[1][:,:, 0]
-        self.episode_length_buf[env_ids] = 0.0
-        self.old_track_progress [env_ids] = 0.0
-        self.time_off_track[env_ids, :] = 0.0
-        self.last_actions[env_ids, : ,:] = 0.0
         
         self.info = {}
         self.info['episode'] = {}
@@ -266,6 +266,17 @@ class DmarEnv():
 
         if self.use_timeouts:
             self.info['time_outs'] = self.time_out_buf.view(-1,)
+
+        track_dist = self.track_progress[env_ids] + self.lap_counter[env_ids]*self.track_lengths[self.active_track_ids[env_ids]].view(-1,1)
+        dist_sort, ranks = torch.sort(track_dist, dim = 1, descending = True)
+        self.info['ranking'] = ranks
+        self.info['percentage_max_episode_length'] = self.episode_length_buf[env_ids]/self.max_episode_length
+
+        self.lap_counter[env_ids, :] = 0
+        self.episode_length_buf[env_ids] = 0.0
+        self.old_track_progress [env_ids] = 0.0
+        self.time_off_track[env_ids, :] = 0.0
+        self.last_actions[env_ids, : ,:] = 0.0
 
     def step(self, actions) -> Tuple[torch.Tensor, Union[None, torch.Tensor], torch.Tensor, Dict[str, float]] : 
         actions = actions.clone().to(self.device)
@@ -332,6 +343,11 @@ class DmarEnv():
         #pts = self.lookahead_markers[self.viewer.env_idx_render,0,:,:].cpu().numpy()
         #self.viewer.clear_markers()
         #self.viewer.add_point(pts, 5,(5,10,222))
+
+        increment_idx = torch.where(self.active_track_tile - self.old_active_track_tile < -10)
+        decrement_idx = torch.where(self.active_track_tile - self.old_active_track_tile > 10)
+        self.lap_counter[increment_idx] += 1
+        self.lap_counter[decrement_idx] -= 1
 
         self.old_active_track_tile = self.active_track_tile
         self.old_track_progress = self.track_progress

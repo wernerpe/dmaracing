@@ -48,6 +48,8 @@ def play():
                      (f"""{'brake:':>{10}}{' '}{act[env.viewer.env_idx_render, env.vn['A_BRAKE']]:.2f}"""),
                      (f"""{'cont err:':>{10}}{' '}{cont[env.viewer.env_idx_render, 0]:.2f}"""),
                      (f"""{'omega mean:':>{10}}{' '}{om_mean:.2f}"""),
+                     (f"""{'omega mean:':>{10}}{' '}{om_mean:.2f}"""),
+                     (f"""{'lap:':>{10}}{' '}{env.lap_counter[0, 0]:.2f}"""),
                      ]
         
         env.viewer.clear_string()
