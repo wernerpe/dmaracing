@@ -4,7 +4,7 @@ sim:
   numAgents: 6
   dt: 0.01 #[s]
   numStates: 12
-  numObservations: 38 
+  numObservations: 41 
   numActions: 3
   collide: 1
   decimation: 4

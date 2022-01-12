@@ -150,7 +150,7 @@ class DmarEnv():
         gas = self.states[:,:,self.vn['S_GAS']].unsqueeze(2)
         #brake = self.states[:,:,self.vn['S_BRAKE']]
         
-        theta = self.states[:,:,2].unsqueeze(2)
+        theta = self.states[:,:,2]
         vels = self.states[:,:,3:6].clone()
         tile_idx_unwrapped = self.active_track_tile.unsqueeze(2) + (4*torch.arange(self.horizon, device=self.device, dtype=torch.long)).unsqueeze(0).unsqueeze(0)
         tile_idx = torch.remainder(tile_idx_unwrapped, self.active_track_tile_counts.view(-1,1,1))
@@ -160,11 +160,21 @@ class DmarEnv():
         centers = centers[self.all_envs,self.all_envs, ...]
         self.lookahead = (centers - torch.tile(self.states[:,:,0:2].unsqueeze(2), (1,1,self.horizon, 1)))
         
-        self.R[:, :, 0, 0 ] = torch.cos(theta[:,:,0])
-        self.R[:, :, 0, 1 ] = torch.sin(theta[:,:,0])
-        self.R[:, :, 1, 0 ] = -torch.sin(theta[:,:,0])
-        self.R[:, :, 1, 1 ] = torch.cos(theta[:,:,0])
+        self.R[:, :, 0, 0 ] = torch.cos(theta)
+        self.R[:, :, 0, 1 ] = torch.sin(theta)
+        self.R[:, :, 1, 0 ] = -torch.sin(theta)
+        self.R[:, :, 1, 1 ] = torch.cos(theta)
         self.lookahead_body = torch.einsum('eaij, eatj->eati', self.R, self.lookahead)
+        otherpositions = []
+        for agent in range(self.num_agents):
+            selfpos = self.states[:, agent, 0:2].view(-1,1,2)
+            otherpos = torch.cat((self.states[:, :agent, 0:2], self.states[:, agent+1:, 0:2]), dim = 1)
+            otherpositions.append((otherpos - selfpos).view(-1, (self.num_agents-1)*2))    
+        pos_other = torch.cat((otherpositions[0].view(-1,1,(self.num_agents-1)*2), otherpositions[1].view(-1,1,(self.num_agents-1)*2)), dim = 1)
+        pos_other = torch.einsum('eaij, eaj->eai', self.R, pos_other)
+        norm_pos_other = torch.norm(pos_other, dim = 2).view(-1, self.num_agents, 1)
+        dir_other = torch.div(pos_other, norm_pos_other)
+        dist_other_clipped = torch.clip(0.1*norm_pos_other, min = 0, max = 3).view(-1, self.num_agents, 1)
         self.vels_body = vels
         self.vels_body[..., :-1] = torch.einsum('eaij, eaj -> eai',self.R, vels[..., :-1])
         
@@ -174,6 +184,8 @@ class DmarEnv():
                                   gas, 
                                   lookahead_scaled[:,:,:,0],
                                   lookahead_scaled[:,:,:,1],
+                                  dir_other,
+                                  dist_other_clipped,
                                   self.last_actions
                                   ), 
                                   dim=2)
