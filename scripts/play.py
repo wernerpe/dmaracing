@@ -9,7 +9,7 @@ import time
 
 def play():
     chkpt = -1
-    cfg['sim']['numEnv'] = 100
+    cfg['sim']['numEnv'] = 2
     cfg['sim']['numAgents'] = 3
     cfg['learn']['timeout'] = 300
     cfg['learn']['offtrack_reset'] = 3.0
