@@ -166,6 +166,7 @@ class DmarEnv():
         self.R[:, :, 1, 1 ] = torch.cos(theta)
         self.lookahead_body = torch.einsum('eaij, eatj->eati', self.R, self.lookahead)
         otherpositions = []
+        
         for agent in range(self.num_agents):
             selfpos = self.states[:, agent, 0:2].view(-1,1,2)
             otherpos = torch.cat((self.states[:, :agent, 0:2], self.states[:, agent+1:, 0:2]), dim = 1)
@@ -175,6 +176,7 @@ class DmarEnv():
         norm_pos_other = torch.norm(pos_other, dim = 2).view(-1, self.num_agents, 1)
         dir_other = torch.div(pos_other, norm_pos_other)
         dist_other_clipped = torch.clip(0.1*norm_pos_other, min = 0, max = 3).view(-1, self.num_agents, 1)
+    
         self.vels_body = vels
         self.vels_body[..., :-1] = torch.einsum('eaij, eaj -> eai',self.R, vels[..., :-1])
         
@@ -214,7 +216,7 @@ class DmarEnv():
         
         
         #clip rewards
-        self.rew_buf = torch.clip(rew_progress + rew_on_track + rew_contouring + rew_actionrate + rew_sidevel, min = 0, max = None)
+        self.rew_buf = torch.clip(rew_progress + rew_on_track + rew_contouring + rew_actionrate + rew_sidevel + rew_energy, min = 0, max = None)
 
 
         self.reward_terms['progress'] += rew_progress

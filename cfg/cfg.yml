@@ -26,7 +26,7 @@ viewer:
   height: 1200
   scale: 240.0 #[m/width*px] indicates how wide the window is in pixels
   linethickness: 1
-  multiagent: False
+  multiagent: True
   maxAgents: 100
 
 track:

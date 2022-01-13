@@ -6,7 +6,7 @@ import numpy as np
 
 def play():
     cfg['sim']['numEnv'] = 4
-    cfg['sim']['numAgents'] = 1
+    cfg['sim']['numAgents'] = 2
     cfg['track']['num_tracks'] = 3
     cfg['viewer']['multiagent'] = True
     cfg['learn']['defaultactions'] = [0,0,0]
@@ -31,8 +31,8 @@ def play():
         actions[0 , 0, 2] = brk_cmd
         
         obs, _, rew, dones, info = env.step(actions)
-        obsnp = obs[:,:].cpu().numpy()
-        rewnp = rew[:].cpu().numpy()
+        obsnp = obs[:,0,:].cpu().numpy()
+        rewnp = rew[:, 0].cpu().numpy()
         cont = env.conturing_err.cpu().numpy()
         act = actions[:,0,:].cpu().detach().numpy()
         states = env.states.cpu().numpy()
