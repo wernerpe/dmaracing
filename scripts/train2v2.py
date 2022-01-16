@@ -17,7 +17,7 @@ if __name__ == "__main__":
     cfg, cfg_train, logdir = getcfg(path_cfg)
     cfg['sim']['numAgents'] = 2
     cfg['sim']['collide'] = 0
-    cfg['track']['num_tracks'] = 2
+    #cfg['track']['num_tracks'] = 2
     
     now = datetime.now()
     timestamp = now.strftime("%y_%m_%d_%H_%M_%S")
