@@ -21,7 +21,7 @@ runner:
   algorithm_class_name: MAPPO
   num_steps_per_env: 32 # per iteration
   max_iterations: 1500 # number of policy updates
-  population_update_interval: 50 #number of iterations before the opponent policy is updated
+  population_update_interval: 100 #number of iterations before the opponent policy is updated
 
   # logging
   save_interval: 20 # check for potential saves every this many iterations

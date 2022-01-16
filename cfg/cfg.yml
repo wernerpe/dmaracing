@@ -49,7 +49,7 @@ learn:
   use_timeouts: True
   #[posx, posy, theta, vellong, vellat, dtheta, steer]
   resetrand: [2.0, 2.0, 0.2, 3.0, 0.12,  0.1, 0.0]
-  
+  reset_tile_rand: 20
   defaultactions: [0., 0.2, 0.0]
   actionscale: [1.0, 0.5, 0.2]
 

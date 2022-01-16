@@ -110,6 +110,7 @@ class DmarEnv():
         self.action_scales = cfg['learn']['actionscale']
         self.horizon = cfg['learn']['horizon']
         self.reset_randomization = cfg['learn']['resetrand']
+        self.reset_tile_rand = cfg['learn']['reset_tile_rand']
         self.timeout_s = cfg['learn']['timeout']
         self.offtrack_reset_s = cfg['learn']['offtrack_reset']
         self.offtrack_reset = int(self.offtrack_reset_s/(self.decimation*self.dt))
@@ -249,7 +250,11 @@ class DmarEnv():
 
     def reset_envs(self, env_ids) -> None:
         self.resample_track(env_ids)
-        tile_idx_env = (torch.rand((len(env_ids),self.num_agents), device=self.device) * self.active_track_tile_counts[env_ids].view(-1,1)).to(dtype=torch.long)
+        tile_idx_env = (torch.rand((len(env_ids),1), device=self.device) * self.active_track_tile_counts[env_ids].view(-1,1)).to(dtype=torch.long)
+        tile_idx_env = torch.tile(tile_idx_env, (self.num_agents,))
+        if self.num_agents >1:
+            rands = (torch.rand((len(env_ids),self.num_agents-1), device=self.device) * self.reset_tile_rand - self.reset_tile_rand/2).to(dtype=torch.long)
+            tile_idx_env[:, 1:] = torch.remainder(tile_idx_env[:, 1:] + rands, self.active_track_tile_counts[env_ids].view(-1,1))
         for agent in range(self.num_agents):
             tile_idx = tile_idx_env[:, agent]  
             startpos = self.active_centerlines[env_ids, tile_idx, :]
