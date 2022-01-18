@@ -4,7 +4,7 @@ sim:
   numAgents: 6
   dt: 0.01 #[s]
   numStates: 12
-  numObservations: 41 
+  numObservations: 43 
   numActions: 3
   collide: 1
   decimation: 4
@@ -49,7 +49,7 @@ learn:
   use_timeouts: True
   #[posx, posy, theta, vellong, vellat, dtheta, steer]
   resetrand: [2.0, 2.0, 0.2, 3.0, 0.12,  0.1, 0.0]
-  reset_tile_rand: 20
+  reset_tile_rand: 100
   defaultactions: [0., 0.2, 0.0]
   actionscale: [1.0, 0.5, 0.2]
 
@@ -57,9 +57,11 @@ learn:
   contouringRewardScale: 0.0
   offtrackRewardScale: -2.0
   actionRateRewardScale: 0.1 
-  energyRewardScale: 0.00001
+  energyRewardScale: 0.00008
   sidevelRewardScale: 0.0
+  rankRewardScale: 1.0
+  collisionRewardScale: -10.0
   horizon: 15
   
-  timeout: 60.0 #[s]
+  timeout: 120.0 #[s]
   offtrack_reset: 1.0 #[s]

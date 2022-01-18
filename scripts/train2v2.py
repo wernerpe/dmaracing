@@ -16,7 +16,7 @@ if __name__ == "__main__":
     path_cfg = os.getcwd() + '/cfg'
     cfg, cfg_train, logdir = getcfg(path_cfg)
     cfg['sim']['numAgents'] = 2
-    cfg['sim']['collide'] = 0
+    cfg['sim']['collide'] = 1
     #cfg['track']['num_tracks'] = 2
     
     now = datetime.now()
