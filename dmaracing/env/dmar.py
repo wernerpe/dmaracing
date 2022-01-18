@@ -229,7 +229,7 @@ class DmarEnv():
         rew_contouring = -torch.square(0.1*self.conturing_err) * self.reward_scales['contouring']
         rew_on_track = self.reward_scales['offtrack']*~self.is_on_track 
         rew_actionrate = -torch.sum(torch.square(self.actions-self.last_actions), dim = 2) *self.reward_scales['actionrate']
-        rew_energy = -torch.sum(torch.square(self.states[:,:,self.vn['S_W0']:self.vn['S_W3']+1]), dim = 2) *self.reward_scales['energy']
+        rew_energy = -torch.sum(torch.square(self.states[:,:,self.vn['S_W0']:self.vn['S_W3']+1]), dim = 2)*self.reward_scales['energy']
         rew_sidevel = -torch.square(self.vels_body[:,:,1])*self.reward_scales['sidevel']
         rew_rank = (self.num_agents-self.ranks)*self.reward_scales['rank']
         rew_collision = (torch.norm(self.contact_wrenches, dim = 2) > 0)*self.reward_scales['collision']
