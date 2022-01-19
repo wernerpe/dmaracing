@@ -9,11 +9,12 @@ import time
 
 def play():
     chkpt = -1
-    cfg['sim']['numEnv'] = 10
+    cfg['sim']['numEnv'] = 5
     cfg['sim']['numAgents'] = 2
     cfg['learn']['timeout'] = 300
     #cfg['learn']['offtrack_reset'] = 3.0
-    #cfg['learn']['reset_tile_rand'] = 10
+    cfg['learn']['reset_tile_rand'] = 10
+    cfg['sim']['test_mode'] = True
     
     cfg['track']['seed'] = 1
     cfg['track']['num_tracks'] = 20
@@ -39,7 +40,7 @@ def play():
     while True:
         t1 = time.time()
         actions = policy(obs)
-        actions[:,1:,1] *=0.5
+        actions[:,1:,1] *=0.9
         obs,_, rew, dones, info = env.step(actions)
         obsnp = obs[:,0,:].cpu().numpy()
         rewnp = rew[:,0].cpu().numpy()

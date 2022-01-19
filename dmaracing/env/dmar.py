@@ -266,7 +266,10 @@ class DmarEnv():
         tile_idx_env = (torch.rand((len(env_ids),1), device=self.device) * self.active_track_tile_counts[env_ids].view(-1,1)).to(dtype=torch.long)
         tile_idx_env = torch.tile(tile_idx_env, (self.num_agents,))
         if self.num_agents >1:
-            rands = (torch.rand((len(env_ids),self.num_agents-1), device=self.device) * self.reset_tile_rand - self.reset_tile_rand/2).to(dtype=torch.long)
+            if self.cfg['sim']['test_mode']:
+                rands = (torch.rand((len(env_ids),self.num_agents-1), device=self.device) * self.reset_tile_rand - self.reset_tile_rand/4).to(dtype=torch.long)
+            else:    
+                rands = (torch.rand((len(env_ids),self.num_agents-1), device=self.device) * self.reset_tile_rand - self.reset_tile_rand/2).to(dtype=torch.long)
             tile_idx_env[:, 1:] = torch.remainder(tile_idx_env[:, 1:] + rands, self.active_track_tile_counts[env_ids].view(-1,1))
         for agent in range(self.num_agents):
             tile_idx = tile_idx_env[:, agent]  

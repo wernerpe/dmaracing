@@ -57,10 +57,10 @@ learn:
   contouringRewardScale: 0.0
   offtrackRewardScale: -2.0
   actionRateRewardScale: 0.1 
-  energyRewardScale: 0.00008
+  energyRewardScale: 0.00006
   sidevelRewardScale: 0.0
-  rankRewardScale: 1.0
-  collisionRewardScale: -10.0
+  rankRewardScale: 5.0
+  collisionRewardScale: -5.0
   horizon: 15
   
   timeout: 120.0 #[s]
