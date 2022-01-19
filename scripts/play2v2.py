@@ -8,15 +8,16 @@ import os
 import time
 
 def play():
-    chkpt = -1
-    cfg['sim']['numEnv'] = 5
+    chkpts = [-1, 1000]
+    
+    cfg['sim']['numEnv'] = 2
     cfg['sim']['numAgents'] = 2
     cfg['learn']['timeout'] = 300
-    #cfg['learn']['offtrack_reset'] = 3.0
+    cfg['learn']['offtrack_reset'] = 3.0
     cfg['learn']['reset_tile_rand'] = 10
     cfg['sim']['test_mode'] = True
     
-    cfg['track']['seed'] = 1
+    cfg['track']['seed'] = 12
     cfg['track']['num_tracks'] = 20
 
     #cfg['track']['CHECKPOINTS'] = 3
@@ -26,13 +27,16 @@ def play():
     env = DmarEnv(cfg, args)
     #env.viewer.mark_env(0)
     obs = env.obs_buf
-
-    dir, model = get_run(logdir, run = -1, chkpt=chkpt)
-    chkpt = model
+    model_paths = []
+    modelnrs = []
+    for chkpt in chkpts:
+        dir, modelnr = get_run(logdir, run = -1, chkpt=chkpt)
+        modelnrs.append(modelnr)
+        model_paths.append("{}/model_{}.pt".format(dir, modelnr))
+        print("Loading model" + model_paths[-1])
     runner = get_mappo_runner(env, cfg_train, logdir, device = env.device)
-    model_path = "{}/model_{}.pt".format(dir, model)
-    print("Loading model" + model_path)
-    runner.load(model_path)
+    
+    runner.load_multi_path(model_paths)
     policy = runner.get_inference_policy(device=env.device)
     
     time_per_step = cfg['sim']['dt']*cfg['sim']['decimation']
@@ -49,7 +53,8 @@ def play():
         states = env.states.cpu().numpy()
         om_mean = np.mean(states[env.viewer.env_idx_render,0, env.vn['S_W0']:env.vn['S_W3'] +1 ])
 
-        viewermsg = [(f"""{'policy chckpt '+str(chkpt)}"""),
+        viewermsg = [(f"""{'policy0 chckpt '+str(modelnrs[0])}"""),
+                     (f"""{'policy1 chckpt '+str(modelnrs[1])}"""),
                      (f"""{'rewards:':>{10}}{' '}{100*rewnp[env.viewer.env_idx_render]:.2f}"""   ),
                      (f"""{'velocity x:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 0]:.2f}"""),
                      (f"""{'velocity y:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 1]:.2f}"""),
