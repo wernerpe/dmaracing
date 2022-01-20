@@ -8,6 +8,7 @@ sim:
   numActions: 3
   collide: 1
   decimation: 4
+  test_mode: False
   
 model:
   SIZE: 0.02 #[px/m]
@@ -49,7 +50,7 @@ learn:
   use_timeouts: True
   #[posx, posy, theta, vellong, vellat, dtheta, steer]
   resetrand: [2.0, 2.0, 0.2, 3.0, 0.12,  0.1, 0.0]
-  reset_tile_rand: 100
+  reset_tile_rand: 20
   defaultactions: [0., 0.2, 0.0]
   actionscale: [1.0, 0.5, 0.2]
 
@@ -57,10 +58,10 @@ learn:
   contouringRewardScale: 0.0
   offtrackRewardScale: -2.0
   actionRateRewardScale: 0.1 
-  energyRewardScale: 0.00006
+  energyRewardScale: 0.00005
   sidevelRewardScale: 0.0
   rankRewardScale: 5.0
-  collisionRewardScale: -5.0
+  collisionRewardScale: -80.0
   horizon: 15
   
   timeout: 120.0 #[s]

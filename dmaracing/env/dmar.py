@@ -251,7 +251,7 @@ class DmarEnv():
     def check_termination(self) -> None:
         #dithering step
         #self.reset_buf = torch.rand((self.num_envs, 1), device=self.device) < 0.03
-        if self.cfg['sim']['test_mode']:
+        if False and self.cfg['sim']['test_mode']:
             self.reset_buf = torch.max(1.0*(self.time_off_track[:, :] > self.offtrack_reset), dim = 1)[0].view(-1,1) > 0.0
         else:
             self.reset_buf = self.time_off_track[:, 0].view(-1,1) > self.offtrack_reset
