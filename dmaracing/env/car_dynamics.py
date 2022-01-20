@@ -3,8 +3,13 @@ from typing import Dict, List, Tuple
 import numpy as np
 
 from dmaracing.env.car_dynamics_utils import resolve_collsions
+# Add Dynamics directory to python path. Change this path to match that of your local system!
+import sys
+sys.path.insert(1, '/home/thomasbalch/tri_workspace/dynamics_model_learning/scripts')
+# Import Dynamics encoder from TRI dynamics library.
+from learn_dynamics import DynamicsEncoder
 
-@torch.jit.script
+# @torch.jit.script
 def step_cars(state : torch.Tensor, 
               actions : torch.Tensor,
               drag_reduced : torch.Tensor,
@@ -29,7 +34,8 @@ def step_cars(state : torch.Tensor,
               active_track_mask: torch.Tensor,
               A_track: torch.Tensor,
               b_track: torch.Tensor,
-              S_track: torch.Tensor 
+              S_track: torch.Tensor, 
+              dyn_model: DynamicsEncoder 
               ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     
     #set steering angle
@@ -74,6 +80,7 @@ def step_cars(state : torch.Tensor,
     #set gas 
     #diff = actions[:, :, vn['A_GAS']] - state[:, :, vn['S_GAS']] 
     #state[:, :, vn['S_GAS']] += torch.clip(diff, min =-0.1, max=0.06)
+    #state[:, :, vn['S_GAS']] = torch.clamp(state[:, :, vn['S_GAS']], 0, 1)
     state[:, :, vn['S_GAS']] = torch.clip(actions[:, :, vn['A_GAS']], 0, 1)*(1.0*~drag_reduced + mod_par['drag_reduction']*drag_reduced)
     
     #set wheel speeds
@@ -131,26 +138,56 @@ def step_cars(state : torch.Tensor,
     state[:, :, vn['S_W0']:vn['S_W3']+1] *= 0.9
 
     #apply force to center
-    wheel_forces = f_force.unsqueeze(3)*wheel_dirs_forward + p_force.unsqueeze(3)*wheel_dirs_side
-    net_force = torch.sum(wheel_forces, dim = 2)
-    net_torque = torch.sum(torch.cross(wheel_locations_bodycentric_world, torch.nn.functional.pad(wheel_forces, (0,1)), dim = 3)[..., 2], dim = 2)
+    # wheel_forces = f_force.unsqueeze(3)*wheel_dirs_forward + p_force.unsqueeze(3)*wheel_dirs_side
+    # net_force = torch.sum(wheel_forces, dim = 2)
+    # net_torque = torch.sum(torch.cross(wheel_locations_bodycentric_world, torch.nn.functional.pad(wheel_forces, (0,1)), dim = 3)[..., 2], dim = 2)
     
     #net_torque
-    ddx = 1/mod_par['M']*(net_force[:,:,0] + contact_wrenches[:,:,0])
-    ddy = 1/mod_par['M']*(net_force[:,:,1] + contact_wrenches[:,:,1])
-    ddtheta = 1/mod_par['I']*(net_torque + 4.5*contact_wrenches[:,:,2])
-    acc = torch.cat((ddx.unsqueeze(2),ddy.unsqueeze(2),ddtheta.unsqueeze(2)), dim= 2)
-    state[:, :, vn['S_X']:vn['S_THETA'] + 1] += sim_par['dt']*state[:,:,vn['S_DX']:vn['S_DTHETA']+1]
-    state[:, :, vn['S_X']:vn['S_Y'] + 1] += shove[:,:,:2]
-    state[:, :, vn['S_THETA']] += shove[:,:,2]
-    state[:, :, vn['S_DX']:vn['S_DTHETA'] + 1] += sim_par['dt']*acc
+    # ddx = 1/mod_par['M']*(net_force[:,:,0] + contact_wrenches[:,:,0])
+    # ddy = 1/mod_par['M']*(net_force[:,:,1] + contact_wrenches[:,:,1])
+    # ddtheta = 1/mod_par['I']*(net_torque + 4.5*contact_wrenches[:,:,2])
+    # acc = torch.cat((ddx.unsqueeze(2),ddy.unsqueeze(2),ddtheta.unsqueeze(2)), dim= 2)
+    # state[:, :, vn['S_X']:vn['S_THETA'] + 1] += sim_par['dt']*state[:,:,vn['S_DX']:vn['S_DTHETA']+1]
+    # state[:, :, vn['S_X']:vn['S_Y'] + 1] += shove[:,:,:2]
+    # state[:, :, vn['S_THETA']] += shove[:,:,2]
+    # state[:, :, vn['S_DX']:vn['S_DTHETA'] + 1] += sim_par['dt']*acc
+    q0 = state[:, :, vn['S_W0']]
+    q1 = state[:, :, vn['S_W1']]
+    q2 = state[:, :, vn['S_W2']]
+    q3 = state[:, :, vn['S_W3']]
+    yaw = state[:, :, vn['S_THETA']] # atan2(2 * q1 * q2 + 2 * q0 * q3, q1 * q1 + q0 * q0 - q3 * q3 - q2 * q2)
+    roll = torch.atan2(2 * q2 * q3 + 2 * q0 * q1, q3 * q3 - q2 * q2 - q1 * q1 + q0 * q0)
+    yaw_rate = state[:, :, vn['S_DTHETA']]
+    dyn_state = torch.cat([state[:, :, vn['S_X']:vn['S_Y']+1], yaw.unsqueeze(1), roll.unsqueeze(1), state[:, :, vn['S_DX']:vn['S_DY']+1], yaw_rate.unsqueeze(1)], dim=2) # x and y in world frame, dx and dy need to be rotated by theta to be in body frame
+    dyn_control = torch.cat([state[:, :, vn['S_STEER']].unsqueeze(1), state[:, :, vn['S_GAS']].unsqueeze(1)], dim=2)
+    # This state update assumes that these steps are occurring at 50 Hz.
+    new_state = dyn_model.predict_one_step(dyn_state.to(dyn_model.device), dyn_control.to(dyn_model.device))
+    
+    new_state = torch.cat([new_state, torch.zeros(4,1,5, device=new_state.device)], dim=2)
+    # Add back in quaternion and steer/gas values
+    psi = new_state[..., 2]  # yaw
+    phi = new_state[..., 3]  # roll
+    theta = torch.zeros(4, 1, device=new_state.device)  # pitch
+    q0 = torch.cos(phi / 2) * torch.cos(theta / 2) * torch.cos(psi / 2) + torch.sin(phi / 2) * torch.sin(theta / 2) * torch.sin(psi / 2)
+    q1 = -torch.cos(phi / 2) * torch.sin(theta / 2) * torch.sin(psi / 2) + torch.cos(theta / 2) * torch.cos(psi / 2) * torch.sin(phi / 2)
+    q2 = torch.cos(phi / 2) * torch.cos(psi / 2) * torch.sin(theta / 2) + torch.sin(phi / 2) * torch.cos(theta / 2) * torch.sin(psi / 2)
+    q3 = torch.cos(phi / 2) * torch.cos(theta / 2) * torch.sin(psi / 2) - torch.sin(phi / 2) * torch.cos(psi / 2) * torch.sin(theta / 2)
+    
+    new_state[..., vn['S_DX']:vn['S_DTHETA']+1] = new_state[..., vn['S_DX']+1:vn['S_DTHETA']+2]
+    new_state[..., vn['S_W0']] = q0
+    new_state[..., vn['S_W1']] = q1
+    new_state[..., vn['S_W2']] = q2
+    new_state[..., vn['S_W3']] = q3
+    new_state[..., vn['S_STEER']] = state[..., vn['S_STEER']]
+    new_state[..., vn['S_GAS']] = state[..., vn['S_GAS']]
+    new_state = new_state.detach().to(state.device)
 
     if collide:
         #resolve collisions using a combination of spring force and "shove" which pushes the vertex 
         #in collision out of collision
         contact_wrenches, shove = resolve_collsions(contact_wrenches,
                                                     shove,
-                                                    state,
+                                                    new_state,
                                                     collision_pairs,
                                                     mod_par['lf'],
                                                     collision_verts,
@@ -165,4 +202,4 @@ def step_cars(state : torch.Tensor,
                                                     mod_par['I']
                                                     )
 
-    return state, contact_wrenches, shove, wheels_on_track_segments, slip, wheel_locations_world
+    return new_state, contact_wrenches, shove, wheels_on_track_segments, slip, wheel_locations_world
