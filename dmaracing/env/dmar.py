@@ -10,6 +10,12 @@ import numpy as np
 import time
 from dmaracing.utils.trackgen import get_track, get_track_ensemble
 
+# Add Dynamics directory to python path. Change this path to match that of your local system!
+import sys
+sys.path.insert(1, '/home/thomasbalch/tri_workspace/dynamics_model_learning/scripts')
+# Import Dynamics encoder from TRI dynamics library.
+from learn_dynamics import DynamicsEncoder
+
 class DmarEnv():
     def __init__(self, cfg, args) -> None:
         self.device = args.device
@@ -26,6 +32,9 @@ class DmarEnv():
         self.modelParameters = cfg['model']
         set_dependent_params(self.modelParameters)
         self.simParameters = cfg['sim']
+
+        # Import TRI dynamics model and weights
+        self.dyn_model = DynamicsEncoder.load_from_checkpoint('/home/thomasbalch/tri_workspace/logs/lightning_logs/version_1/checkpoints/epoch=7-step=4039.ckpt').to(self.device)
 
         #use bootstrapping on vf
         self.use_timeouts = cfg['learn']['use_timeouts']
@@ -136,6 +145,7 @@ class DmarEnv():
         self.viewer.center_cam(self.states)
         if not self.headless:
             self.render()
+
         
         
                
@@ -363,7 +373,8 @@ class DmarEnv():
                                                                                       self.active_track_mask,
                                                                                       self.track_A, #Ax<=b
                                                                                       self.track_b,
-                                                                                      self.track_S #how to sum
+                                                                                      self.track_S, #how to sum
+                                                                                      self.dyn_model
                                                                                      )
     def resample_track(self, env_ids) -> None:
         self.active_track_ids[env_ids] = torch.randint(0, self.num_tracks, (len(env_ids),), device = self.device, requires_grad=False, dtype = torch.long)
