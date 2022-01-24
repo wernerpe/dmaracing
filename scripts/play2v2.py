@@ -6,17 +6,17 @@ from dmaracing.utils.rl_helpers import get_mappo_runner
 import numpy as np
 import os
 import time
-import trueskill
+#import trueskill
 from scipy.stats import norm
 
 def play():
-    chkpts = [-1, 300]
+    chkpts = [-1, 1250]
     
     cfg['sim']['numEnv'] = 2
     cfg['sim']['numAgents'] = 2
-    cfg['learn']['timeout'] = 100
+    cfg['learn']['timeout'] = 40
     cfg['learn']['offtrack_reset'] = 3.0
-    cfg['learn']['reset_tile_rand'] = 10
+    cfg['learn']['reset_tile_rand'] = 5
     cfg['sim']['test_mode'] = True
     
     cfg['track']['seed'] = 12
