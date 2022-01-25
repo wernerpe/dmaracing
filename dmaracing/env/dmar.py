@@ -166,6 +166,12 @@ class DmarEnv():
         
         centers = self.active_centerlines[:, tile_idx, :]
         centers = centers[self.all_envs,self.all_envs, ...]
+        angles_at_centers = self.active_alphas[:,tile_idx]
+        angles_at_centers = angles_at_centers[self.all_envs, self.all_envs, ...]
+        self.trackdir_lookahead = torch.stack((torch.cos(angles_at_centers), torch.sin(angles_at_centers)), dim = 3)
+        
+        self.smooth_centers = centers + self.trackdir_lookahead*self.sub_tile_progress.view(self.num_envs, self.num_agents, 1, 1)
+        
         self.lookahead = (centers - torch.tile(self.states[:,:,0:2].unsqueeze(2), (1,1,self.horizon, 1)))
         
         self.R[:, :, 0, 0 ] = torch.cos(theta)
@@ -213,18 +219,9 @@ class DmarEnv():
 
     def compute_rewards(self,) -> None:
         
-        #print((self.active_track_tile[0,0])*self.tile_len)
-        tile_points = self.active_centerlines[:, self.active_track_tile, :]
-        tile_points = tile_points[self.all_envs, self.all_envs, ...] 
-        tile_car_vec = self.states[:,:, 0:2] - tile_points        
-        angs = self.active_alphas[:,self.active_track_tile]
-        angs = angs[self.all_envs, self.all_envs, ...]
-        trackdir = torch.stack((torch.cos(angs), torch.sin(angs)), dim = 2) 
-        trackperp = torch.stack((- torch.sin(angs), torch.cos(angs)), dim = 2) 
-
-        sub_tile_progress = torch.einsum('eac, eac-> ea', trackdir, tile_car_vec)
-        self.track_progress = self.active_track_tile*self.tile_len + sub_tile_progress
-        self.conturing_err = torch.einsum('eac, eac-> ea', trackperp, tile_car_vec)
+        
+        self.track_progress = self.active_track_tile*self.tile_len + self.sub_tile_progress
+        self.conturing_err = torch.einsum('eac, eac-> ea', self.trackperp, self.tile_car_vec)
         rew_progress = torch.clip(self.track_progress-self.old_track_progress, min = -10, max = 10) * self.reward_scales['progress']
         rew_contouring = -torch.square(0.1*self.conturing_err) * self.reward_scales['contouring']
         rew_on_track = self.reward_scales['offtrack']*~self.is_on_track 
@@ -380,6 +377,22 @@ class DmarEnv():
         track_dist = self.track_progress + self.lap_counter*self.track_lengths[self.active_track_ids].view(-1,1)
         dist_sort, self.ranks = torch.sort(track_dist, dim = 1, descending = True)
         
+        #compute closest point on centerline
+        self.tile_points = self.active_centerlines[:, self.active_track_tile, :]
+        self.tile_points = self.tile_points[self.all_envs, self.all_envs, ...] 
+        self.tile_car_vec = self.states[:,:, 0:2] - self.tile_points        
+        angs = self.active_alphas[:,self.active_track_tile]
+        angs = angs[self.all_envs, self.all_envs, ...]
+        self.trackdir = torch.stack((torch.cos(angs), torch.sin(angs)), dim = 2) 
+        self.trackperp = torch.stack((- torch.sin(angs), torch.cos(angs)), dim = 2) 
+
+        self.sub_tile_progress = torch.einsum('eac, eac-> ea', self.trackdir, self.tile_car_vec)
+    
+        #self.closest_point =  self.tile_points + self.sub_tile_progress.view(-1,self.num_agents, 1)*self.trackdir
+
+
+
+
         self.compute_observations()
         self.compute_rewards()
 

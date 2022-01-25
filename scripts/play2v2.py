@@ -91,7 +91,15 @@ def play():
                      (f"""{'laps ag 0 :':>{10}}{' '}{env.lap_counter[env.viewer.env_idx_render, 0].item():.2f}"""),
                      (f"""{'step :':>{10}}{' '}{env.episode_length_buf[env.viewer.env_idx_render].item():.2f}""")
                      ]
-        
+        lookahead_markers = env.lookahead + torch.tile(env.states[:,:,0:2].unsqueeze(2), (1,1,env.horizon, 1))
+        pts = lookahead_markers[env.viewer.env_idx_render,0,:,:].cpu().numpy()
+        #print(lookahead_markers[0,0,0:5,:])
+        env.viewer.clear_markers()
+        env.viewer.add_point(pts, 5,(5,10,222), 2)
+
+        closest_point_marker = env.smooth_centers[env.viewer.env_idx_render, 0, :, :].cpu().numpy()
+        env.viewer.add_point(closest_point_marker, 2,(222,10,0), 2)
+
         env.viewer.clear_string()
         for msg in viewermsg:
             env.viewer.add_string(msg)

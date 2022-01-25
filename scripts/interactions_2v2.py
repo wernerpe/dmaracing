@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 from scipy.stats import norm
 
 def play():
-    chkpts = [-1, 1250]
+    chkpts = [-1, -1]
     
     cfg['sim']['numEnv'] = 2
     cfg['sim']['numAgents'] = 2
@@ -62,22 +62,25 @@ def play():
     #define track starting tile for env 0 
     #tile_idx = 128 #tile_idx_env[:, agent]  
     #set agent 1 off to side, vay agent 0 along centerline
-    tile_idx_1 = 80
+    tile_idx_1 = 50
     #tile_idx = (torch.rand((1,1), device=env.device) * env.active_track_tile_counts[0].view(-1,1)).to(dtype=torch.long)
     startpos = env.active_centerlines[0, tile_idx_1, :]
     angle = env.active_alphas[0, tile_idx_1]
     env.states[0, 1,env.vn['S_X']] = startpos[0]
-    env.states[0, 1,env.vn['S_Y']] = startpos[1] - 2.0         
+    env.states[0, 1,env.vn['S_Y']] = startpos[1] - 4.0         
     env.states[0, 1,env.vn['S_THETA']] = angle.item()
 
     values_pairs = []
-    for idx in np.arange(-10, 11):
-        tile_idx = tile_idx_1 + idx#(torch.rand((1,1), device=env.device) * 0.22*env.active_track_tile_counts[0].view(-1,1)+30).to(dtype=torch.long)
+    for frac in np.linspace(-15.0, 15.0, 500):
+        idx = np.int(frac)
+        subtile = frac - idx
+        tile_idx = tile_idx_1 + idx #(torch.rand((1,1), device=env.device) * 0.22*env.active_track_tile_counts[0].view(-1,1)+30).to(dtype=torch.long)
         startpos = env.active_centerlines[0, tile_idx, :]
         angle = env.active_alphas[0, tile_idx]
-        env.states[0,0,env.vn['S_X']] = startpos[0]
-        env.states[0,0,env.vn['S_Y']] = startpos[1]          
-        env.states[0,0,env.vn['S_THETA']] = angle.item()
+        angle_nxt = env.active_alphas[0, tile_idx+1]
+        env.states[0,0,env.vn['S_X']] = startpos[0] + subtile * env.tile_len * np.cos(angle.item())
+        env.states[0,0,env.vn['S_Y']] = startpos[1] + subtile * env.tile_len * np.sin(angle.item())         
+        env.states[0,0,env.vn['S_THETA']] = (1-subtile)*angle.item() + subtile*angle_nxt.item()
 
         
         dists = torch.norm(env.states[:, :, 0:2].unsqueeze(2)-env.active_centerlines.unsqueeze(1), dim=3)
@@ -88,16 +91,16 @@ def play():
         env.compute_observations()
         observations = env.obs_buf
         values = value_fn(observations)
-        values_pairs.append([idx, values[0, :,0].detach().cpu().numpy()])
-        print(values)
+        values_pairs.append([frac, values[0, :,0].detach().cpu().numpy()])
+        print(values[0,:])
 
         lookahead_markers = env.lookahead + torch.tile(env.states[:,:,0:2].unsqueeze(2), (1,1,env.horizon, 1))
         pts = lookahead_markers[env.viewer.env_idx_render,0,:,:].cpu().numpy()
         #print(lookahead_markers[0,0,0:5,:])
         env.viewer.clear_markers()
-        env.viewer.add_point(pts, 5,(5,10,222))
+        env.viewer.add_point(pts, 5,(5,10,222), 2)
         env.render()
-        time.sleep(0.01)
+        #time.sleep(0.1)
 
     pos = np.array([entry[0] for entry in values_pairs])
     values_0 = np.array([entry[1][0] for entry in values_pairs])
@@ -110,6 +113,8 @@ def play():
     ax.set_xlabel('position [tile]')
     ax.set_ylabel('value fn prediction')
     ax.legend()
+    plt.show()
+    print('done')
     
 
 if __name__ == "__main__":
