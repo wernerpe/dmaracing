@@ -6,13 +6,14 @@ import numpy as np
 
 def play():
     cfg['sim']['numEnv'] = 4
-    cfg['sim']['numAgents'] = 2
+    cfg['sim']['numAgents'] = 4
     cfg['track']['num_tracks'] = 3
     cfg['viewer']['multiagent'] = True
     cfg['learn']['defaultactions'] = [0,0,0]
     cfg['learn']['actionscale'] = [1,1,1]
     cfg['learn']['offtrack_reset'] = 100
     cfg['learn']['timeout'] = 100
+    cfg['learn']['reset_tile_rand'] = 0
     cfg['model']['OFFTRACK_FRICTION_SCALE'] = 1
     
     
@@ -57,6 +58,7 @@ def play():
             env.viewer.add_string(msg)
 
         evt = env.viewer_events
+    
         if evt == 105:
             vel_cmd += 0.1
             brk_cmd = 0
@@ -69,6 +71,10 @@ def play():
             steer_cmd += 0.4 * (steer_cmd < 1)
         elif evt == 108:
             steer_cmd -= 0.4 * (steer_cmd> -1)
+        elif evt == 121:
+            print("env ", env.viewer.env_idx_render, " reset")
+            env.episode_length_buf[env.viewer.env_idx_render] = 1e9
+
        
 if __name__ == "__main__":
     args = CmdLineArguments()

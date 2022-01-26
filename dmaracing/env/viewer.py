@@ -99,7 +99,6 @@ class Viewer:
 
         cv.imshow("dmaracing", self.img)
         key = cv.waitKey(1)
-        #print(key)
         if key == 118: #toggle render on v
             if self.do_render:
                 self.do_render = False

@@ -261,6 +261,40 @@ def get_contact_wrenches(P_tot : torch.Tensor,
 
     return forces, torque_A, torque_B
 
+@torch.jit.script
+def get_contact_state_change(P_tot : torch.Tensor, 
+                            D_tot : torch.Tensor,
+                            S_mat : torch.Tensor,
+                            Repf_mat : torch.Tensor, 
+                            Depth_selector : List[int],
+                            verts_tf : torch.Tensor,
+                            num_envs : int,
+                            zero_pad : torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    #evaluate polygon equations on vertices of collider in bodyframe of collidee
+    vert_poly_dists = torch.einsum('ij, lkj->lki', P_tot, verts_tf) + torch.tile(D_tot.squeeze(), (num_envs, 4, 1)) 
+    #check if in polygon
+    in_poly = torch.einsum('ij, lkj -> lki', S_mat, 1.0*(vert_poly_dists+1e-4>=0)) > 3 #watch for numerics here #!$W%!$#!
+    #inpoly (numenvs, num_verts, num_poly) Repforcedir (num_envs, num_poly, coords) -> num_env, num_verts, forcecoords
+    force_dir = torch.einsum('ijk, ikl -> ijl', 1.0*in_poly, Repf_mat)
+    #inpoly (numenvs, num_verts, num_poly) #vert_poly_dists[:,:, Ds] (num_env, num_verts, num_polygons)
+    #use fact that we precomputed all distances to polygon walls
+    depths = torch.einsum('ijk, ijk -> ij', 1.0*in_poly, vert_poly_dists[:,:, Depth_selector])
+    magnitude = 120000*depths
+    forces = force_dir
+    forces[:, :, 0] *= magnitude
+    forces[:, :, 1] *= magnitude
+
+    dirs_vert = torch.cat((verts_tf - torch.tile(torch.mean(verts_tf, dim = 1).unsqueeze(1), (1,4,1)), zero_pad ), dim = 2)
+    dirs_force = torch.cat((forces[:, :, :], zero_pad), dim = 2)
+
+    torque_B = torch.sum(torch.cross(dirs_vert, dirs_force, dim = 2)[:,:, 2], dim = 1)
+    dirs_vert_A = torch.cat((verts_tf, zero_pad), dim = 2)
+    torque_A = torch.sum(torch.cross(dirs_vert_A, -dirs_force, dim = 2)[:,:, 2], dim = 1)
+    
+    #sum over contact forces acting at the individual vertices
+    forces = torch.sum(forces, dim = 1)
+
+    return forces, torque_A, torque_B
 
 @torch.jit.script
 def resolve_collsions(contact_wrenches : torch.Tensor,
@@ -305,7 +339,7 @@ def resolve_collsions(contact_wrenches : torch.Tensor,
                 #rotate forces into global frame from frame A
                 force_B = rotate_vec(force_B, states_A[:, 2], R[idx_comp,:,:])
                 contact_wrenches[ idx_comp, colp[0], :2] += -force_B
-                contact_wrenches[ idx_comp, colp[1], :2] += force_B
+                contact_wrenches[ idx_comp, colp[1], :2] += force_B*0.1
                 contact_wrenches[ idx_comp, colp[0], 2] += torque_A
                 contact_wrenches[ idx_comp, colp[1], 2] += torque_B
 
@@ -330,7 +364,7 @@ def resolve_collsions(contact_wrenches : torch.Tensor,
                 #rotate forces into global frame from frame A
                 force_B = rotate_vec(force_B, states_A[:, 2], R[idx_comp,:,:])
                 contact_wrenches[ idx_comp, colp[1], :2] += -force_B
-                contact_wrenches[ idx_comp, colp[0], :2] += force_B
+                contact_wrenches[ idx_comp, colp[0], :2] += force_B*0.1
                 contact_wrenches[ idx_comp, colp[1], 2] += torque_A
                 contact_wrenches[ idx_comp, colp[0], 2] += torque_B
     return contact_wrenches

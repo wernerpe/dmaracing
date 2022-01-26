@@ -99,7 +99,7 @@ def play():
         env.viewer.clear_string()
         for msg in viewermsg:
             env.viewer.add_string(msg)
-
+        
         idx +=1
         
         #t2 = time.time()

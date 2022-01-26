@@ -174,7 +174,7 @@ class DmarEnv():
 
         otherpositions = []
         otherrot = []
-        if self.num_agents > 1:
+        if self.num_agents > 1 and self.num_agents < 3:
             for agent in range(self.num_agents):
                 selfpos = self.states[:, agent, 0:2].view(-1,1,2)
                 selfrot = self.states[:, agent, 2].view(-1,1,1)
@@ -188,9 +188,16 @@ class DmarEnv():
             dir_other = torch.div(pos_other, norm_pos_other)
             dist_other_clipped = torch.clip(0.1*norm_pos_other, min = 0, max = 3).view(-1, self.num_agents, 1)
             rot_other = torch.cat((otherrot[0], otherrot[1]), dim = 1)
+        elif self.num_agents>2:
+            #hacking observations
+            dist_other_clipped = torch.zeros((self.num_envs, self.num_agents, 1), device=self.device, dtype=torch.float, requires_grad=False)
+            dir_other = torch.zeros((self.num_envs, self.num_agents, 2), device=self.device, dtype=torch.float, requires_grad=False)
+            rot_other = torch.zeros((self.num_envs, self.num_agents, 1), device=self.device, dtype=torch.float, requires_grad=False)
+               
         else:
-            dist_other_clipped = torch.zeros((self.num_envs, 1, 1), device=self.device, dtype=torch.float, requires_grad=False)
+            dist_other_clipped = torch.zeros((self.num_envs, self.num_agents, 1), device=self.device, dtype=torch.float, requires_grad=False)
             dir_other = torch.zeros((self.num_envs, 1, 2), device=self.device, dtype=torch.float, requires_grad=False)
+            rot_other = torch.zeros((self.num_envs, 1, 1), device=self.device, dtype=torch.float, requires_grad=False)
                 
         self.vels_body = vels
         self.vels_body[..., :-1] = torch.einsum('eaij, eaj -> eai',self.R, vels[..., :-1])
