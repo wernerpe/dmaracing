@@ -7,18 +7,13 @@ from dmaracing.env.viewer import Viewer
 from dmaracing.utils.helpers import rand
 from typing import Tuple, Dict, Union
 import numpy as np
-import time
-from dmaracing.utils.trackgen import get_track, get_track_ensemble
+from dmaracing.utils.trackgen import get_track_ensemble
 
 class DmarEnv():
     def __init__(self, cfg, args) -> None:
         self.device = args.device
         self.rl_device = args.device
         self.headless = args.headless
-
-        #timing
-        self.dt1 = []
-        self.dt2 = []
 
         #variable names and indices
         self.vn = get_varnames() 
@@ -138,41 +133,36 @@ class DmarEnv():
         self.viewer.center_cam(self.states)
         if not self.headless:
             self.render()
-        
-        
                
     def compute_observations(self,) -> None:
-        #get points along centerline
-        #get track boundary polys for every point
         steer =  self.states[:,:,self.vn['S_STEER']].unsqueeze(2)
         gas = self.states[:,:,self.vn['S_GAS']].unsqueeze(2)
-        #brake = self.states[:,:,self.vn['S_BRAKE']]
-        
+
+        #use linear interpolation to compute projection of car position onto centerline
         theta = self.states[:,:,2].unsqueeze(2)
         vels = self.states[:,:,3:6].clone()
         tile_idx_unwrapped = self.active_track_tile.unsqueeze(2) + (4*torch.arange(self.horizon, device=self.device, dtype=torch.long)).unsqueeze(0).unsqueeze(0)
         tile_idx = torch.remainder(tile_idx_unwrapped, self.active_track_tile_counts.view(-1,1,1))
-
-        
         centers = self.active_centerlines[:, tile_idx, :]
         centers = centers[self.all_envs,self.all_envs, ...]
         angles_at_centers = self.active_alphas[:,tile_idx]
         angles_at_centers = angles_at_centers[self.all_envs, self.all_envs, ...]
         self.trackdir_lookahead = torch.stack((torch.cos(angles_at_centers), torch.sin(angles_at_centers)), dim = 3)
-        
-        self.smooth_centers = centers + self.trackdir_lookahead*self.sub_tile_progress.view(self.num_envs, self.num_agents, 1, 1)
+        self.interpolated_centers = centers + self.trackdir_lookahead*self.sub_tile_progress.view(self.num_envs, self.num_agents, 1, 1)
 
-        self.lookahead = (self.smooth_centers - torch.tile(self.states[:,:,0:2].unsqueeze(2), (1,1,self.horizon, 1)))
+        self.lookahead = (self.interpolated_centers - torch.tile(self.states[:,:,0:2].unsqueeze(2), (1,1,self.horizon, 1)))
         
         self.R[:, :, 0, 0 ] = torch.cos(theta[:,:,0])
         self.R[:, :, 0, 1 ] = torch.sin(theta[:,:,0])
         self.R[:, :, 1, 0 ] = -torch.sin(theta[:,:,0])
         self.R[:, :, 1, 1 ] = torch.cos(theta[:,:,0])
+
         self.lookahead_body = torch.einsum('eaij, eatj->eati', self.R, self.lookahead)
+        lookahead_scaled = self.lookahead_scaler*self.lookahead_body
+        
         self.vels_body = vels
         self.vels_body[..., :-1] = torch.einsum('eaij, eaj -> eai',self.R, vels[..., :-1])
         
-        lookahead_scaled = self.lookahead_scaler*self.lookahead_body
         self.obs_buf = torch.cat((self.vels_body,
                                   steer,
                                   gas, 
@@ -184,30 +174,18 @@ class DmarEnv():
         
 
     def compute_rewards(self,) -> None:
-        
-        #print((self.active_track_tile[0,0])*self.tile_len)
-        tile_points = self.active_centerlines[:, self.active_track_tile, :]
-        tile_points = tile_points[self.all_envs, self.all_envs, ...] 
-        tile_car_vec = self.states[:,:, 0:2] - tile_points        
-        angs = self.active_alphas[:,self.active_track_tile]
-        angs = angs[self.all_envs, self.all_envs, ...]
-        trackdir = torch.stack((torch.cos(angs), torch.sin(angs)), dim = 2) 
-        trackperp = torch.stack((- torch.sin(angs), torch.cos(angs)), dim = 2) 
 
-        sub_tile_progress = torch.einsum('eac, eac-> ea', trackdir, tile_car_vec)
-        self.track_progress = self.active_track_tile[0,0]*self.tile_len + sub_tile_progress
-        self.conturing_err = torch.einsum('eac, eac-> ea', trackperp, tile_car_vec)
+        self.track_progress = self.active_track_tile*self.tile_len + self.sub_tile_progress
+        self.conturing_err = torch.einsum('eac, eac-> ea', self.trackperp, self.tile_car_vec)
         rew_progress = torch.clip(self.track_progress-self.old_track_progress, min = -10, max = 10) * self.reward_scales['progress']
         rew_contouring = -torch.square(0.1*self.conturing_err) * self.reward_scales['contouring']
         rew_on_track = self.reward_scales['offtrack']*~self.is_on_track 
         rew_actionrate = -torch.sum(torch.square(self.actions-self.last_actions), dim = 2) *self.reward_scales['actionrate']
         rew_energy = -torch.sum(torch.square(self.states[:,:,self.vn['S_W0']:self.vn['S_W3']+1]), dim = 2) *self.reward_scales['energy']
         rew_sidevel = -torch.square(self.vels_body[:,:,1])*self.reward_scales['sidevel']
-        
-        
+    
         #clip rewards
         self.rew_buf = torch.clip(rew_progress + rew_on_track + rew_contouring + rew_actionrate + rew_sidevel, min = 0, max = None)
-
 
         self.reward_terms['progress'] += rew_progress
         self.reward_terms['offtrack'] += rew_on_track
@@ -215,9 +193,6 @@ class DmarEnv():
         self.reward_terms['actionrate'] += rew_actionrate
         self.reward_terms['energy'] += rew_energy
         self.reward_terms['sidevel'] += rew_sidevel
-
-        if torch.any(torch.isnan(rew_actionrate)):
-            print('nan detected')
 
     def check_termination(self) -> None:
         #dithering step
@@ -265,9 +240,6 @@ class DmarEnv():
         
         for key in self.reward_terms.keys():
             self.info['episode']['reward_'+key] = (torch.mean(self.reward_terms[key][env_ids])/self.timeout_s).view(-1,1)
-            
-            #self.info['episode']['rewardstd_'+key] = (torch.std(self.reward_terms[key][env_ids])/self.timeout_s).view(-1,1)
-
             self.reward_terms[key][env_ids] = 0.
 
         self.info['episode']['resetcount'] = len(env_ids)
@@ -284,21 +256,9 @@ class DmarEnv():
         self.actions[:,0, 1] = self.action_scales[1]*actions[:,1] + self.default_actions[1]
         self.actions[:,0, 2] = self.action_scales[2]*actions[:,2] + self.default_actions[2]
     
-        #print(self.actions[0,0,:])
-        #t1 = time.time()
         for _ in range(self.decimation):
             self.simulate()
-        #t2 = time.time()
-        #self.dt1.append(t2-t1)
-        #t3 = time.time()
         self.post_physics_step()
-        #t4 = time.time()
-        #self.dt2.append(t4-t3)
-        #if (self.total_step % 100)==0:
-        #    mdt1 = np.mean(np.array(self.dt1))
-        #    mdt2 = np.mean(np.array(self.dt2))
-        #    print('simtime avg: ', mdt1)
-        #    print('postphys avg: ', mdt2)
         
         return self.obs_buf[:,0, :].clone(), self.privileged_obs, self.rew_buf[:,0].clone(), self.reset_buf[:,0].clone(), self.info
     
@@ -337,8 +297,6 @@ class DmarEnv():
         self.trackperp = torch.stack((- torch.sin(angs), torch.cos(angs)), dim = 2) 
 
         self.sub_tile_progress = torch.einsum('eac, eac-> ea', self.trackdir, self.tile_car_vec)
-
-
 
         self.compute_observations()
         self.compute_rewards()

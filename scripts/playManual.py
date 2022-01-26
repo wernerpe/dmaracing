@@ -49,15 +49,11 @@ def play():
                      (f"""{'cont err:':>{10}}{' '}{cont[env.viewer.env_idx_render, 0]:.2f}"""),
                      (f"""{'omega mean:':>{10}}{' '}{om_mean:.2f}"""),
                      ]
-                     
-        lookahead_markers = env.lookahead + torch.tile(env.states[:,:,0:2].unsqueeze(2), (1,1,env.horizon, 1))
-        pts = lookahead_markers[env.viewer.env_idx_render,0,:,:].cpu().numpy()
-        #print(lookahead_markers[0,0,0:5,:])
-        env.viewer.clear_markers()
-        env.viewer.add_point(pts, 5,(5,10,222), 2)
 
-        closest_point_marker = env.smooth_centers[env.viewer.env_idx_render, 0, :, :].cpu().numpy()
-        env.viewer.add_point(closest_point_marker, 2,(222,10,0), 2)
+        env.viewer.clear_markers()             
+        
+        closest_point_marker = env.interpolated_centers[env.viewer.env_idx_render, 0, :, :].cpu().numpy()
+        env.viewer.add_point(closest_point_marker, 2,(0, 0, 100), 2)
 
         env.viewer.clear_string()
         for msg in viewermsg:
