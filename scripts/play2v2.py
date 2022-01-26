@@ -10,7 +10,7 @@ import time
 from scipy.stats import norm
 
 def play():
-    chkpts = [-1, 1250]
+    chkpts = [-1, 500]
     
     cfg['sim']['numEnv'] = 2
     cfg['sim']['numAgents'] = 2
@@ -90,7 +90,7 @@ def play():
                      (f"""{'rank ag 0 :':>{10}}{' '}{1+env.ranks[env.viewer.env_idx_render, 0].item():.2f}"""),
                      (f"""{'laps ag 0 :':>{10}}{' '}{env.lap_counter[env.viewer.env_idx_render, 0].item():.2f}"""),
                      (f"""{'step :':>{10}}{' '}{env.episode_length_buf[env.viewer.env_idx_render].item():.2f}""")]
-                     
+
         env.viewer.clear_markers()
         
         closest_point_marker = env.interpolated_centers[env.viewer.env_idx_render, 0, :, :].cpu().numpy()
