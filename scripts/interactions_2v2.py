@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 from scipy.stats import norm
 
 def play():
-    chkpts = [-1, -1]
+    chkpts = [-1, 500]
     
     cfg['sim']['numEnv'] = 2
     cfg['sim']['numAgents'] = 2
@@ -34,7 +34,8 @@ def play():
     model_paths = []
     modelnrs = []
     for chkpt in chkpts:
-        dir, modelnr = get_run(logdir, run = "22_01_19_19_26_15", chkpt=chkpt)
+        #dir, modelnr = get_run(logdir, run = "22_01_19_19_26_15", chkpt=chkpt)
+        dir, modelnr = get_run(logdir, run = -1, chkpt=chkpt)
         modelnrs.append(modelnr)
         model_paths.append("{}/model_{}.pt".format(dir, modelnr))
         print("Loading model" + model_paths[-1])
@@ -88,6 +89,21 @@ def play():
         env.dist_active_track_tile = sort[0][:,:, 0]
         env.active_track_tile = sort[1][:,:, 0]
 
+        track_dist = env.track_progress + env.lap_counter*env.track_lengths[env.active_track_ids].view(-1,1)
+        dist_sort, env.ranks = torch.sort(track_dist, dim = 1, descending = True)
+        
+        #compute closest point on centerline
+        env.tile_points = env.active_centerlines[:, env.active_track_tile, :]
+        env.tile_points = env.tile_points[env.all_envs, env.all_envs, ...] 
+        env.tile_car_vec = env.states[:,:, 0:2] - env.tile_points        
+        angs = env.active_alphas[:,env.active_track_tile]
+        angs = angs[env.all_envs, env.all_envs, ...]
+        env.trackdir = torch.stack((torch.cos(angs), torch.sin(angs)), dim = 2) 
+        env.trackperp = torch.stack((- torch.sin(angs), torch.cos(angs)), dim = 2) 
+
+        env.sub_tile_progress = torch.einsum('eac, eac-> ea', env.trackdir, env.tile_car_vec)
+    
+
         env.compute_observations()
         observations = env.obs_buf
         values = value_fn(observations)
@@ -95,10 +111,11 @@ def play():
         print(values[0,:])
 
         lookahead_markers = env.lookahead + torch.tile(env.states[:,:,0:2].unsqueeze(2), (1,1,env.horizon, 1))
+        
         pts = lookahead_markers[env.viewer.env_idx_render,0,:,:].cpu().numpy()
         #print(lookahead_markers[0,0,0:5,:])
         env.viewer.clear_markers()
-        env.viewer.add_point(pts, 5,(5,10,222), 2)
+        env.viewer.add_point(pts, 5,(5,10,222), 5)
         env.render()
         #time.sleep(0.1)
 
