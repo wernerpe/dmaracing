@@ -172,7 +172,7 @@ class DmarEnv():
         
         self.smooth_centers = centers + self.trackdir_lookahead*self.sub_tile_progress.view(self.num_envs, self.num_agents, 1, 1)
         
-        self.lookahead = (centers - torch.tile(self.states[:,:,0:2].unsqueeze(2), (1,1,self.horizon, 1)))
+        self.lookahead = (self.smooth_centers - torch.tile(self.states[:,:,0:2].unsqueeze(2), (1,1,self.horizon, 1)))
         
         self.R[:, :, 0, 0 ] = torch.cos(theta)
         self.R[:, :, 0, 1 ] = torch.sin(theta)
@@ -218,7 +218,6 @@ class DmarEnv():
         
 
     def compute_rewards(self,) -> None:
-        
         
         self.track_progress = self.active_track_tile*self.tile_len + self.sub_tile_progress
         self.conturing_err = torch.einsum('eac, eac-> ea', self.trackperp, self.tile_car_vec)
