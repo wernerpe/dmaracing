@@ -5,7 +5,7 @@ import numpy as np
 from dmaracing.env.car_dynamics_utils import resolve_collsions
 # Add Dynamics directory to python path. Change this path to match that of your local system!
 import sys
-sys.path.insert(1, '/home/thomasbalch/tri_workspace/dynamics_model_learning/scripts')
+sys.path.insert(1, '/home/peter/git/dynamics_model_learning/scripts')
 # Import Dynamics encoder from TRI dynamics library.
 from learn_dynamics import DynamicsEncoder
 

@@ -34,7 +34,7 @@ class DmarEnv():
         self.simParameters = cfg['sim']
 
         # Import TRI dynamics model and weights
-        self.dyn_model = DynamicsEncoder.load_from_checkpoint('/home/thomasbalch/tri_workspace/logs/lightning_logs/version_1/checkpoints/epoch=7-step=4039.ckpt').to(self.device)
+        self.dyn_model = DynamicsEncoder.load_from_checkpoint('/home/peter/git/dynamics_model_learning/sample_models/best_model_current_control.ckpt').to(self.device)
 
         #use bootstrapping on vf
         self.use_timeouts = cfg['learn']['use_timeouts']
