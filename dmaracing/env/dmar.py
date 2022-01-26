@@ -350,10 +350,6 @@ class DmarEnv():
     
     def post_physics_step(self) -> None:
         self.total_step += 1
-        #if ((self.total_step) % 1300) == 0:
-        #    self.resample_track()
-        #    self.viewer.draw_track()
-        #    self.reset()
         self.episode_length_buf +=1
         
         #get current tile positions
