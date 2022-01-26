@@ -113,6 +113,10 @@ class DmarEnv():
         self.offtrack_reset = int(self.offtrack_reset_s/(self.decimation*self.dt))
         self.max_episode_length = int(self.timeout_s/(self.decimation*self.dt))
 
+        self.lap_counter = torch.zeros((self.num_envs, self.num_agents), requires_grad=False, device=self.device, dtype=torch.int)
+        self.track_progress = torch.zeros((self.num_envs, self.num_agents), requires_grad=False, device=self.device, dtype=torch.float)
+        
+
         allocate_car_dynamics_tensors(self)
 
         #other tensor
@@ -154,6 +158,12 @@ class DmarEnv():
         
         centers = self.active_centerlines[:, tile_idx, :]
         centers = centers[self.all_envs,self.all_envs, ...]
+        angles_at_centers = self.active_alphas[:,tile_idx]
+        angles_at_centers = angles_at_centers[self.all_envs, self.all_envs, ...]
+        self.trackdir_lookahead = torch.stack((torch.cos(angles_at_centers), torch.sin(angles_at_centers)), dim = 3)
+        
+        self.smooth_centers = centers + self.trackdir_lookahead*self.sub_tile_progress.view(self.num_envs, self.num_agents, 1, 1)
+
         self.lookahead = (centers - torch.tile(self.states[:,:,0:2].unsqueeze(2), (1,1,self.horizon, 1)))
         
         self.R[:, :, 0, 0 ] = torch.cos(theta[:,:,0])
@@ -296,10 +306,6 @@ class DmarEnv():
     
     def post_physics_step(self) -> None:
         self.total_step += 1
-        #if ((self.total_step) % 1300) == 0:
-        #    self.resample_track()
-        #    self.viewer.draw_track()
-        #    self.reset()
         self.episode_length_buf +=1
         
         #get current tile positions
@@ -320,13 +326,30 @@ class DmarEnv():
         if len(env_ids):
             self.reset_envs(env_ids)
         
+        track_dist = self.track_progress + self.lap_counter*self.track_lengths[self.active_track_ids].view(-1,1)
+        dist_sort, self.ranks = torch.sort(track_dist, dim = 1, descending = True)
+        
+        #compute closest point on centerline
+        self.tile_points = self.active_centerlines[:, self.active_track_tile, :]
+        self.tile_points = self.tile_points[self.all_envs, self.all_envs, ...] 
+        self.tile_car_vec = self.states[:,:, 0:2] - self.tile_points        
+        angs = self.active_alphas[:,self.active_track_tile]
+        angs = angs[self.all_envs, self.all_envs, ...]
+        self.trackdir = torch.stack((torch.cos(angs), torch.sin(angs)), dim = 2) 
+        self.trackperp = torch.stack((- torch.sin(angs), torch.cos(angs)), dim = 2) 
+
+        self.sub_tile_progress = torch.einsum('eac, eac-> ea', self.trackdir, self.tile_car_vec)
+
+
+
         self.compute_observations()
         self.compute_rewards()
  
-        #self.lookahead_markers = self.lookahead + torch.tile(self.states[:,:,0:2].unsqueeze(2), (1,1,self.horizon, 1))
-        #pts = self.lookahead_markers[self.viewer.env_idx_render,0,:,:].cpu().numpy()
-        #self.viewer.clear_markers()
-        #self.viewer.add_point(pts, 5,(5,10,222))
+        increment_idx = torch.where(self.active_track_tile - self.old_active_track_tile < -10)
+        decrement_idx = torch.where(self.active_track_tile - self.old_active_track_tile > 10)
+        self.lap_counter[increment_idx] += 1
+        self.lap_counter[decrement_idx] -= 1
+
 
         self.old_active_track_tile = self.active_track_tile
         self.old_track_progress = self.track_progress
