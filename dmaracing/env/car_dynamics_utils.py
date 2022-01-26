@@ -296,7 +296,7 @@ def get_contact_state_change(P_tot : torch.Tensor,
 
     return forces, torque_A, torque_B
 
-@torch.jit.script
+#@torch.jit.script
 def resolve_collsions(contact_wrenches : torch.Tensor,
                       states : torch.Tensor,
                       collision_pairs : List[List[int]],
@@ -339,7 +339,7 @@ def resolve_collsions(contact_wrenches : torch.Tensor,
                 #rotate forces into global frame from frame A
                 force_B = rotate_vec(force_B, states_A[:, 2], R[idx_comp,:,:])
                 contact_wrenches[ idx_comp, colp[0], :2] += -force_B
-                contact_wrenches[ idx_comp, colp[1], :2] += force_B*0.1
+                contact_wrenches[ idx_comp, colp[1], :2] += force_B*0.01
                 contact_wrenches[ idx_comp, colp[0], 2] += torque_A
                 contact_wrenches[ idx_comp, colp[1], 2] += torque_B
 
@@ -363,9 +363,13 @@ def resolve_collsions(contact_wrenches : torch.Tensor,
 
                 #rotate forces into global frame from frame A
                 force_B = rotate_vec(force_B, states_A[:, 2], R[idx_comp,:,:])
-                contact_wrenches[ idx_comp, colp[1], :2] += -force_B
-                contact_wrenches[ idx_comp, colp[0], :2] += force_B*0.1
-                contact_wrenches[ idx_comp, colp[1], 2] += torque_A
-                contact_wrenches[ idx_comp, colp[0], 2] += torque_B
+                
+                col_active = torch.abs(contact_wrenches[ idx_comp, colp[1], 2]) > 0.01
+                new_col = (1.0*~col_active).view(-1,1)
+                already_col = (col_active).view(-1,1)
+                contact_wrenches[ idx_comp, colp[1], :2] += -force_B * (1.0 * new_col + 0.5*already_col) + 0.5*already_col*contact_wrenches[ idx_comp, colp[1], :2]
+                contact_wrenches[ idx_comp, colp[0], :2] += force_B * (1.0 * new_col + 0.5*already_col) + 0.5*already_col*contact_wrenches[ idx_comp, colp[0], :2]
+                contact_wrenches[ idx_comp, colp[1], 2] += (torque_A.view(-1,1)*(1.0 * new_col + 0.5*already_col) + 0.5*already_col*contact_wrenches[ idx_comp, colp[1], 2].view(-1,1)).view(-1)
+                contact_wrenches[ idx_comp, colp[0], 2] += (torque_B.view(-1,1)*(1.0 * new_col + 0.5*already_col) + 0.5*already_col*contact_wrenches[ idx_comp, colp[0], 2].view(-1,1)).view(-1)
     return contact_wrenches
 
