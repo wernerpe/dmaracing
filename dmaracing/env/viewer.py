@@ -217,10 +217,10 @@ class Viewer:
         pts[:, 1] = -self.height/self.scale_y*pts[:, 1] + self.height/2.0 + self.y_offset
         return pts.astype(np.int32)
 
-    def add_point(self, cords, radius, color):
+    def add_point(self, cords, radius, color, thickness):
         cd = cords.copy()
         cd = self.cords2px_np(cd)
-        self.points.append([cd, radius, color])
+        self.points.append([cd, radius, color, thickness])
 
     def clear_markers(self,):
         self.points = []   

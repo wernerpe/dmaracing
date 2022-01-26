@@ -51,6 +51,7 @@ class DmarEnv():
         self.all_envs = torch.arange(self.num_envs, dtype = torch.long)
         self.num_tracks = cfg['track']['num_tracks']
         t, self.tile_len, self.track_tile_counts = get_track_ensemble(self.num_tracks, cfg, self.device)
+        self.track_lengths = torch.tensor(self.track_tile_counts, device = self.device) * self.tile_len
         self.track_centerlines, self.track_poly_verts, self.track_alphas, self.track_A, self.track_b, self.track_S,\
         self.track_border_poly_verts, self.track_border_poly_cols = t
         self.track_alphas = self.track_alphas + np.pi/2
@@ -60,9 +61,6 @@ class DmarEnv():
         self.active_track_mask[self.all_envs, self.active_track_ids] = 1.0
         self.active_centerlines = self.track_centerlines[self.active_track_ids]
         self.active_alphas =  self.track_alphas[self.active_track_ids]
-        #self.active_A = self.track_A[self.active_track_ids]
-        #self.active_b = self.track_b[self.active_track_ids]
-        #self.active_S = self.track_S[self.active_track_ids]
         
         self.max_track_num_tiles = np.max(self.track_tile_counts)
         #take largest track polygon summation template
@@ -164,7 +162,7 @@ class DmarEnv():
         
         self.smooth_centers = centers + self.trackdir_lookahead*self.sub_tile_progress.view(self.num_envs, self.num_agents, 1, 1)
 
-        self.lookahead = (centers - torch.tile(self.states[:,:,0:2].unsqueeze(2), (1,1,self.horizon, 1)))
+        self.lookahead = (self.smooth_centers - torch.tile(self.states[:,:,0:2].unsqueeze(2), (1,1,self.horizon, 1)))
         
         self.R[:, :, 0, 0 ] = torch.cos(theta[:,:,0])
         self.R[:, :, 0, 1 ] = torch.sin(theta[:,:,0])
