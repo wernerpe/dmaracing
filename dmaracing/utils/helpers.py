@@ -5,6 +5,13 @@ import torch
 class CmdLineArguments:
     pass
 
+
+def set_dependent_cfg_entries(cfg):
+    numObservations = cfg['sim']['numConstantObservations']
+    numObservations += cfg['learn']['horizon']*2 #lookaheadhorizon
+    numObservations += (2+1+1) * (cfg['sim']['numAgents']-1)
+    cfg['sim']['numObservations'] = numObservations
+
 def getcfg(path):
     pth_cfg = path+'/cfg.yml'
     pth_cfg_train = path+'/cfg_train.yml'
@@ -14,6 +21,9 @@ def getcfg(path):
     with open(pth_cfg_train, 'r') as stream:
         cfg_train = yaml.safe_load(stream)
     logdir = 'logs/'+cfg_train['runner']['experiment_name']
+    
+    #update parameter dependent observation counts
+    set_dependent_cfg_entries(cfg)
     return cfg, cfg_train, logdir
 
 

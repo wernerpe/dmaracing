@@ -198,16 +198,16 @@ class DmarEnv():
         self.vels_body[..., :-1] = torch.einsum('eaij, eaj -> eai',self.R, vels[..., :-1])
         
         
-        self.obs_buf = torch.cat((self.vels_body,
-                                  steer,
+        self.obs_buf = torch.cat((self.vels_body, 
+                                  steer, 
                                   gas, 
-                                  lookahead_scaled[:,:,:,0],
-                                  lookahead_scaled[:,:,:,1],
-                                  dir_other,
-                                  dist_other_clipped,
-                                  rot_other,
-                                  self.last_actions,
-                                  self.ranks.view(-1,self.num_agents,1)
+                                  lookahead_scaled[:,:,:,0], 
+                                  lookahead_scaled[:,:,:,1], 
+                                  dir_other, 
+                                  dist_other_clipped, 
+                                  rot_other, 
+                                  self.last_actions, 
+                                  self.ranks.view(-1,self.num_agents,1) 
                                   ), 
                                   dim=2)
         

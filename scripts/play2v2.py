@@ -10,22 +10,6 @@ import time
 from scipy.stats import norm
 
 def play():
-    chkpts = [-1, 2500]
-    runs = [-1, -1]
-    cfg['sim']['numEnv'] = 10
-    cfg['sim']['numAgents'] = 2
-    cfg['learn']['timeout'] = 40
-    cfg['learn']['offtrack_reset'] = 3.0
-    cfg['learn']['reset_tile_rand'] = 5
-    cfg['sim']['test_mode'] = True
-    
-    cfg['track']['seed'] = 12
-    cfg['track']['num_tracks'] = 20
-
-    #cfg['track']['CHECKPOINTS'] = 3
-    #cfg['track']['TRACK_RAD'] = 800
-    cfg['viewer']['multiagent'] = True
-
     env = DmarEnv(cfg, args)
     #env.viewer.mark_env(0)
     obs = env.obs_buf
@@ -119,5 +103,25 @@ if __name__ == "__main__":
     args.headless = False 
     args.test = True
     path_cfg = os.getcwd() + '/cfg'
+
     cfg, cfg_train, logdir = getcfg(path_cfg)
+
+    chkpts = [-1, 2500]
+    runs = [-1, -1]
+    cfg['sim']['numEnv'] = 1
+    cfg['sim']['numAgents'] = 2
+    cfg['learn']['timeout'] = 40
+    cfg['learn']['offtrack_reset'] = 3.0
+    cfg['learn']['reset_tile_rand'] = 5
+    cfg['sim']['test_mode'] = True
+    
+    cfg['track']['seed'] = 12
+    cfg['track']['num_tracks'] = 20
+
+    #cfg['track']['CHECKPOINTS'] = 3
+    #cfg['track']['TRACK_RAD'] = 800
+    cfg['viewer']['multiagent'] = True
+
+    set_dependent_cfg_entries(cfg)
+
     play()    

@@ -4,7 +4,12 @@ sim:
   numAgents: 6
   dt: 0.01 #[s]
   numStates: 12
-  numObservations: 43 
+
+  #need to overwrite this everytime env gets initialized to the correct number
+  #dependent on the lookaheadhorizon length and number of ado cars in an env
+  #this is done in get_cfg directly
+  numObservations: -1 
+  numConstantObservations: 9 #vels, steer, gas, last actions, rank 
   numActions: 3
   collide: 1
   decimation: 4

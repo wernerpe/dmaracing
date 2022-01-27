@@ -18,7 +18,7 @@ if __name__ == "__main__":
     cfg['sim']['numAgents'] = 2
     cfg['sim']['collide'] = 1
     #cfg['track']['num_tracks'] = 2
-    
+    set_dependent_cfg_entries(cfg)
     now = datetime.now()
     timestamp = now.strftime("%y_%m_%d_%H_%M_%S")
     logdir = logdir+'/'+timestamp
