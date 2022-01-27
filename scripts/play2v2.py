@@ -10,9 +10,9 @@ import time
 from scipy.stats import norm
 
 def play():
-    chkpts = [-1, 500]
-    
-    cfg['sim']['numEnv'] = 2
+    chkpts = [-1, 2500]
+    runs = [-1, -1]
+    cfg['sim']['numEnv'] = 1
     cfg['sim']['numAgents'] = 2
     cfg['learn']['timeout'] = 40
     cfg['learn']['offtrack_reset'] = 3.0
@@ -31,8 +31,8 @@ def play():
     obs = env.obs_buf
     model_paths = []
     modelnrs = []
-    for chkpt in chkpts:
-        dir, modelnr = get_run(logdir, run = -1, chkpt=chkpt)
+    for run, chkpt in zip(runs, chkpts):
+        dir, modelnr = get_run(logdir, run = run, chkpt=chkpt)
         modelnrs.append(modelnr)
         model_paths.append("{}/model_{}.pt".format(dir, modelnr))
         print("Loading model" + model_paths[-1])
@@ -79,28 +79,30 @@ def play():
                      (f"""{'p1 '+str(modelnrs[1])}{' ts: '}{policy_infos[1]['trueskill']['mu']:.1f}"""),
                      (f"""{'Win prob p0 : ':>{10}}{win_prob:.3f}"""),
                      (f"""{'rewards:':>{10}}{' '}{100*rewnp[env.viewer.env_idx_render]:.2f}"""   ),
-                     #(f"""{'velocity x:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 0]:.2f}"""),
+                     (f"""{'velocity x:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 0]:.2f}"""),
                      #(f"""{'velocity y:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 1]:.2f}"""),
                      #(f"""{'ang vel:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 2]:.2f}"""),
                      #(f"""{'steer:':>{10}}{' '}{states[env.viewer.env_idx_render, 0, env.vn['S_STEER']]:.2f}"""),
                      #(f"""{'gas:':>{10}}{' '}{states[env.viewer.env_idx_render, 0, env.vn['S_GAS']]:.2f}"""),
                      #(f"""{'brake:':>{10}}{' '}{act[env.viewer.env_idx_render, env.vn['A_BRAKE']]:.2f}"""),
-                     #(f"""{'cont err:':>{10}}{' '}{cont[env.viewer.env_idx_render, 0]:.2f}"""),
-                     #(f"""{'omega mean:':>{10}}{' '}{om_mean:.2f}"""),
+                     (f"""{'om_mean:':>{10}}{' '}{om_mean:.2f}"""),
+                     (f"""{'collision:':>{10}}{' '}{env.is_collision[0,0].item():.2f}"""),
                      (f"""{'rank ag 0 :':>{10}}{' '}{1+env.ranks[env.viewer.env_idx_render, 0].item():.2f}"""),
                      (f"""{'laps ag 0 :':>{10}}{' '}{env.lap_counter[env.viewer.env_idx_render, 0].item():.2f}"""),
                      (f"""{'step :':>{10}}{' '}{env.episode_length_buf[env.viewer.env_idx_render].item():.2f}""")]
 
-        env.viewer.clear_markers()
+        #env.viewer.clear_markers()
         
-        closest_point_marker = env.interpolated_centers[env.viewer.env_idx_render, 0, :, :].cpu().numpy()
-        env.viewer.add_point(closest_point_marker, 2,(222,10,0), 2)
+        #closest_point_marker = env.interpolated_centers[env.viewer.env_idx_render, 0, :, :].cpu().numpy()
+        #env.viewer.add_point(closest_point_marker, 2,(222,10,0), 2)
 
         env.viewer.clear_string()
         for msg in viewermsg:
             env.viewer.add_string(msg)
 
         idx +=1
+        
+        evt = env.viewer_events
         
         #t2 = time.time()
         #realtime = t2-t1-time_per_step

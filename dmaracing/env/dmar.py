@@ -134,6 +134,8 @@ class DmarEnv():
                              'collision': torch_zeros((self.num_envs, self.num_agents)),
                              }
         
+        self.is_collision = torch.zeros((self.num_envs, self.num_agents), requires_grad=False, device=self.device, dtype = torch.float)
+
         self.lookahead_scaler = 1/(4*(1+torch.arange(self.horizon, device = self.device , requires_grad=False, dtype=torch.float))*self.tile_len)
         self.lookahead_scaler = self.lookahead_scaler.unsqueeze(0).unsqueeze(0).unsqueeze(3)
         self.ranks = torch.zeros((self.num_envs, self.num_agents), requires_grad=False, device=self.device, dtype = torch.int)
@@ -221,7 +223,7 @@ class DmarEnv():
         rew_energy = -torch.sum(torch.square(self.states[:,:,self.vn['S_W0']:self.vn['S_W3']+1]), dim = 2)*self.reward_scales['energy']
         rew_sidevel = -torch.square(self.vels_body[:,:,1])*self.reward_scales['sidevel']
         rew_rank = (self.num_agents-self.ranks)*self.reward_scales['rank']
-        rew_collision = (torch.norm(self.contact_wrenches, dim = 2) > 0)*self.reward_scales['collision']
+        rew_collision = self.is_collision*self.reward_scales['collision']
 
         #clip rewards
         self.rew_buf = torch.clip(rew_progress + rew_on_track + rew_contouring + rew_actionrate + rew_sidevel + rew_energy + rew_rank + rew_collision, min = 0, max = None)
@@ -317,13 +319,17 @@ class DmarEnv():
             self.actions[:, :, 0] = self.action_scales[0]*actions[...,0] + self.default_actions[0]
             self.actions[:, :, 1] = self.action_scales[1]*actions[...,1] + self.default_actions[1]
             self.actions[:, :, 2] = self.action_scales[2]*actions[...,2] + self.default_actions[2]
-            
+        
+        #reset collision detection
+        self.is_collision = self.is_collision < 0 
         for _ in range(self.decimation):
             self.simulate()
+            #need to check for collisions in inner loop otherwise get missed
+            self.is_collision |= (torch.norm(self.contact_wrenches, dim = 2) > 0)
        
         self.post_physics_step()
         
-        return self.obs_buf.clone().squeeze(), self.privileged_obs, self.rew_buf.clone().squeeze(), self.reset_buf.clone(), self.info
+        return self.obs_buf.clone(), self.privileged_obs, self.rew_buf.clone(), self.reset_buf.clone(), self.info
     
     def post_physics_step(self) -> None:
         self.total_step += 1
@@ -368,13 +374,14 @@ class DmarEnv():
         decrement_idx = torch.where(self.active_track_tile - self.old_active_track_tile > 10)
         self.lap_counter[increment_idx] += 1
         self.lap_counter[decrement_idx] -= 1
-
+        
+        #render before resetting values
+        if not self.headless:
+            self.render()
+        
         self.old_active_track_tile = self.active_track_tile
         self.old_track_progress = self.track_progress
         self.last_actions = self.actions.clone()
-
-        if not self.headless:
-            self.render()
 
     def render(self,) -> None:
         self.viewer_events = self.viewer.render(self.states[:,:,[0,1,2,10]])
