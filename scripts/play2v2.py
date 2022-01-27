@@ -103,6 +103,10 @@ def play():
         idx +=1
         
         evt = env.viewer_events
+
+        if evt == 121:
+            print("env ", env.viewer.env_idx_render, " reset")
+            env.episode_length_buf[env.viewer.env_idx_render] = 1e9
         
         #t2 = time.time()
         #realtime = t2-t1-time_per_step
