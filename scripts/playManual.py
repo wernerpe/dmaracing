@@ -5,8 +5,8 @@ import os
 import numpy as np
 
 def play():
-    cfg['sim']['numEnv'] = 4
-    cfg['sim']['numAgents'] = 2
+    cfg['sim']['numEnv'] = 1
+    cfg['sim']['numAgents'] = 3
     cfg['track']['num_tracks'] = 3
     cfg['viewer']['multiagent'] = True
     cfg['learn']['defaultactions'] = [0,0,0]
@@ -14,7 +14,7 @@ def play():
     cfg['learn']['offtrack_reset'] = 100
     cfg['learn']['timeout'] = 100
     cfg['model']['OFFTRACK_FRICTION_SCALE'] = 1
-    
+    set_dependent_cfg_entries(cfg)
     
     env = DmarEnv(cfg, args)
     obs = env.obs_buf
