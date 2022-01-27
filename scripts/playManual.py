@@ -69,7 +69,10 @@ def play():
             steer_cmd += 0.4 * (steer_cmd < 1)
         elif evt == 108:
             steer_cmd -= 0.4 * (steer_cmd> -1)
-       
+        elif evt == 121:
+            print("env ", env.viewer.env_idx_render, " reset")
+            env.episode_length_buf[env.viewer.env_idx_render] = 1e9
+
 if __name__ == "__main__":
     args = CmdLineArguments()
     args.device = 'cuda:0'

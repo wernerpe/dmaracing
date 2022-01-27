@@ -182,13 +182,13 @@ class DmarEnv():
                 selfrot = self.states[:, agent, 2].view(-1,1,1)
                 otherpos = torch.cat((self.states[:, :agent, 0:2], self.states[:, agent+1:, 0:2]), dim = 1)
                 otherpositions.append((otherpos - selfpos).view(-1, (self.num_agents-1), 2))    
-                otherrot.append(torch.cat((self.states[:, :agent, 2], self.states[:, agent+1:, 2]), dim = 1).view(-1, self.num_agents-1, 1) - selfrot)
+                otherrot.append(torch.cat((self.states[:, :agent, 2], self.states[:, agent+1:, 2]), dim = 1).view(-1, 1, self.num_agents-1) - selfrot)
 
             pos_other = torch.cat(tuple([pos.view(-1,1,(self.num_agents-1), 2) for pos in otherpositions]), dim = 1)
             pos_other = torch.einsum('eaij, eaoj->eaoi', self.R, pos_other)
             norm_pos_other = torch.norm(pos_other, dim = 3).view(self.num_envs, self.num_agents, -1, 1)
             dir_other = torch.div(pos_other, norm_pos_other).reshape(self.num_envs, self.num_agents, -1)
-            dist_other_clipped = torch.clip(0.1*norm_pos_other, min = 0, max = 3).view(-1, self.num_agents, 1)
+            dist_other_clipped = torch.clip(0.1*norm_pos_other, min = 0, max = 3).view(self.num_envs, self.num_agents, -1)
             rot_other = torch.cat(tuple([rot for rot in otherrot]),dim =1 )
         else:
             dist_other_clipped = torch.zeros((self.num_envs, 1, 1), device=self.device, dtype=torch.float, requires_grad=False)

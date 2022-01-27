@@ -48,28 +48,37 @@
             "console": "integratedTerminal"
         },
         {
-            "name": "train2v2",
+            "name": "train1v1",
             "type": "python",
             "request": "launch",
-            "program": "scripts/train2v2.py",
+            "program": "scripts/train1v1.py",
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",
             "justMyCode": false
         },
         {
-            "name": "play2v2",
+            "name": "play1v1",
             "type": "python",
             "request": "launch",
-            "program": "scripts/play2v2.py",
+            "program": "scripts/play1v1.py",
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",
             "justMyCode": false
         },
         {
-            "name": "interactions_2v2",
+            "name": "interactions_1v1",
             "type": "python",
             "request": "launch",
-            "program": "scripts/interactions_2v2.py",
+            "program": "scripts/interactions_1v1.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": false
+        },
+        {
+            "name": "train1v1v1",
+            "type": "python",
+            "request": "launch",
+            "program": "scripts/train1v1v1.py",
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",
             "justMyCode": false
