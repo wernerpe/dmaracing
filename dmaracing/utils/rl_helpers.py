@@ -6,6 +6,6 @@ def get_ppo_runner(env, train_cfg, log_dir, device):
     runner = OnPolicyRunner(env, train_cfg, log_dir, device = device)
     return runner
 
-def get_mappo_runner(env, train_cfg, log_dir, device):
-    runner = MAOnPolicyRunner(env, train_cfg, log_dir, device = device)
+def get_mappo_runner(env, train_cfg, log_dir, device, num_agents):
+    runner = MAOnPolicyRunner(env, train_cfg, log_dir, device, num_agents)
     return runner

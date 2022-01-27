@@ -66,6 +66,15 @@
             "justMyCode": false
         },
         {
+            "name": "play1v1v1v1",
+            "type": "python",
+            "request": "launch",
+            "program": "scripts/play1v1v1v1.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": false
+        },
+        {
             "name": "interactions_1v1",
             "type": "python",
             "request": "launch",
@@ -75,10 +84,10 @@
             "justMyCode": false
         },
         {
-            "name": "train1v1v1",
+            "name": "train1v1v1v1",
             "type": "python",
             "request": "launch",
-            "program": "scripts/train1v1v1.py",
+            "program": "scripts/train1v1v1v1.py",
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",
             "justMyCode": false

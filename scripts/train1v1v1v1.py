@@ -6,7 +6,7 @@ import os
 
 def train():
     env = DmarEnv(cfg, args)
-    runner = get_mappo_runner(env, cfg_train, logdir, args.device)
+    runner = get_mappo_runner(env, cfg_train, logdir, args.device, cfg['sim']['numAgents'])
     runner.learn(cfg_train['runner']['max_iterations'], init_at_random_ep_len=True)
 
 if __name__ == "__main__":
@@ -15,7 +15,7 @@ if __name__ == "__main__":
     args.headless = False 
     path_cfg = os.getcwd() + '/cfg'
     cfg, cfg_train, logdir = getcfg(path_cfg)
-    cfg['sim']['numAgents'] = 3
+    cfg['sim']['numAgents'] = 4
     cfg['sim']['collide'] = 1
     #cfg['track']['num_tracks'] = 2
     set_dependent_cfg_entries(cfg)

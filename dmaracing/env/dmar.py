@@ -222,7 +222,7 @@ class DmarEnv():
         rew_actionrate = -torch.sum(torch.square(self.actions-self.last_actions), dim = 2) *self.reward_scales['actionrate']
         rew_energy = -torch.sum(torch.square(self.states[:,:,self.vn['S_W0']:self.vn['S_W3']+1]), dim = 2)*self.reward_scales['energy']
         rew_sidevel = -torch.square(self.vels_body[:,:,1])*self.reward_scales['sidevel']
-        rew_rank = 1.0/self.num_agents*(self.num_agents-self.ranks)*self.reward_scales['rank']
+        rew_rank = 1.0/self.num_agents*(self.num_agents/2.0-self.ranks)*self.reward_scales['rank']
         rew_collision = self.is_collision*self.reward_scales['collision']
 
         #clip rewards
@@ -289,7 +289,7 @@ class DmarEnv():
         self.info['episode'] = {}
         
         for key in self.reward_terms.keys():
-            self.info['episode']['reward_'+key] = (torch.mean(self.reward_terms[key][env_ids])/self.timeout_s).view(-1,1)
+            self.info['episode']['reward_'+key] = (torch.mean(self.reward_terms[key][env_ids, 0])/self.timeout_s).view(-1,1)
             self.reward_terms[key][env_ids] = 0.
 
         self.info['episode']['resetcount'] = len(env_ids)
