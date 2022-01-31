@@ -40,6 +40,7 @@ def play():
     #print("win probability agent 0: ", win_prob)
     idx = 0 
     while True:
+    #for idx in range(1000):
         t1 = time.time()
         actions = policy(obs)
         #actions[:,1:,1] *=0.9
@@ -84,14 +85,16 @@ def play():
         for msg in viewermsg:
             env.viewer.add_string(msg)
 
-        idx +=1
-        
+       
         evt = env.viewer_events
 
         if evt == 121:
             print("env ", env.viewer.env_idx_render, " reset")
             env.episode_length_buf[env.viewer.env_idx_render] = 1e9
         
+        path = "/home/peter/git/dmaracing/logs/frames/4ag_fr_" + str(idx) + ".jpg" 
+        #env.viewer.save_frame(path)
+        #print(idx)
         #t2 = time.time()
         #realtime = t2-t1-time_per_step
         #if realtime < 0:
@@ -106,13 +109,13 @@ if __name__ == "__main__":
 
     cfg, cfg_train, logdir = getcfg(path_cfg)
 
-    chkpts = [-1, 800, 700, 600]
+    chkpts = [-1, -1, -1, -1]
     runs = [-1, -1, -1, -1]
     cfg['sim']['numEnv'] = 1
     cfg['sim']['numAgents'] = 4
-    cfg['learn']['timeout'] = 40
+    cfg['learn']['timeout'] = 300
     cfg['learn']['offtrack_reset'] = 3.0
-    cfg['learn']['reset_tile_rand'] = 5
+    cfg['learn']['reset_tile_rand'] = 20
     cfg['sim']['test_mode'] = True
     
     cfg['track']['seed'] = 12

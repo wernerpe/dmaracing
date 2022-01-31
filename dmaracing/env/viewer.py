@@ -262,3 +262,6 @@ class Viewer:
                                        self.track_tile_counts[self.active_track_ids[self.env_idx_render]].copy(),
                                        self.cords2px_np, 
                                        self.cfg['track']['draw_centerline'])
+
+    def save_frame(self, path):
+        cv.imwrite(path, self.img)

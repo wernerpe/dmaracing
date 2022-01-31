@@ -175,21 +175,41 @@ class DmarEnv():
         lookahead_scaled = self.lookahead_scaler*self.lookahead_body
 
         otherpositions = []
-        otherrot = []
+        otherrotations = []
+        othervelocities = []
+        otherangularvelocities = []
+
         if self.num_agents > 1:
             for agent in range(self.num_agents):
                 selfpos = self.states[:, agent, 0:2].view(-1,1,2)
                 selfrot = self.states[:, agent, 2].view(-1,1,1)
+                selfvel = self.states[:, agent, self.vn['S_DX']: self.vn['S_DY']+1].view(-1,1,2)
+                selfangvel = self.states[:, agent, self.vn['S_DTHETA']].view(-1,1,1)
+                
+                
                 otherpos = torch.cat((self.states[:, :agent, 0:2], self.states[:, agent+1:, 0:2]), dim = 1)
                 otherpositions.append((otherpos - selfpos).view(-1, (self.num_agents-1), 2))    
-                otherrot.append(torch.cat((self.states[:, :agent, 2], self.states[:, agent+1:, 2]), dim = 1).view(-1, 1, self.num_agents-1) - selfrot)
+                otherrotations.append(torch.cat((self.states[:, :agent, 2], self.states[:, agent+1:, 2]), dim = 1).view(-1, 1, self.num_agents-1) - selfrot)
+
+                othervel = torch.cat((self.states[:, :agent, 0:2], self.states[:, agent+1:, 0:2]), dim = 1)
+                othervelocities.append((othervel - selfvel).view(-1, (self.num_agents-1), 2))    
+                otherangvel = torch.cat((self.states[:, :agent, self.vn['S_DTHETA']], self.states[:, agent+1:, self.vn['S_DTHETA']]), dim = 1).view(-1, 1, self.num_agents-1)
+                otherangularvelocities.append(otherangvel - selfangvel)
+
+
 
             pos_other = torch.cat(tuple([pos.view(-1,1,(self.num_agents-1), 2) for pos in otherpositions]), dim = 1)
             pos_other = torch.einsum('eaij, eaoj->eaoi', self.R, pos_other)
             norm_pos_other = torch.norm(pos_other, dim = 3).view(self.num_envs, self.num_agents, -1, 1)
             dir_other = torch.div(pos_other, norm_pos_other).reshape(self.num_envs, self.num_agents, -1)
             dist_other_clipped = torch.clip(0.1*norm_pos_other, min = 0, max = 3).view(self.num_envs, self.num_agents, -1)
-            rot_other = torch.cat(tuple([rot for rot in otherrot]),dim =1 )
+            
+            vel_other = torch.cat(tuple([vel.view(-1,1,(self.num_agents-1), 2) for vel in othervelocities]), dim = 1)
+            vel_other = torch.einsum('eaij, eaoj->eaoi', self.R, vel_other).reshape(self.num_envs, self.num_agents, -1)
+            rot_other = torch.cat(tuple([rot for rot in otherrotations]),dim =1 )
+            angvel_other = torch.cat(tuple([angvel for angvel in otherangularvelocities]),dim =1 )
+
+
         else:
             dist_other_clipped = torch.zeros((self.num_envs, 1, 1), device=self.device, dtype=torch.float, requires_grad=False)
             dir_other = torch.zeros((self.num_envs, 1, 2), device=self.device, dtype=torch.float, requires_grad=False)
@@ -205,7 +225,9 @@ class DmarEnv():
                                   lookahead_scaled[:,:,:,1], 
                                   dir_other, 
                                   dist_other_clipped, 
-                                  rot_other, 
+                                  rot_other,
+                                  vel_other *0.1,
+                                  angvel_other*0.1, 
                                   self.last_actions, 
                                   self.ranks.view(-1,self.num_agents,1) 
                                   ), 
