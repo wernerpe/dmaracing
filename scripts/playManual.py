@@ -5,15 +5,16 @@ import os
 import numpy as np
 
 def play():
-    cfg['sim']['numEnv'] = 4
-    cfg['sim']['numAgents'] = 4
-    cfg['track']['num_tracks'] = 3
+    cfg['sim']['numEnv'] = 2
+    cfg['sim']['numAgents'] = 2
+    cfg['track']['num_tracks'] = 1
     cfg['viewer']['multiagent'] = True
     cfg['learn']['defaultactions'] = [0,0,0]
     cfg['learn']['actionscale'] = [1,1,1]
     cfg['learn']['offtrack_reset'] = 100
-    cfg['learn']['timeout'] = 100
-    cfg['learn']['reset_tile_rand'] = 0
+    cfg['learn']['timeout'] = 500000
+    cfg['learn']['reset_tile_rand'] = 3
+    cfg['learn']['reset_rand'] = [4.0, 0.0, 0.1, 0.1, 0.01,  0.1, 0.0]
     cfg['model']['OFFTRACK_FRICTION_SCALE'] = 1
     
     
@@ -38,7 +39,7 @@ def play():
         act = actions[:,0,:].cpu().detach().numpy()
         states = env.states.cpu().numpy()
         om_mean = np.mean(states[env.viewer.env_idx_render,0, env.vn['S_W0']:env.vn['S_W3'] +1 ])
-
+        cf = env.contact_wrenches[env.viewer.env_idx_render,0].cpu().numpy()
         viewermsg = [
                      (f"""{'rewards:':>{10}}{' '}{100*rewnp[env.viewer.env_idx_render]:.2f}"""   ),
                      (f"""{'velocity x:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 0]:.2f}"""),
@@ -50,6 +51,8 @@ def play():
                      (f"""{'cont err:':>{10}}{' '}{cont[env.viewer.env_idx_render, 0]:.2f}"""),
                      (f"""{'omega mean:':>{10}}{' '}{om_mean:.2f}"""),
                      (f"""{'omega mean:':>{10}}{' '}{om_mean:.2f}"""),
+                     (f"""{'contact_force x:':>{10}}{' '}{cf[0]:.2f}"""),
+                     (f"""{'contact_force y:':>{10}}{' '}{cf[1]:.2f}"""),                     
                      (f"""{'lap:':>{10}}{' '}{env.lap_counter[0, 0]:.2f}"""),
                      ]
         

@@ -84,6 +84,7 @@ class DmarEnv():
         torch_zeros = lambda shape: torch.zeros(shape, device=self.device, dtype= torch.float, requires_grad=False)
         self.states = torch_zeros((self.num_envs, self.num_agents, self.num_internal_states))
         self.contact_wrenches = torch_zeros((self.num_envs, self.num_agents, 3))
+        self.shove = torch_zeros((self.num_envs, self.num_agents, 2))
         self.actions = torch_zeros((self.num_envs, self.num_agents, self.num_actions))
         self.actions_means = torch_zeros((self.num_envs, self.num_agents, self.num_actions))
         self.last_actions = torch_zeros((self.num_envs, self.num_agents, self.num_actions))
@@ -389,11 +390,12 @@ class DmarEnv():
     
     def simulate(self) -> None:
         #run physics update
-        self.states, self.contact_wrenches, self.wheels_on_track_segments = step_cars(self.states, 
+        self.states, self.contact_wrenches, self.shove, self.wheels_on_track_segments = step_cars(self.states, 
                                                                                       self.actions, 
                                                                                       self.wheel_locations, 
                                                                                       self.R, 
                                                                                       self.contact_wrenches, 
+                                                                                      self.shove,
                                                                                       self.modelParameters, 
                                                                                       self.simParameters, 
                                                                                       self.vn,

@@ -9,6 +9,7 @@ sim:
   collide: 1
   decimation: 4
   test_mode: False
+  collisionstiffness: 500.0
   
 model:
   SIZE: 0.02 #[px/m]

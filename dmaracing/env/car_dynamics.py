@@ -4,12 +4,13 @@ import numpy as np
 
 from dmaracing.env.car_dynamics_utils import resolve_collsions
 
-#@torch.jit.script
+@torch.jit.script
 def step_cars(state : torch.Tensor, 
               actions : torch.Tensor,
               wheel_locations: torch.Tensor,
               R: torch.Tensor, 
-              contact_wrenches : torch.Tensor, 
+              contact_wrenches : torch.Tensor,
+              shove : torch.Tensor, 
               mod_par : Dict[str, float],  
               sim_par : Dict[str, float], 
               vn : Dict[str, int],
@@ -28,7 +29,7 @@ def step_cars(state : torch.Tensor,
               A_track: torch.Tensor,
               b_track: torch.Tensor,
               S_track: torch.Tensor 
-              ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+              ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     
     #set steering angle
     #dir = torch.sign(actions[:, :, vn['A_STEER']] - state[:, :, vn['S_STEER']])
@@ -137,10 +138,12 @@ def step_cars(state : torch.Tensor,
     ddtheta = 1/mod_par['I']*(net_torque + contact_wrenches[:,:,2])
     acc = torch.cat((ddx.unsqueeze(2),ddy.unsqueeze(2),ddtheta.unsqueeze(2)), dim= 2)
     state[:, :, vn['S_X']:vn['S_THETA'] + 1] += sim_par['dt']*state[:,:,vn['S_DX']:vn['S_DTHETA']+1]
+    state[:, :, vn['S_X']:vn['S_Y'] + 1] += shove
     state[:, :, vn['S_DX']:vn['S_DTHETA'] + 1] += sim_par['dt']*acc
 
     if collide:
-        contact_wrenches = resolve_collsions(contact_wrenches,
+        contact_wrenches, shove = resolve_collsions(contact_wrenches,
+                                             shove,
                                              state,
                                              collision_pairs,
                                              mod_par['lf'],
@@ -152,6 +155,7 @@ def step_cars(state : torch.Tensor,
                                              Repf_mat,
                                              Ds,
                                              num_envs,
-                                             zero_pad)
+                                             zero_pad,
+                                             sim_par['collisionstiffness'])
 
-    return state, contact_wrenches, wheels_on_track_segments
+    return state, contact_wrenches, shove, wheels_on_track_segments
