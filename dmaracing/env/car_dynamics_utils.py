@@ -314,8 +314,8 @@ def resolve_collsions(contact_wrenches : torch.Tensor,
                 contact_wrenches[ idx_comp, colp[0], 2] += torque_A
                 contact_wrenches[ idx_comp, colp[1], 2] += torque_B
 
-                shove[idx_comp, colp[0], :2] = -0.8*force_B/stiffness
-                shove[idx_comp, colp[1], :2] = 0.8*force_B/stiffness
+                shove[idx_comp, colp[0], :2] = -2.0*force_B/stiffness
+                shove[idx_comp, colp[1], :2] = 2.0*force_B/stiffness
 
                 #flip and check other direction
                 states_A = states[idx_comp, colp[1], 0:3]
@@ -346,8 +346,8 @@ def resolve_collsions(contact_wrenches : torch.Tensor,
                 contact_wrenches[ idx_comp, colp[1], 2] += (torque_A.view(-1,1)*(1.0 * new_col + 0.5*already_col) + 0.5*already_col*contact_wrenches[ idx_comp, colp[1], 2].view(-1,1)).view(-1)
                 contact_wrenches[ idx_comp, colp[0], 2] += (torque_B.view(-1,1)*(1.0 * new_col + 0.5*already_col) + 0.5*already_col*contact_wrenches[ idx_comp, colp[0], 2].view(-1,1)).view(-1)
                 
-                shove[idx_comp, colp[1], :2] = -0.8*force_B/stiffness
-                shove[idx_comp, colp[0], :2] = 0.8*force_B/stiffness
+                shove[idx_comp, colp[1], :2] = -2.0*force_B/stiffness
+                shove[idx_comp, colp[0], :2] = 2.0*force_B/stiffness
     
     return contact_wrenches, shove
 
