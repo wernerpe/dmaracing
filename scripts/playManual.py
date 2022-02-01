@@ -6,7 +6,7 @@ import numpy as np
 
 def play():
     cfg['sim']['numEnv'] = 2
-    cfg['sim']['numAgents'] = 2
+    cfg['sim']['numAgents'] = 4
     cfg['track']['num_tracks'] = 3
     cfg['viewer']['multiagent'] = True
     cfg['learn']['defaultactions'] = [0,0,0]

@@ -84,6 +84,7 @@ class DmarEnv():
         torch_zeros = lambda shape: torch.zeros(shape, device=self.device, dtype= torch.float, requires_grad=False)
         self.states = torch_zeros((self.num_envs, self.num_agents, self.num_internal_states))
         self.contact_wrenches = torch_zeros((self.num_envs, self.num_agents, 3))
+        self.shove = torch_zeros((self.num_envs, self.num_agents, 2))
         self.actions = torch_zeros((self.num_envs, self.num_agents, self.num_actions))
         self.actions_means = torch_zeros((self.num_envs, self.num_agents, self.num_actions))
         self.last_actions = torch_zeros((self.num_envs, self.num_agents, self.num_actions))
@@ -411,30 +412,32 @@ class DmarEnv():
     
     def simulate(self) -> None:
         #run physics update
-        self.states, self.contact_wrenches, self.wheels_on_track_segments = step_cars(self.states, 
-                                                                                      self.actions, 
-                                                                                      self.wheel_locations, 
-                                                                                      self.R, 
-                                                                                      self.contact_wrenches, 
-                                                                                      self.modelParameters, 
-                                                                                      self.simParameters, 
-                                                                                      self.vn,
-                                                                                      self.collision_pairs,
-                                                                                      self.collision_verts,
-                                                                                      self.P_tot,
-                                                                                      self.D_tot,
-                                                                                      self.S_mat,
-                                                                                      self.Repf_mat,
-                                                                                      self.Ds,
-                                                                                      self.num_envs,
-                                                                                      self.zero_pad,
-                                                                                      self.collide,
-                                                                                      self.wheels_on_track_segments,
-                                                                                      self.active_track_mask,
-                                                                                      self.track_A, #Ax<=b
-                                                                                      self.track_b,
-                                                                                      self.track_S #how to sum
-                                                                                     )
+        self.states, self.contact_wrenches, self.shove, self.wheels_on_track_segments = step_cars(
+                                                                                            self.states, 
+                                                                                            self.actions, 
+                                                                                            self.wheel_locations, 
+                                                                                            self.R, 
+                                                                                            self.contact_wrenches,
+                                                                                            self.shove, 
+                                                                                            self.modelParameters, 
+                                                                                            self.simParameters, 
+                                                                                            self.vn,
+                                                                                            self.collision_pairs,
+                                                                                            self.collision_verts,
+                                                                                            self.P_tot,
+                                                                                            self.D_tot,
+                                                                                            self.S_mat,
+                                                                                            self.Repf_mat,
+                                                                                            self.Ds,
+                                                                                            self.num_envs,
+                                                                                            self.zero_pad,
+                                                                                            self.collide,
+                                                                                            self.wheels_on_track_segments,
+                                                                                            self.active_track_mask,
+                                                                                            self.track_A, #Ax<=b
+                                                                                            self.track_b,
+                                                                                            self.track_S #how to sum
+                                                                                            )
 
     def resample_track(self, env_ids) -> None:
         self.active_track_ids[env_ids] = torch.randint(0, self.num_tracks, (len(env_ids),), device = self.device, requires_grad=False, dtype = torch.long)
