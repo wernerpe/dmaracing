@@ -151,105 +151,105 @@ class DmarEnv():
         
                
     def compute_observations(self,) -> None:
-        #steer =  self.states[:,:,self.vn['S_STEER']].unsqueeze(2)
-        #gas = self.states[:,:,self.vn['S_GAS']].unsqueeze(2)
-        #
-        #theta = self.states[:,:,2]
-        #vels = self.states[:,:,3:6].clone()
-        #tile_idx_unwrapped = self.active_track_tile.unsqueeze(2) + (4*torch.arange(self.horizon, device=self.device, dtype=torch.long)).unsqueeze(0).unsqueeze(0)
-        #tile_idx = torch.remainder(tile_idx_unwrapped, self.active_track_tile_counts.view(-1,1,1))
-        #centers = self.active_centerlines[:, tile_idx, :]
-        #centers = centers[self.all_envs,self.all_envs, ...]
-        #angles_at_centers = self.active_alphas[:,tile_idx]
-        #angles_at_centers = angles_at_centers[self.all_envs, self.all_envs, ...]
-        #self.trackdir_lookahead = torch.stack((torch.cos(angles_at_centers), torch.sin(angles_at_centers)), dim = 3)
-        #self.interpolated_centers = centers + self.trackdir_lookahead*self.sub_tile_progress.view(self.num_envs, self.num_agents, 1, 1)
-        #
-        #self.lookahead = (self.interpolated_centers - torch.tile(self.states[:,:,0:2].unsqueeze(2), (1,1,self.horizon, 1)))
-        #
-        #self.R[:, :, 0, 0 ] = torch.cos(theta)
-        #self.R[:, :, 0, 1 ] = torch.sin(theta)
-        #self.R[:, :, 1, 0 ] = -torch.sin(theta)
-        #self.R[:, :, 1, 1 ] = torch.cos(theta)
-        #
-        #self.lookahead_body = torch.einsum('eaij, eatj->eati', self.R, self.lookahead)
-        #lookahead_scaled = self.lookahead_scaler*self.lookahead_body
-#
-        #otherpositions = []
-        #otherrotations = []
-        #othervelocities = []
-        #otherangularvelocities = []
-#
-        #if self.num_agents > 1:
-        #    for agent in range(self.num_agents):
-        #        selfpos = self.states[:, agent, 0:2].view(-1,1,2)
-        #        selfrot = self.states[:, agent, 2].view(-1,1,1)
-        #        selfvel = self.states[:, agent, self.vn['S_DX']: self.vn['S_DY']+1].view(-1,1,2)
-        #        selfangvel = self.states[:, agent, self.vn['S_DTHETA']].view(-1,1,1)
-        #        
-        #        
-        #        otherpos = torch.cat((self.states[:, :agent, 0:2], self.states[:, agent+1:, 0:2]), dim = 1)
-        #        otherpositions.append((otherpos - selfpos).view(-1, (self.num_agents-1), 2))    
-        #        otherrotations.append(torch.cat((self.states[:, :agent, 2], self.states[:, agent+1:, 2]), dim = 1).view(-1, 1, self.num_agents-1) - selfrot)
-#
-        #        othervel = torch.cat((self.states[:, :agent, self.vn['S_DX']: self.vn['S_DY']+1], self.states[:, agent+1:, self.vn['S_DX']: self.vn['S_DY']+1]), dim = 1)
-        #        othervelocities.append((othervel - selfvel).view(-1, (self.num_agents-1), 2))    
-        #        otherangvel = torch.cat((self.states[:, :agent, self.vn['S_DTHETA']], self.states[:, agent+1:, self.vn['S_DTHETA']]), dim = 1).view(-1, 1, self.num_agents-1)
-        #        otherangularvelocities.append(otherangvel - selfangvel)
-#
-#
-#
-        #    pos_other = torch.cat(tuple([pos.view(-1,1,(self.num_agents-1), 2) for pos in otherpositions]), dim = 1)
-        #    pos_other = torch.einsum('eaij, eaoj->eaoi', self.R, pos_other)
-        #    norm_pos_other = torch.norm(pos_other, dim = 3).view(self.num_envs, self.num_agents, -1, 1)
-        #    dir_other = torch.div(pos_other, norm_pos_other).reshape(self.num_envs, self.num_agents, -1)
-        #    dist_other_clipped = torch.clip(0.1*norm_pos_other, min = 0, max = 3).view(self.num_envs, self.num_agents, -1)
-        #    
-        #    vel_other = torch.cat(tuple([vel.view(-1,1,(self.num_agents-1), 2) for vel in othervelocities]), dim = 1)
-        #    vel_other = torch.einsum('eaij, eaoj->eaoi', self.R, vel_other).reshape(self.num_envs, self.num_agents, -1)
-        #    rot_other = torch.cat(tuple([rot for rot in otherrotations]),dim =1 )
-        #    angvel_other = torch.cat(tuple([angvel for angvel in otherangularvelocities]),dim =1 )
-#
-#
-        #else:
-        #    dist_other_clipped = torch.zeros((self.num_envs, 1, 1), device=self.device, dtype=torch.float, requires_grad=False)
-        #    dir_other = torch.zeros((self.num_envs, 1, 2), device=self.device, dtype=torch.float, requires_grad=False)
-        #        
-        #self.vels_body = vels
-        #self.vels_body[..., :-1] = torch.einsum('eaij, eaj -> eai',self.R, vels[..., :-1])
-        #
-        #
-        #self.obs_buf = torch.cat((self.vels_body, 
-        #                          steer, 
-        #                          gas, 
-        #                          lookahead_scaled[:,:,:,0], 
-        #                          lookahead_scaled[:,:,:,1], 
-        #                          dir_other, 
-        #                          dist_other_clipped, 
-        #                          rot_other,
-        #                          vel_other * 0.1,
-        #                          angvel_other * 0.1, 
-        #                          self.last_actions, 
-        #                          self.ranks.view(-1,self.num_agents,1) 
-        #                          ), 
-        #                          dim=2)
-        #
-        self.obs_buf, self.vels_body = compute_observations_jit(self.states,
-                                            self.active_track_tile,
-                                            self.horizon,
-                                            self.active_track_tile_counts,
-                                            self.active_centerlines,
-                                            self.all_envs,
-                                            self.active_alphas,
-                                            self.sub_tile_progress,
-                                            self.num_envs,
-                                            self.num_agents,
-                                            self.vn,
-                                            self.R,
-                                            self.lookahead_scaler,
-                                            self.last_actions,
-                                            self.ranks,
-                                            self.device)
+        steer =  self.states[:,:,self.vn['S_STEER']].unsqueeze(2)
+        gas = self.states[:,:,self.vn['S_GAS']].unsqueeze(2)
+        
+        theta = self.states[:,:,2]
+        vels = self.states[:,:,3:6].clone()
+        tile_idx_unwrapped = self.active_track_tile.unsqueeze(2) + (4*torch.arange(self.horizon, device=self.device, dtype=torch.long)).unsqueeze(0).unsqueeze(0)
+        tile_idx = torch.remainder(tile_idx_unwrapped, self.active_track_tile_counts.view(-1,1,1))
+        centers = self.active_centerlines[:, tile_idx, :]
+        centers = centers[self.all_envs,self.all_envs, ...]
+        angles_at_centers = self.active_alphas[:,tile_idx]
+        angles_at_centers = angles_at_centers[self.all_envs, self.all_envs, ...]
+        self.trackdir_lookahead = torch.stack((torch.cos(angles_at_centers), torch.sin(angles_at_centers)), dim = 3)
+        self.interpolated_centers = centers + self.trackdir_lookahead*self.sub_tile_progress.view(self.num_envs, self.num_agents, 1, 1)
+        
+        self.lookahead = (self.interpolated_centers - torch.tile(self.states[:,:,0:2].unsqueeze(2), (1,1,self.horizon, 1)))
+        
+        self.R[:, :, 0, 0 ] = torch.cos(theta)
+        self.R[:, :, 0, 1 ] = torch.sin(theta)
+        self.R[:, :, 1, 0 ] = -torch.sin(theta)
+        self.R[:, :, 1, 1 ] = torch.cos(theta)
+        
+        self.lookahead_body = torch.einsum('eaij, eatj->eati', self.R, self.lookahead)
+        lookahead_scaled = self.lookahead_scaler*self.lookahead_body
+
+        otherpositions = []
+        otherrotations = []
+        othervelocities = []
+        otherangularvelocities = []
+
+        if self.num_agents > 1:
+            for agent in range(self.num_agents):
+                selfpos = self.states[:, agent, 0:2].view(-1,1,2)
+                selfrot = self.states[:, agent, 2].view(-1,1,1)
+                selfvel = self.states[:, agent, self.vn['S_DX']: self.vn['S_DY']+1].view(-1,1,2)
+                selfangvel = self.states[:, agent, self.vn['S_DTHETA']].view(-1,1,1)
+                
+                
+                otherpos = torch.cat((self.states[:, :agent, 0:2], self.states[:, agent+1:, 0:2]), dim = 1)
+                otherpositions.append((otherpos - selfpos).view(-1, (self.num_agents-1), 2))    
+                otherrotations.append(torch.cat((self.states[:, :agent, 2], self.states[:, agent+1:, 2]), dim = 1).view(-1, 1, self.num_agents-1) - selfrot)
+
+                othervel = torch.cat((self.states[:, :agent, self.vn['S_DX']: self.vn['S_DY']+1], self.states[:, agent+1:, self.vn['S_DX']: self.vn['S_DY']+1]), dim = 1)
+                othervelocities.append((othervel - selfvel).view(-1, (self.num_agents-1), 2))    
+                otherangvel = torch.cat((self.states[:, :agent, self.vn['S_DTHETA']], self.states[:, agent+1:, self.vn['S_DTHETA']]), dim = 1).view(-1, 1, self.num_agents-1)
+                otherangularvelocities.append(otherangvel - selfangvel)
+
+
+
+            pos_other = torch.cat(tuple([pos.view(-1,1,(self.num_agents-1), 2) for pos in otherpositions]), dim = 1)
+            pos_other = torch.einsum('eaij, eaoj->eaoi', self.R, pos_other)
+            norm_pos_other = torch.norm(pos_other, dim = 3).view(self.num_envs, self.num_agents, -1, 1)
+            dir_other = torch.div(pos_other, norm_pos_other).reshape(self.num_envs, self.num_agents, -1)
+            dist_other_clipped = torch.clip(0.1*norm_pos_other, min = 0, max = 3).view(self.num_envs, self.num_agents, -1)
+            
+            vel_other = torch.cat(tuple([vel.view(-1,1,(self.num_agents-1), 2) for vel in othervelocities]), dim = 1)
+            vel_other = torch.einsum('eaij, eaoj->eaoi', self.R, vel_other).reshape(self.num_envs, self.num_agents, -1)
+            rot_other = torch.cat(tuple([rot for rot in otherrotations]),dim =1 )
+            angvel_other = torch.cat(tuple([angvel for angvel in otherangularvelocities]),dim =1 )
+
+
+        else:
+            dist_other_clipped = torch.zeros((self.num_envs, 1, 1), device=self.device, dtype=torch.float, requires_grad=False)
+            dir_other = torch.zeros((self.num_envs, 1, 2), device=self.device, dtype=torch.float, requires_grad=False)
+                
+        self.vels_body = vels
+        self.vels_body[..., :-1] = torch.einsum('eaij, eaj -> eai',self.R, vels[..., :-1])
+        
+        
+        self.obs_buf = torch.cat((self.vels_body, 
+                                  steer, 
+                                  gas, 
+                                  lookahead_scaled[:,:,:,0], 
+                                  lookahead_scaled[:,:,:,1], 
+                                  dir_other, 
+                                  dist_other_clipped, 
+                                  rot_other,
+                                  vel_other * 0.1,
+                                  angvel_other * 0.1, 
+                                  self.last_actions, 
+                                  self.ranks.view(-1,self.num_agents,1) 
+                                  ), 
+                                  dim=2)
+        
+        #self.obs_buf, self.vels_body = compute_observations_jit(self.states,
+        #                                    self.active_track_tile,
+        #                                    self.horizon,
+        #                                    self.active_track_tile_counts,
+        #                                    self.active_centerlines,
+        #                                    self.all_envs,
+        #                                    self.active_alphas,
+        #                                    self.sub_tile_progress,
+        #                                    self.num_envs,
+        #                                    self.num_agents,
+        #                                    self.vn,
+        #                                    self.R,
+        #                                    self.lookahead_scaler,
+        #                                    self.last_actions,
+        #                                    self.ranks,
+        #                                    self.device)
 
     def compute_rewards(self,) -> None:
         
