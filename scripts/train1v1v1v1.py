@@ -6,6 +6,7 @@ import os
 
 def train():
     env = DmarEnv(cfg, args)
+    env.viewer.do_render = False
     runner = get_mappo_runner(env, cfg_train, logdir, args.device, cfg['sim']['numAgents'])
     runner.learn(cfg_train['runner']['max_iterations'], init_at_random_ep_len=True)
 

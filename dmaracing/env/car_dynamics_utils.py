@@ -244,7 +244,7 @@ def get_contact_wrenches(P_tot : torch.Tensor,
     #inpoly (numenvs, num_verts, num_poly) #vert_poly_dists[:,:, Ds] (num_env, num_verts, num_polygons)
     #use fact that we precomputed all distances to polygon walls
     depths = torch.einsum('ijk, ijk -> ij', 1.0*in_poly, vert_poly_dists[:,:, Depth_selector])
-    magnitude = 220000*depths
+    magnitude = 900000*depths
     forces = force_dir
     forces[:, :, 0] *= magnitude
     forces[:, :, 1] *= magnitude

@@ -191,7 +191,7 @@ class DmarEnv():
                 otherpositions.append((otherpos - selfpos).view(-1, (self.num_agents-1), 2))    
                 otherrotations.append(torch.cat((self.states[:, :agent, 2], self.states[:, agent+1:, 2]), dim = 1).view(-1, 1, self.num_agents-1) - selfrot)
 
-                othervel = torch.cat((self.states[:, :agent, 0:2], self.states[:, agent+1:, 0:2]), dim = 1)
+                othervel = torch.cat((self.states[:, :agent, self.vn['S_DX']: self.vn['S_DY']+1], self.states[:, agent+1:, self.vn['S_DX']: self.vn['S_DY']+1]), dim = 1)
                 othervelocities.append((othervel - selfvel).view(-1, (self.num_agents-1), 2))    
                 otherangvel = torch.cat((self.states[:, :agent, self.vn['S_DTHETA']], self.states[:, agent+1:, self.vn['S_DTHETA']]), dim = 1).view(-1, 1, self.num_agents-1)
                 otherangularvelocities.append(otherangvel - selfangvel)
@@ -226,8 +226,8 @@ class DmarEnv():
                                   dir_other, 
                                   dist_other_clipped, 
                                   rot_other,
-                                  vel_other *0.1,
-                                  angvel_other*0.1, 
+                                  vel_other * 0.1,
+                                  angvel_other * 0.1, 
                                   self.last_actions, 
                                   self.ranks.view(-1,self.num_agents,1) 
                                   ), 
