@@ -1,4 +1,3 @@
-#from rsl_rl.env import VecEnv
 from rsl_rl.runners.on_policy_runner import OnPolicyRunner
 from rsl_rl.runners.multi_agent_on_policy_runner import MAOnPolicyRunner
 
