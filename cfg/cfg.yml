@@ -34,7 +34,7 @@ viewer:
   scale: 240.0 #[m/width*px] indicates how wide the window is in pixels
   linethickness: 1
   multiagent: True
-  maxAgents: 100
+  maxAgents: 400
 
 track:
   #https://github.com/openai/gym/blob/master/gym/envs/box2d/car_racing.py
@@ -50,7 +50,7 @@ track:
   seed: 1
   ccw: True
   draw_centerline: False
-  num_tracks: 400
+  num_tracks: 100
 
 learn:
   use_timeouts: True

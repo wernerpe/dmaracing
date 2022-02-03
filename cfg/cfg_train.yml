@@ -20,8 +20,8 @@ runner:
   policy_class_name: MAActorCritic
   algorithm_class_name: MAPPO
   num_steps_per_env: 32 # per iteration
-  max_iterations: 5000 # number of policy updates
-  population_update_interval: 10 #number of iterations before the opponent policy is updated
+  max_iterations: 40000 # number of policy updates
+  population_update_interval: 20 #number of iterations before the opponent policy is updated
 
   # logging
   save_interval: 50 # check for potential saves every this many iterations
@@ -34,8 +34,8 @@ runner:
   resume_path: None # updated from load_run and chkpt
 
 policy: 
-  actor_hidden_dims: [64, 32, 16]
-  critic_hidden_dims: [64, 32, 16]
+  actor_hidden_dims: [512, 256, 32]
+  critic_hidden_dims: [512, 256, 32]
   activation: elu # can be elu, relu, selu, crelu, lrelu, tanh, sigmoid
   init_noise_std: 1.0
   

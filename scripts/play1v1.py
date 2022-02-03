@@ -37,8 +37,9 @@ def play():
     mu_match = skill_ag0[0] - skill_ag1[0]
     var_match = skill_ag0[1]**2 + skill_ag1[1]**2
     win_prob = 1 - norm.cdf((0-mu_match)/(np.sqrt(2*var_match)))
-    print("win probability agent 0: ", win_prob)
+    print("win probability agent 0: ", win_prob, "var match: ", var_match)
     idx = 0 
+    
     while True:
         t1 = time.time()
         actions = policy(obs)
@@ -76,7 +77,9 @@ def play():
                      (f"""{'step :':>{10}}{' '}{env.episode_length_buf[env.viewer.env_idx_render].item():.2f}""")]
 
         #env.viewer.clear_markers()
-        
+        env.viewer.x_offset = int(-env.viewer.width/env.viewer.scale_x*env.states[env.viewer.env_idx_render, 0, 0])
+        env.viewer.y_offset = int(env.viewer.height/env.viewer.scale_y*env.states[env.viewer.env_idx_render, 0, 1])
+        env.viewer.draw_track()
         #closest_point_marker = env.interpolated_centers[env.viewer.env_idx_render, 0, :, :].cpu().numpy()
         #env.viewer.add_point(closest_point_marker, 2,(222,10,0), 2)
 
@@ -106,8 +109,8 @@ if __name__ == "__main__":
 
     cfg, cfg_train, logdir = getcfg(path_cfg)
 
-    chkpts = [-1, -1]
-    runs = [-1, -2]
+    chkpts = [-1, 10000]
+    runs = [-1, -1]
     cfg['sim']['numEnv'] = 1
     cfg['sim']['numAgents'] = 2
     cfg['learn']['timeout'] = 300
@@ -117,6 +120,7 @@ if __name__ == "__main__":
     
     cfg['track']['seed'] = 12
     cfg['track']['num_tracks'] = 20
+    #cfg['track']['CHECKPOINTS'] = 20
 
     #cfg['track']['CHECKPOINTS'] = 3
     #cfg['track']['TRACK_RAD'] = 800

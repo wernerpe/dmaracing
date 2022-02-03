@@ -40,17 +40,17 @@ if __name__ == "__main__":
     cfg, cfg_train, logdir_root = getcfg(path_cfg)
     cfg['sim']['numAgents'] = 2
     cfg['sim']['collide'] = 1
-    cfg['track']['num_tracks'] = 2
+    #cfg['track']['num_tracks'] = 2
     set_dependent_cfg_entries(cfg)
     now = datetime.now()
     timestamp = now.strftime("%y_%m_%d_%H_%M_%S")
     logdir = logdir_root+'/'+timestamp
 
-    INIT_FROM_CHKPT = True
+    INIT_FROM_CHKPT = False
     #active policies
     runs = ['22_02_01_18_57_26', '22_02_01_18_57_26']
     chkpts = [-1, -1]
-    #policies to populate adversary buffer
+    ##policies to populate adversary buffer
     adv_runs = ['22_02_01_18_57_26'] * 5
     adv_chkpts = [1000, 1500, 2000, 2200, 2500]
 
