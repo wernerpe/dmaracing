@@ -12,7 +12,7 @@ def play():
     cfg['learn']['defaultactions'] = [0,0,0]
     cfg['learn']['actionscale'] = [1,1,1]
     cfg['learn']['offtrack_reset'] = 100
-    cfg['learn']['timeout'] = 100
+    cfg['learn']['timeout'] = 4
     cfg['model']['OFFTRACK_FRICTION_SCALE'] = 100
     
     
@@ -24,8 +24,11 @@ def play():
     vel_cmd = 0.0
     steer_cmd = 0.0
     brk_cmd = 0.0
-      
+
+    step = 0  
     while True:
+        print(4*step)
+        step+=1
         actions[0 , 0] = steer_cmd 
         actions[0 , 1] = vel_cmd
         actions[0 , 2] = brk_cmd
@@ -64,9 +67,9 @@ def play():
             brk_cmd += 0.1
             print('vel_cmd', vel_cmd, env.states[0,0,env.vn['S_DX']])
         elif evt == 106:
-            steer_cmd += 0.4 * (steer_cmd < 1)
+            steer_cmd += 0.1 * (steer_cmd < 1)
         elif evt == 108:
-            steer_cmd -= 0.4 * (steer_cmd> -1)
+            steer_cmd -= 0.1 * (steer_cmd> -1)
        
 if __name__ == "__main__":
     args = CmdLineArguments()
