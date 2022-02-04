@@ -59,7 +59,8 @@ def play():
         act = actions[:,0,:].cpu().detach().numpy()
         states = env.states.cpu().numpy()
         om_mean = np.mean(states[env.viewer.env_idx_render,0, env.vn['S_W0']:env.vn['S_W3'] +1 ])
-
+        step = env.episode_length_buf[env.viewer.env_idx_render].item()
+        time_sim = cfg['sim']['dt']*cfg['sim']['decimation']*step
         viewermsg = [(f"""{'p0 '+str(modelnrs[0])}{' ts: '}{policy_infos[0]['trueskill']['mu']:.1f}"""),
                      (f"""{'p1 '+str(modelnrs[1])}{' ts: '}{policy_infos[1]['trueskill']['mu']:.1f}"""),
                      #(f"""{'Win prob p0 : ':>{10}}{win_prob:.3f}"""),
@@ -74,13 +75,15 @@ def play():
                      (f"""{'collision:':>{10}}{' '}{env.is_collision[0,0].item():.2f}"""),
                      (f"""{'rank ag 0 :':>{10}}{' '}{1+env.ranks[env.viewer.env_idx_render, 0].item():.2f}"""),
                      (f"""{'laps ag 0 :':>{10}}{' '}{env.lap_counter[env.viewer.env_idx_render, 0].item():.2f}"""),
-                     (f"""{'step :':>{10}}{' '}{env.episode_length_buf[env.viewer.env_idx_render].item():.2f}""")]
+                     (f"""{'time :':>{10}}{' '}{time_sim:.2f}""")]
 
         #env.viewer.clear_markers()
         
         #closest_point_marker = env.interpolated_centers[env.viewer.env_idx_render, 0, :, :].cpu().numpy()
         #env.viewer.add_point(closest_point_marker, 2,(222,10,0), 2)
-
+        env.viewer.x_offset = int(-env.viewer.width/env.viewer.scale_x*env.states[env.viewer.env_idx_render, 0, 0])
+        env.viewer.y_offset = int(env.viewer.height/env.viewer.scale_y*env.states[env.viewer.env_idx_render, 0, 1])
+        env.viewer.draw_track()
         env.viewer.clear_string()
         for msg in viewermsg:
             env.viewer.add_string(msg)
@@ -109,7 +112,7 @@ if __name__ == "__main__":
 
     cfg, cfg_train, logdir = getcfg(path_cfg)
 
-    chkpts = [-1, -1, -1, -1]
+    chkpts = [-1, 10000, 8000, 5000]
     runs = [-1, -1, -1, -1]
     cfg['sim']['numEnv'] = 1
     cfg['sim']['numAgents'] = 4

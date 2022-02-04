@@ -144,8 +144,9 @@ class DmarEnv():
         self.total_step = 0
         self.reset()
         self.step(self.actions)
-        self.viewer.center_cam(self.states)
+
         if not self.headless:
+            self.viewer.center_cam(self.states)
             self.render()
         
         
@@ -460,11 +461,12 @@ class DmarEnv():
         self.active_track_tile_counts[env_ids] = self.track_tile_counts[self.active_track_ids[env_ids]]
 
         #update viewer
-        self.viewer.active_track_ids[env_ids] = self.active_track_ids[env_ids]
-        #call refresh on track drawing only in render mode
-        if self.viewer.do_render:
-            if self.viewer.env_idx_render in env_ids:
-                self.viewer.draw_track()
+        if not self.headless:
+            self.viewer.active_track_ids[env_ids] = self.active_track_ids[env_ids]
+            #call refresh on track drawing only in render mode
+            if self.viewer.do_render:
+                if self.viewer.env_idx_render in env_ids:
+                    self.viewer.draw_track()
  
     def get_state(self) -> torch.Tensor:
         return self.states.squeeze()

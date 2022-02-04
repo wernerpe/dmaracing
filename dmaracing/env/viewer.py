@@ -58,7 +58,7 @@ class Viewer:
         self.colors = 255.0/self.num_cars*np.arange(self.num_cars) 
         self.font = cv.FONT_HERSHEY_SIMPLEX
 
-        self.do_render = True
+        self.do_render = False
         self.env_idx_render = 0
         
         self.x_offset = -50
