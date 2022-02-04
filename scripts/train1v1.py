@@ -6,7 +6,7 @@ import os
 
 def train():
     env = DmarEnv(cfg, args)
-    env.viewer.do_render = False
+    env.viewer.do_render = True  # False
     runner = get_mappo_runner(env, cfg_train, logdir, args.device)
     
    
@@ -35,16 +35,18 @@ def train():
 if __name__ == "__main__":
     args = CmdLineArguments()
     args.device = 'cuda:0'
-    args.headless = False 
+    args.headless = True  # False 
     path_cfg = os.getcwd() + '/cfg'
     cfg, cfg_train, logdir_root = getcfg(path_cfg)
     cfg['sim']['numAgents'] = 2
     cfg['sim']['collide'] = 1
-    #cfg['track']['num_tracks'] = 2
+    cfg['track']['num_tracks'] = 2
     set_dependent_cfg_entries(cfg)
     now = datetime.now()
     timestamp = now.strftime("%y_%m_%d_%H_%M_%S")
     logdir = logdir_root+'/'+timestamp
+
+    cfg["logdir"] = logdir
 
     INIT_FROM_CHKPT = False
     #active policies
