@@ -43,18 +43,19 @@ def play():
 
         viewermsg = [
                      (f"""{'rewards:':>{10}}{' '}{100*rewnp[env.viewer.env_idx_render]:.2f}"""   ),
-                     (f"""{'velocity x:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 0]:.2f}"""),
-                     (f"""{'velocity y:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 1]:.2f}"""),
-                     (f"""{'ang vel:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 2]:.2f}"""),
-                     (f"""{'steer:':>{10}}{' '}{states[env.viewer.env_idx_render, 0, env.vn['S_STEER']]:.2f}"""),
-                     (f"""{'gas:':>{10}}{' '}{states[env.viewer.env_idx_render, 0, env.vn['S_GAS']]:.2f}"""),
-                     (f"""{'brake:':>{10}}{' '}{act[env.viewer.env_idx_render, env.vn['A_BRAKE']]:.2f}"""),
-                     (f"""{'cont err:':>{10}}{' '}{cont[env.viewer.env_idx_render, 0]:.2f}"""),
-                     (f"""{'omega mean:':>{10}}{' '}{om_mean:.2f}"""),
-                     (f"""{'omega mean:':>{10}}{' '}{om_mean:.2f}"""),
-                     (f"""{'velother x:':>{10}}{' '}{vel_other[0]:.2f}"""),
-                     (f"""{'velother y:':>{10}}{' '}{vel_other[1]:.2f}"""),                     
+                     #(f"""{'velocity x:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 0]:.2f}"""),
+                     #(f"""{'velocity y:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 1]:.2f}"""),
+                     #(f"""{'ang vel:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 2]:.2f}"""),
+                     #(f"""{'steer:':>{10}}{' '}{states[env.viewer.env_idx_render, 0, env.vn['S_STEER']]:.2f}"""),
+                     #(f"""{'gas:':>{10}}{' '}{states[env.viewer.env_idx_render, 0, env.vn['S_GAS']]:.2f}"""),
+                     #(f"""{'brake:':>{10}}{' '}{act[env.viewer.env_idx_render, env.vn['A_BRAKE']]:.2f}"""),
+                     #(f"""{'cont err:':>{10}}{' '}{cont[env.viewer.env_idx_render, 0]:.2f}"""),
+                     #(f"""{'omega mean:':>{10}}{' '}{om_mean:.2f}"""),
+                     #(f"""{'omega mean:':>{10}}{' '}{om_mean:.2f}"""),
+                     #(f"""{'velother x:':>{10}}{' '}{vel_other[0]:.2f}"""),
+                     #(f"""{'velother y:':>{10}}{' '}{vel_other[1]:.2f}"""),                     
                      (f"""{'lap:':>{10}}{' '}{env.lap_counter[0, 0]:.2f}"""),
+                     (f"""{'rank ag 0 :':>{10}}{' '}{1+env.ranks[env.viewer.env_idx_render, 0].item():.2f}"""),
                      ]
         
         env.viewer.clear_string()
