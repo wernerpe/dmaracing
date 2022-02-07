@@ -391,7 +391,8 @@ class DmarEnv():
         
         track_dist = self.track_progress + self.lap_counter*self.track_lengths[self.active_track_ids].view(-1,1)
         dist_sort, self.ranks = torch.sort(track_dist, dim = 1, descending = True)
-        
+        self.ranks = torch.sort(self.ranks, dim = 1)[1]
+
         #compute closest point on centerline
         self.tile_points = self.active_centerlines[:, self.active_track_tile, :]
         self.tile_points = self.tile_points[self.all_envs, self.all_envs, ...] 
