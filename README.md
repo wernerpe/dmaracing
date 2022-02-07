@@ -33,7 +33,7 @@ Tensorised verison of the OpenAI gym car racing environment
 1. make supercloud account
 2. ssh into login node
 3. ```module load anaconda/2022a```
-4. ```load module cuda11.3 ``` (version used in repo)
+4. ```module load cuda11.3 ``` (version used in repo)
 5. ```conda init bash``` 
 6. clone this and rl repo from above, checkout multi_agent branches
 7. ```bash setup_conda_env.sh```
