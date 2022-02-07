@@ -3,6 +3,7 @@ from dmaracing.env.dmar import DmarEnv
 from dmaracing.utils.helpers import *
 from datetime import date, datetime
 import os
+import torch 
 
 def train():
     env = DmarEnv(cfg, args)
@@ -32,6 +33,10 @@ def train():
     runner.learn(cfg_train['runner']['max_iterations'], init_at_random_ep_len=True)
 
 if __name__ == "__main__":
+    
+    available_gpus = [torch.cuda.device(i) for i in range(torch.cuda.device_count())]
+    print('[DMAR TRAIN] Available gpus:', available_gpus)
+    print(torch.cuda.is_available())
     args = CmdLineArguments()
     args.device = 'cuda:0'
     args.headless = True 
