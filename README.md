@@ -19,6 +19,34 @@ Tensorised verison of the OpenAI gym car racing environment
 
     ```python scripts/playManual.py```  
 
+    to explore the environment, or 
+
+    ```python scripts/train1v1.py```
+    
+    and 
+
+    ```python scripts/play1v1.py```
+    
+    to train and playback agents.
+
+## Supercloud deployment for training:
+1. make supercloud account
+2. ssh into login node
+3. ```module load anaconda/2022a```
+4. ```load module cuda11.3 ``` (version used in repo)
+5. ```conda init bash``` 
+6. clone this and rl repo from above, checkout multi_agent branches
+7. ```bash setup_conda_env.sh```
+8. make sure dmaracing conda env is active
+9. ```cd ../rsl_rl/ && pip install -e . ```
+10. try ```sbatch supercloud.sh``` 
+11. If error like 
+
+    ```ImportError: /usr/lib/x86_64-linux-gnu/libstdc++.so.6: version `GLIBCXX_3.4.26' not found``` 
+
+    shows up try reinstalling opencv in the dmaracing conda env
+
+    ```pip install opencv-python```
 
 ## Viewer Controls
 
