@@ -41,7 +41,7 @@ if __name__ == "__main__":
     timestamp = now.strftime("%y_%m_%d_%H_%M_%S")
     logdir = logdir_root +'/'+timestamp
 
-    INIT_FROM_CHKPT = True
+    INIT_FROM_CHKPT = False
     #active policies
     runs = ['22_02_03_21_09_18']*4
     chkpts = [-1] * 4

@@ -4,9 +4,14 @@
 #SBATCH -n 4 # number of cores
 #SBATCH -N 1 # number of Nodes
 #SBATCH --gres=gpu:volta:1 # 1 GPU
+
 # Loading the required module
 source /etc/profile
-source ~/.bashrc
-conda activate dmaracing
+#source ~/.bashrc
+source /state/partition1/llgrid/pkg/anaconda/anaconda3-2022a/etc/profile.d/conda.sh
+#export PYTHONNOUSERSITE=True
+conda init bash
+conda activate /home/gridsan/pwerner/.conda/envs/dmaracing
+conda env list
 # Run the script
-xvfb-run -a python $HOME/projects/dmaracing/scripts/train1v1.py
+xvfb-run -a python $HOME/projects/dmaracing/scripts/train1v1v1v1.py
