@@ -31,8 +31,8 @@ class Viewer:
         self.track_tile_counts = track_tile_counts.cpu().numpy()
 
         #load cfg
-        self.width = self.cfg['viewer']['width']
-        self.height = self.cfg['viewer']['height']
+        self.width = self.cfg['viewer']['width_tb'] if self._headless else self.cfg['viewer']['width']
+        self.height = self.cfg['viewer']['height_tb'] if self._headless else self.cfg['viewer']['height']
         self.scale_x = self.cfg['viewer']['scale']
         self.scale_y = self.height/self.width*self.scale_x
         self.thickness = self.cfg['viewer']['linethickness']
@@ -108,11 +108,12 @@ class Viewer:
             self.draw_string()
             self.draw_marked_agents()
 
-        key = self._render_tb()
-
+        
         if not self._headless:
             key = self._render_interactive()
-        
+        else:
+            key = self._render_tb()
+
         return key
 
     def _render_interactive(self):
@@ -156,6 +157,7 @@ class Viewer:
                 self.scale_x /= 1.2
                 self.scale_y /= 1.2
                 self.draw_track()
+        return key
 
     
     def draw_multiagent_rep(self, state):

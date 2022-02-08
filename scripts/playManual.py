@@ -85,4 +85,5 @@ if __name__ == "__main__":
     args.headless = False 
     path_cfg = os.getcwd() + '/cfg'
     cfg, cfg_train, logdir = getcfg(path_cfg)
+    cfg["viewer"]["logEvery"] = -1
     play()    

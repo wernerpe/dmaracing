@@ -50,28 +50,32 @@ def play():
         dones_idx = torch.unique(torch.where(dones)[0])
         if len(dones_idx):
             num_races += len(dones_idx)
-            num_agent_0_wins += torch.sum(info['ranking'][:,1], dim = 0).item()
+            num_agent_0_wins +=len(torch.where(info['ranking'][:,0] == 0))
+             
         if idx %300 ==0:
             print("wins_0 / races: ", num_agent_0_wins, '/', num_races, '=', num_agent_0_wins*1.0/(num_races+0.001))
-        obsnp = obs[:,0,:].cpu().numpy()
-        rewnp = rew[:,0].cpu().numpy()
-        cont = env.conturing_err.cpu().numpy()
+        #obsnp = obs[:,0,:].cpu().numpy()
+        #rewnp = rew[:,0].cpu().numpy()
+        #cont = env.conturing_err.cpu().numpy()
         act = actions[:,0,:].cpu().detach().numpy()
         states = env.states.cpu().numpy()
-        om_mean = np.mean(states[env.viewer.env_idx_render,0, env.vn['S_W0']:env.vn['S_W3'] +1 ])
+        #om_mean = np.mean(states[env.viewer.env_idx_render,0, env.vn['S_W0']:env.vn['S_W3'] +1 ])
         step = env.episode_length_buf[env.viewer.env_idx_render].item()
         time_sim = cfg['sim']['dt']*cfg['sim']['decimation']*step
         viewermsg = [(f"""{'p0 '+str(modelnrs[0])}{' ts: '}{policy_infos[0]['trueskill']['mu']:.1f}"""),
                      (f"""{'p1 '+str(modelnrs[1])}{' ts: '}{policy_infos[1]['trueskill']['mu']:.1f}"""),
+                     (f"""{'p2 '+str(modelnrs[2])}{' ts: '}{policy_infos[2]['trueskill']['mu']:.1f}"""),
+                     (f"""{'p3 '+str(modelnrs[3])}{' ts: '}{policy_infos[3]['trueskill']['mu']:.1f}"""),
                      #(f"""{'Win prob p0 : ':>{10}}{win_prob:.3f}"""),
-                     (f"""{'rewards:':>{10}}{' '}{100*rewnp[env.viewer.env_idx_render]:.2f}"""   ),
-                     (f"""{'velocity x:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 0]:.2f}"""),
+                     #(f"""{'rewards:':>{10}}{' '}{100*rewnp[env.viewer.env_idx_render]:.2f}"""   ),
+                     #(f"""{'velocity x:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 0]:.2f}"""),
                      #(f"""{'velocity y:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 1]:.2f}"""),
                      #(f"""{'ang vel:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 2]:.2f}"""),
                      #(f"""{'steer:':>{10}}{' '}{states[env.viewer.env_idx_render, 0, env.vn['S_STEER']]:.2f}"""),
-                     #(f"""{'gas:':>{10}}{' '}{states[env.viewer.env_idx_render, 0, env.vn['S_GAS']]:.2f}"""),
+                     (f"""{'gas state:':>{10}}{' '}{states[env.viewer.env_idx_render, 0, env.vn['S_GAS']]:.2f}"""),
+                     (f"""{'gas act:':>{10}}{' '}{act[env.viewer.env_idx_render, env.vn['A_GAS']]:.2f}"""),
                      #(f"""{'brake:':>{10}}{' '}{act[env.viewer.env_idx_render, env.vn['A_BRAKE']]:.2f}"""),
-                     (f"""{'om_mean:':>{10}}{' '}{om_mean:.2f}"""),
+                     #(f"""{'om_mean:':>{10}}{' '}{om_mean:.2f}"""),
                      (f"""{'collision:':>{10}}{' '}{env.is_collision[0,0].item():.2f}"""),
                      (f"""{'rank ag 0 :':>{10}}{' '}{1+env.ranks[env.viewer.env_idx_render, 0].item():.2f}"""),
                      (f"""{'laps ag 0 :':>{10}}{' '}{env.lap_counter[env.viewer.env_idx_render, 0].item():.2f}"""),
@@ -112,12 +116,12 @@ if __name__ == "__main__":
 
     cfg, cfg_train, logdir = getcfg(path_cfg)
 
-    chkpts = [-1, 1500, 1500, 1500]
-    runs = [-1, -2, -2, -2]
+    chkpts = [-1, 10000, 5000, 12000]
+    runs = [-1, -1, -1, -1]
     cfg['sim']['numEnv'] = 1
     cfg['sim']['numAgents'] = 4
     cfg['learn']['timeout'] = 300
-    cfg['learn']['offtrack_reset'] = 3.0
+    cfg['learn']['offtrack_reset'] = 5.0
     cfg['learn']['reset_tile_rand'] = 20
     cfg['sim']['test_mode'] = True
     

@@ -144,8 +144,9 @@ class DmarEnv():
         self.ranks = torch.zeros((self.num_envs, self.num_agents), requires_grad=False, device=self.device, dtype = torch.int)
 
         self._global_step = 0
-        self._logdir = cfg["logdir"]
-        self._writer = SummaryWriter(log_dir=self._logdir, flush_secs=10)
+        if self.log_video_freq >= 0:
+            self._logdir = cfg["logdir"]
+            self._writer = SummaryWriter(log_dir=self._logdir, flush_secs=10)
 
         self.total_step = 0
         self.viewer.center_cam(self.states)
@@ -349,7 +350,7 @@ class DmarEnv():
         self.time_off_track[env_ids, :] = 0.0
         self.last_actions[env_ids, : ,:] = 0.0
 
-        if 0 in env_ids:
+        if 0 in env_ids and self.log_video_freq >= 0:
           if len(self.viewer._frames):
 
               frames = np.stack(self.viewer._frames, axis=0)  # (T, W, H, C)
@@ -439,9 +440,12 @@ class DmarEnv():
         self.last_actions = self.actions.clone()
 
     def render(self,) -> None:
-        if (self._global_step % self.log_video_freq == 0) and (self._global_step > 0):
+        #if log_video freq is set only redner in fixed intervals 
+        if self.log_video_freq>=0:
+            if (self._global_step % self.log_video_freq == 0) and (self._global_step > 0):
+                self.viewer_events = self.viewer.render(self.states[:,:,[0,1,2,10]])
+        else:
             self.viewer_events = self.viewer.render(self.states[:,:,[0,1,2,10]])
-
     
     def simulate(self) -> None:
         #run physics update
