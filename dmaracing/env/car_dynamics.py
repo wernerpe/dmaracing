@@ -87,7 +87,7 @@ def step_cars(state : torch.Tensor,
     need_clip = torch.abs(val)>torch.abs(state[:, :, vn['S_W0']:vn['S_W3']+1])
     val = need_clip * torch.abs(state[:, :, vn['S_W0']:vn['S_W3']+1]) + ~need_clip*val
     state[:, :, vn['S_W0']:vn['S_W3']+1] += dir*val
-    state[:, :, vn['S_W0']:vn['S_W3']+1] = (0.9 >= actions[:, :, vn['A_BRAKE']]).unsqueeze(2) * state[:, :, vn['S_W0']:vn['S_W3']+1]
+    state[:, :, vn['S_W0']:vn['S_W3']+1] = 1.0*(0.9 >= actions[:, :, vn['A_BRAKE']]).unsqueeze(2) * state[:, :, vn['S_W0']:vn['S_W3']+1]
     
     vr = state[:, :, vn['S_W0']:vn['S_W3']+1] * mod_par['WHEEL_R']
     omega_body  = torch.nn.functional.pad(state[:, :, vn['S_DTHETA']].unsqueeze(2), (2, 0))
@@ -104,8 +104,8 @@ def step_cars(state : torch.Tensor,
     #wheel vels (num_env, num_agnt, 4, 2) wheel_dir (num_env, num_agnt, 4, 2) -> wheel force proj (num_env, num_agnt, 4, )
     vf = torch.einsum('ijkl, ijkl -> ijk', wheel_vels, wheel_dirs_forward)                        
     vs = torch.einsum('ijkl, ijkl -> ijk', wheel_vels, wheel_dirs_side)                        
-    f_force = -vf + vr
-    p_force = -vs*15
+    f_force = -vf*1.2 + vr 
+    p_force = -vs*9.5
     f_force *= 205000 *mod_par['SIZE']**2
     p_force *= 205000 *mod_par['SIZE']**2
     
