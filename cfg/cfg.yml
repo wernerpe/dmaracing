@@ -35,6 +35,7 @@ viewer:
   linethickness: 1
   multiagent: True
   maxAgents: 400
+  logEvery: 1
 
 track:
   #https://github.com/openai/gym/blob/master/gym/envs/box2d/car_racing.py
