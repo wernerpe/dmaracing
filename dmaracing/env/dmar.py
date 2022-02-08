@@ -9,6 +9,7 @@ from dmaracing.utils.helpers import rand
 from typing import Tuple, Dict, Union
 import numpy as np
 from dmaracing.utils.trackgen import get_track_ensemble
+from torch.utils.tensorboard import SummaryWriter
 
 class DmarEnv():
     def __init__(self, cfg, args) -> None:
@@ -70,14 +71,15 @@ class DmarEnv():
 
        
         #print("track loaded with ", self.track_num_tiles, " tiles")
-        if not self.headless:
-            self.viewer = Viewer(cfg,
-                                 self.track_centerlines, 
-                                 self.track_poly_verts, 
-                                 self.track_border_poly_verts, 
-                                 self.track_border_poly_cols,
-                                 self.track_tile_counts,
-                                 self.active_track_ids)
+        self.log_video_freq = cfg["viewer"]["logEvery"]
+        self.viewer = Viewer(cfg,
+                              self.track_centerlines, 
+                              self.track_poly_verts, 
+                              self.track_border_poly_verts, 
+                              self.track_border_poly_cols,
+                              self.track_tile_counts,
+                              self.active_track_ids,
+                              self.headless)
         self.info = {}
         
         #allocate env tensors
@@ -141,7 +143,12 @@ class DmarEnv():
         self.lookahead_scaler = self.lookahead_scaler.unsqueeze(0).unsqueeze(0).unsqueeze(3)
         self.ranks = torch.zeros((self.num_envs, self.num_agents), requires_grad=False, device=self.device, dtype = torch.int)
 
+        self._global_step = 0
+        self._logdir = cfg["logdir"]
+        self._writer = SummaryWriter(log_dir=self._logdir, flush_secs=10)
+
         self.total_step = 0
+        self.viewer.center_cam(self.states)
         self.reset()
         self.step(self.actions)
 
@@ -342,6 +349,17 @@ class DmarEnv():
         self.time_off_track[env_ids, :] = 0.0
         self.last_actions[env_ids, : ,:] = 0.0
 
+        if 0 in env_ids:
+          if len(self.viewer._frames):
+
+              frames = np.stack(self.viewer._frames, axis=0)  # (T, W, H, C)
+              frames = np.transpose(frames, (0, 3, 1, 2))  # (T, C, W, H)
+              frames = np.expand_dims(frames, axis=0)  # (N, T, C, W, H)
+              self._writer.add_video('Train/video', frames, global_step=self._global_step, fps=15)
+
+          self.viewer._frames = []
+          self._global_step += 1
+
     def step(self, actions) -> Tuple[torch.Tensor, Union[None, torch.Tensor], torch.Tensor, Dict[str, float]] : 
         actions = actions.clone().to(self.device)
         if actions.requires_grad:
@@ -413,15 +431,16 @@ class DmarEnv():
         self.lap_counter[decrement_idx] -= 1
         
         #render before resetting values
-        if not self.headless:
-            self.render()
+        # if not self.headless:
+        self.render()
         
         self.old_active_track_tile = self.active_track_tile
         self.old_track_progress = self.track_progress
         self.last_actions = self.actions.clone()
 
     def render(self,) -> None:
-        self.viewer_events = self.viewer.render(self.states[:,:,[0,1,2,10]])
+        if (self._global_step % self.log_video_freq == 0) and (self._global_step > 0):
+            self.viewer_events = self.viewer.render(self.states[:,:,[0,1,2,10]])
 
     
     def simulate(self) -> None:
@@ -465,9 +484,9 @@ class DmarEnv():
         if not self.headless:
             self.viewer.active_track_ids[env_ids] = self.active_track_ids[env_ids]
             #call refresh on track drawing only in render mode
-            if self.viewer.do_render:
-                if self.viewer.env_idx_render in env_ids:
-                    self.viewer.draw_track()
+            # if self.viewer.do_render:
+            if self.viewer.env_idx_render in env_ids:
+                self.viewer.draw_track()
  
     def get_state(self) -> torch.Tensor:
         return self.states.squeeze()

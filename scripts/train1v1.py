@@ -51,6 +51,8 @@ if __name__ == "__main__":
     timestamp = now.strftime("%y_%m_%d_%H_%M_%S")
     logdir = logdir_root+'/'+timestamp
 
+    cfg["logdir"] = logdir
+
     INIT_FROM_CHKPT = False
     #active policies
     runs = ['22_02_01_18_57_26', '22_02_01_18_57_26']

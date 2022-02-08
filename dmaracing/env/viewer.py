@@ -14,10 +14,14 @@ class Viewer:
                  track_border_poly_verts, 
                  track_border_poly_cols,
                  track_tile_counts,
-                 active_track_ids):
+                 active_track_ids,
+                 headless=True):
 
         self.device = 'cuda:0'
         self.cfg = cfg
+
+        self._headless = headless
+        self._frames = []
 
         self.track_centerlines = track_centerlines.cpu().numpy()
         self.track_poly_verts = track_poly_verts
@@ -58,7 +62,7 @@ class Viewer:
         self.colors = 255.0/self.num_cars*np.arange(self.num_cars) 
         self.font = cv.FONT_HERSHEY_SIMPLEX
 
-        self.do_render = False
+        self.do_render = True
         self.env_idx_render = 0
         
         self.x_offset = -50
@@ -70,7 +74,8 @@ class Viewer:
         self.state = []
         
         self.draw_track()
-        cv.imshow('dmaracing', self.track_canvas)
+        if not self._headless:
+            cv.imshow('dmaracing', self.track_canvas)
 
     def center_cam(self, state):
         self.scale_x /= 0.7
@@ -78,6 +83,12 @@ class Viewer:
         #self.x_offset = int(-self.width/self.scale_x*state[0,0,0])
         #self.y_offset = int(self.height/self.scale_y*state[0,0,1])
         self.draw_track()
+
+
+    def _render_tb(self):
+        self.draw_track()
+        self._frames.append(self.img)
+        return None
         
 
     def render(self, state):
@@ -97,6 +108,14 @@ class Viewer:
             self.draw_string()
             self.draw_marked_agents()
 
+        key = self._render_tb()
+
+        if not self._headless:
+            key = self._render_interactive()
+        
+        return key
+
+    def _render_interactive(self):
         cv.imshow("dmaracing", self.img)
         key = cv.waitKey(1)
         #print(key)
@@ -137,8 +156,7 @@ class Viewer:
                 self.scale_x /= 1.2
                 self.scale_y /= 1.2
                 self.draw_track()
-        
-        return key
+
     
     def draw_multiagent_rep(self, state):
             transl = state[self.env_idx_render, :, 0:2]
