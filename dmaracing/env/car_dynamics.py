@@ -105,7 +105,7 @@ def step_cars(state : torch.Tensor,
     vf = torch.einsum('ijkl, ijkl -> ijk', wheel_vels, wheel_dirs_forward)                        
     vs = torch.einsum('ijkl, ijkl -> ijk', wheel_vels, wheel_dirs_side)                        
     f_force = -vf + vr 
-    p_force = -vs*10.0
+    p_force = -vs*10.5
     f_force *= 245000 *mod_par['SIZE']**2
     p_force *= 205000 *mod_par['SIZE']**2
     
