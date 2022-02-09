@@ -116,7 +116,7 @@ if __name__ == "__main__":
 
     cfg, cfg_train, logdir = getcfg(path_cfg)
 
-    chkpts = [-1, 10000, 5000, 12000]
+    chkpts = [-1, 3500, 3000, 4000]
     runs = [-1, -1, -1, -1]
     cfg['sim']['numEnv'] = 1
     cfg['sim']['numAgents'] = 4
@@ -124,7 +124,7 @@ if __name__ == "__main__":
     cfg['learn']['offtrack_reset'] = 5.0
     cfg['learn']['reset_tile_rand'] = 20
     cfg['sim']['test_mode'] = True
-    
+    cfg['viewer']['logEvery'] = -1
     cfg['track']['seed'] = 12
     cfg['track']['num_tracks'] = 20
 
