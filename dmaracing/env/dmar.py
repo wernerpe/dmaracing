@@ -113,6 +113,7 @@ class DmarEnv():
         self.horizon = cfg['learn']['horizon']
         self.reset_randomization = cfg['learn']['resetrand']
         self.reset_tile_rand = cfg['learn']['reset_tile_rand']
+        self.reset_grid = cfg['learn']['resetgrid']
         self.timeout_s = cfg['learn']['timeout']
         self.offtrack_reset_s = cfg['learn']['offtrack_reset']
         self.offtrack_reset = int(self.offtrack_reset_s/(self.decimation*self.dt))
@@ -303,21 +304,33 @@ class DmarEnv():
         tile_idx_env = (torch.rand((len(env_ids),1), device=self.device) * self.active_track_tile_counts[env_ids].view(-1,1)).to(dtype=torch.long)
         tile_idx_env = torch.tile(tile_idx_env, (self.num_agents,))
         if self.num_agents >1:
-            if self.cfg['sim']['test_mode']:
-                rands = (torch.rand((len(env_ids),self.num_agents-1), device=self.device) * self.reset_tile_rand - self.reset_tile_rand/4).to(dtype=torch.long)
-            else:    
-                rands = (torch.rand((len(env_ids),self.num_agents-1), device=self.device) * self.reset_tile_rand - self.reset_tile_rand/2).to(dtype=torch.long)
-            tile_idx_env[:, 1:] = torch.remainder(tile_idx_env[:, 1:] + rands, self.active_track_tile_counts[env_ids].view(-1,1))
+            if not self.reset_grid:
+                if self.cfg['sim']['test_mode']:
+                    rands = (torch.rand((len(env_ids),self.num_agents-1), device=self.device) * self.reset_tile_rand - self.reset_tile_rand/4).to(dtype=torch.long)
+                else:    
+                    rands = (torch.rand((len(env_ids),self.num_agents-1), device=self.device) * self.reset_tile_rand - self.reset_tile_rand/2).to(dtype=torch.long)
+                tile_idx_env[:, 1:] = torch.remainder(tile_idx_env[:, 1:] + rands, self.active_track_tile_counts[env_ids].view(-1,1))
+            else:
+                tile_idx_env = tile_idx_env + 1 * torch.linspace(0, self.num_agents-1, self.num_agents, device=self.device).unsqueeze(0).to(dtype=torch.long)
+                tile_idx_env = torch.remainder(tile_idx_env, self.active_track_tile_counts[env_ids].view(-1,1))
+        positions = torch.ones((len(env_ids), self.num_agents), device=self.device).multinomial(self.num_agents, replacement=False)
         for agent in range(self.num_agents):
-            tile_idx = tile_idx_env[:, agent]  
+            if not self.reset_grid:
+                tile_idx = tile_idx_env[:, agent] 
+            else:
+                tile_idx = torch.gather(tile_idx_env, 1, positions[:, agent].unsqueeze(-1)).squeeze()
             startpos = self.active_centerlines[env_ids, tile_idx, :]
             angs = self.active_alphas[env_ids, tile_idx]
             vels_long = rand(-0.1*self.reset_randomization[3], self.reset_randomization[3], (len(env_ids),), device=self.device)
             vels_lat = rand(-self.reset_randomization[4], self.reset_randomization[4], (len(env_ids),), device=self.device)
             dir_x = torch.cos(angs)
             dir_y = torch.sin(angs)
-            self.states[env_ids, agent, self.vn['S_X']] = startpos[:,0] + rand(-self.reset_randomization[0], self.reset_randomization[0], (len(env_ids),), device=self.device)
-            self.states[env_ids, agent, self.vn['S_Y']] = startpos[:,1] + rand(-self.reset_randomization[1], self.reset_randomization[1], (len(env_ids),), device=self.device)
+            if not self.reset_grid:
+                self.states[env_ids, agent, self.vn['S_X']] = startpos[:,0] + rand(-self.reset_randomization[0], self.reset_randomization[0], (len(env_ids),), device=self.device)
+                self.states[env_ids, agent, self.vn['S_Y']] = startpos[:,1] + rand(-self.reset_randomization[1], self.reset_randomization[1], (len(env_ids),), device=self.device)
+            else:
+                self.states[env_ids, agent, self.vn['S_X']] = startpos[:,0]
+                self.states[env_ids, agent, self.vn['S_Y']] = startpos[:,1] + (-1)**(positions[:, agent]+1) * 2
             self.states[env_ids, agent, self.vn['S_THETA']] = angs + rand(-self.reset_randomization[2], self.reset_randomization[2], (len(env_ids),), device=self.device) 
             self.states[env_ids, agent, self.vn['S_DX']] = dir_x * vels_long - dir_y*vels_lat
             self.states[env_ids, agent, self.vn['S_DY']] = dir_y * vels_long + dir_x*vels_lat
