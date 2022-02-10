@@ -52,8 +52,8 @@ def play():
             num_races += len(dones_idx)
             num_agent_0_wins +=len(torch.where(info['ranking'][:,0] == 0))
              
-        if idx %300 ==0:
-            print("wins_0 / races: ", num_agent_0_wins, '/', num_races, '=', num_agent_0_wins*1.0/(num_races+0.001))
+        #if idx %300 ==0:
+        #    print("wins_0 / races: ", num_agent_0_wins, '/', num_races, '=', num_agent_0_wins*1.0/(num_races+0.001))
         #obsnp = obs[:,0,:].cpu().numpy()
         #rewnp = rew[:,0].cpu().numpy()
         #cont = env.conturing_err.cpu().numpy()
@@ -116,7 +116,7 @@ if __name__ == "__main__":
 
     cfg, cfg_train, logdir = getcfg(path_cfg)
 
-    chkpts = [-1, 3500, 3000, 4000]
+    chkpts = [-1, 18000, 16600, 4000]
     runs = [-1, -1, -1, -1]
     cfg['sim']['numEnv'] = 1
     cfg['sim']['numAgents'] = 4

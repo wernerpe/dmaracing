@@ -45,6 +45,8 @@ def allocate_car_dynamics_tensors(task):
     task.wheel_locations[3, 1] = W/2.0 
 
     task.wheels_on_track_segments = torch.zeros((task.num_envs, task.num_agents, 4, task.max_track_num_tiles), requires_grad=False, device=task.device)>1
+    task.slip = torch.zeros((task.num_envs, task.num_agents, 4), requires_grad=False, device=task.device)>1
+    task.wheel_locations_world = torch.zeros((task.num_envs, task.num_agents, 4, 2), requires_grad=False, device=task.device)
 
 def set_dependent_params(mod_par):
     SIZE = mod_par['SIZE']

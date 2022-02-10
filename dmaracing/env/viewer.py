@@ -72,7 +72,8 @@ class Viewer:
         self.msg = []
         self.marked_env = None
         self.state = []
-        
+        self.slip_markers = []
+
         self.draw_track()
         if not self._headless:
             cv.imshow('dmaracing', self.track_canvas)
@@ -91,8 +92,11 @@ class Viewer:
         return None
         
 
-    def render(self, state):
+    def render(self, state, slip, wheel_locs):
         self.state = state.clone()
+        self.slip = slip.clone()
+        self.wheel_locs = wheel_locs.clone()
+
         if self.do_render:
             #do drawing
             #listen for keypressed events
@@ -100,6 +104,8 @@ class Viewer:
             self.car_img = self.img.copy()
 
             if self.draw_multiagent:
+                self.add_slip_markers()
+                self.draw_slip_markers()
                 self.draw_multiagent_rep(state)
             else:
                 self.draw_singleagent_rep(state[:self.num_cars])
@@ -226,6 +232,16 @@ class Viewer:
                 cv.putText(self.img, str(idx), (px_x_number+ self.x_offset, px_y_number + self.y_offset -10), self.font, 0.5, (int(self.colors[idx]),0,int(self.colors[idx])), 1, cv.LINE_AA)
             self.img = cv.addWeighted(self.car_img, 0.5, self.img, 0.5, 0)
 
+    def add_slip_markers(self,):
+        idx_ag, idx_wheel = torch.where(self.slip[self.env_idx_render, : , :])
+        locations = self.wheel_locs[self.env_idx_render,idx_ag, idx_wheel, : ]
+        if len(locations):
+            slip_locations = locations.cpu().numpy()
+            #print(slip_locations)
+            self.slip_markers.append(slip_locations)
+            if len(self.slip_markers) > 140:
+                del self.slip_markers[0]
+
     def cords2px(self, pts):
         pts = pts.cpu().numpy()
         pts[:, 0, :] = self.width/self.scale_x*pts[:, 0, :] + self.width/2.0 + self.x_offset
@@ -236,6 +252,12 @@ class Viewer:
         pts[:, 0] = self.width/self.scale_x*pts[:, 0] + self.width/2.0 + self.x_offset
         pts[:, 1] = -self.height/self.scale_y*pts[:, 1] + self.height/2.0 + self.y_offset
         return pts.astype(np.int32)
+
+    def cords2px_np_copy(self, pts):
+        a = pts.copy()
+        a[:, 0] = self.width/self.scale_x*a[:, 0] + self.width/2.0 + self.x_offset
+        a[:, 1] = -self.height/self.scale_y*a[:, 1] + self.height/2.0 + self.y_offset
+        return a.astype(np.int32)
 
     def add_point(self, cords, radius, color, thickness):
         cd = cords.copy()
@@ -249,6 +271,17 @@ class Viewer:
         for group in self.points: 
             for idx in range(len(group[0])):
                 cv.circle(self.img, (group[0][idx, 0], group[0][idx, 1]), group[1], group[2], group[3])
+
+
+    def draw_slip_markers(self):
+        #project into camera frame
+        current_markers = []
+        for markergroup in self.slip_markers:
+            current_markers.append(self.cords2px_np_copy(markergroup))
+        scale =  int(100000/(self.scale_x*self.scale_y))
+        for group in current_markers:
+            for loc in group.tolist():
+                self.img = cv.circle(self.img, (loc[0], loc[1]), scale, (30,30,30), -1)
 
     def add_string(self, string):
         self.msg.append(string) 
@@ -282,6 +315,6 @@ class Viewer:
                                        self.track_tile_counts[self.active_track_ids[self.env_idx_render]].copy(),
                                        self.cords2px_np, 
                                        self.cfg['track']['draw_centerline'])
-
+        
     def save_frame(self, path):
         cv.imwrite(path, self.img)

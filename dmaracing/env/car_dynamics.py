@@ -29,7 +29,7 @@ def step_cars(state : torch.Tensor,
               A_track: torch.Tensor,
               b_track: torch.Tensor,
               S_track: torch.Tensor 
-              ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+              ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     
     #set steering angle
     #dir = torch.sign(actions[:, :, vn['A_STEER']] - state[:, :, vn['S_STEER']])
@@ -158,4 +158,4 @@ def step_cars(state : torch.Tensor,
                                                     sim_par['collisionstiffness']
                                                     )
 
-    return state, contact_wrenches, shove, wheels_on_track_segments
+    return state, contact_wrenches, shove, wheels_on_track_segments, slip, wheel_locations_world

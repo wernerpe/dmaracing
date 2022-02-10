@@ -443,13 +443,14 @@ class DmarEnv():
         #if log_video freq is set only redner in fixed intervals 
         if self.log_video_freq>=0:
             if (self._global_step % self.log_video_freq == 0) and (self._global_step > 0):
-                self.viewer_events = self.viewer.render(self.states[:,:,[0,1,2,10]])
+                self.viewer_events = self.viewer.render(self.states[:,:,[0,1,2,10]], self.slip, self.wheel_locations_world)
         else:
-            self.viewer_events = self.viewer.render(self.states[:,:,[0,1,2,10]])
+            self.viewer_events = self.viewer.render(self.states[:,:,[0,1,2,10]], self.slip, self.wheel_locations_world)
     
     def simulate(self) -> None:
         #run physics update
-        self.states, self.contact_wrenches, self.shove, self.wheels_on_track_segments = step_cars(
+        self.states, self.contact_wrenches, self.shove, self.wheels_on_track_segments, self.slip, self.wheel_locations_world\
+                                                                                          = step_cars(
                                                                                             self.states, 
                                                                                             self.actions, 
                                                                                             self.wheel_locations, 
