@@ -135,7 +135,7 @@ def step_cars(state : torch.Tensor,
     #net_torque
     ddx = 1/mod_par['M']*(net_force[:,:,0] + contact_wrenches[:,:,0])
     ddy = 1/mod_par['M']*(net_force[:,:,1] + contact_wrenches[:,:,1])
-    ddtheta = 1/mod_par['I']*(net_torque + 3.0*contact_wrenches[:,:,2])
+    ddtheta = 1/mod_par['I']*(net_torque + 4.5*contact_wrenches[:,:,2])
     acc = torch.cat((ddx.unsqueeze(2),ddy.unsqueeze(2),ddtheta.unsqueeze(2)), dim= 2)
     state[:, :, vn['S_X']:vn['S_THETA'] + 1] += sim_par['dt']*state[:,:,vn['S_DX']:vn['S_DTHETA']+1]
     state[:, :, vn['S_X']:vn['S_Y'] + 1] += shove

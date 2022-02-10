@@ -272,13 +272,15 @@ class Viewer:
             for idx in range(len(group[0])):
                 cv.circle(self.img, (group[0][idx, 0], group[0][idx, 1]), group[1], group[2], group[3])
 
+    def reset_slip_markers(self,):
+        self.slip_markers = []
 
     def draw_slip_markers(self):
         #project into camera frame
         current_markers = []
         for markergroup in self.slip_markers:
             current_markers.append(self.cords2px_np_copy(markergroup))
-        scale =  int(100000/(self.scale_x*self.scale_y))
+        scale =  int(500/(self.scale_x))
         for group in current_markers:
             for loc in group.tolist():
                 self.img = cv.circle(self.img, (loc[0], loc[1]), scale, (30,30,30), -1)
@@ -315,6 +317,16 @@ class Viewer:
                                        self.track_tile_counts[self.active_track_ids[self.env_idx_render]].copy(),
                                        self.cords2px_np, 
                                        self.cfg['track']['draw_centerline'])
-        
+    def draw_track_reset(self,):
+        self.reset_slip_markers()
+        self.track_canvas = draw_track(self.track_canvas,
+                                       self.track_centerlines[self.active_track_ids[self.env_idx_render]].copy(),
+                                       self.track_poly_verts[self.active_track_ids[self.env_idx_render]].copy(),
+                                       self.track_border_poly_verts[self.active_track_ids[self.env_idx_render]].copy(),
+                                       self.track_border_poly_cols[self.active_track_ids[self.env_idx_render]].copy(),
+                                       self.track_tile_counts[self.active_track_ids[self.env_idx_render]].copy(),
+                                       self.cords2px_np, 
+                                       self.cfg['track']['draw_centerline'])
+
     def save_frame(self, path):
         cv.imwrite(path, self.img)

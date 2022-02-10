@@ -184,10 +184,12 @@ class DmarEnv():
         self.lookahead_body = torch.einsum('eaij, eatj->eati', self.R, self.lookahead)
         lookahead_scaled = self.lookahead_scaler*self.lookahead_body
 
-        otherpositions = []
+        #otherpositions = []
         otherrotations = []
         othervelocities = []
         otherangularvelocities = []
+        other_progress = []
+        other_conturingerr = []
 
         if self.num_agents > 1:
             for agent in range(self.num_agents):
@@ -196,9 +198,12 @@ class DmarEnv():
                 selfvel = self.states[:, agent, self.vn['S_DX']: self.vn['S_DY']+1].view(-1,1,2)
                 selfangvel = self.states[:, agent, self.vn['S_DTHETA']].view(-1,1,1)
                 
+                selftrackprogress = self.track_dist[:, agent].view(-1,1,1)
+                other_progress.append(torch.cat((self.track_dist[:, :agent], self.track_dist[:, agent+1:]), dim = 1).view(-1, 1, self.num_agents-1) - selftrackprogress)
+
+                selfconturingerr = self.conturing_err[:, agent]
+                other_conturingerr.append(torch.cat((self.conturing_err[:, :agent], self.conturing_err[:, agent+1:]), dim = 1).view(-1, 1, self.num_agents-1) - selfconturingerr.view(-1,1,1))
                 
-                otherpos = torch.cat((self.states[:, :agent, 0:2], self.states[:, agent+1:, 0:2]), dim = 1)
-                otherpositions.append((otherpos - selfpos).view(-1, (self.num_agents-1), 2))    
                 otherrotations.append(torch.cat((self.states[:, :agent, 2], self.states[:, agent+1:, 2]), dim = 1).view(-1, 1, self.num_agents-1) - selfrot)
 
                 othervel = torch.cat((self.states[:, :agent, self.vn['S_DX']: self.vn['S_DY']+1], self.states[:, agent+1:, self.vn['S_DX']: self.vn['S_DY']+1]), dim = 1)
@@ -207,18 +212,13 @@ class DmarEnv():
                 otherangularvelocities.append(otherangvel - selfangvel)
 
 
-
-            pos_other = torch.cat(tuple([pos.view(-1,1,(self.num_agents-1), 2) for pos in otherpositions]), dim = 1)
-            pos_other = torch.einsum('eaij, eaoj->eaoi', self.R, pos_other)
-            norm_pos_other = torch.norm(pos_other, dim = 3).view(self.num_envs, self.num_agents, -1, 1)
-            dir_other = torch.div(pos_other, norm_pos_other).reshape(self.num_envs, self.num_agents, -1)
-            dist_other_clipped = torch.clip(0.1*norm_pos_other, min = 0, max = 3).view(self.num_envs, self.num_agents, -1)
             
             vel_other = torch.cat(tuple([vel.view(-1,1,(self.num_agents-1), 2) for vel in othervelocities]), dim = 1)
             vel_other = torch.einsum('eaij, eaoj->eaoi', self.R, vel_other).reshape(self.num_envs, self.num_agents, -1)
             rot_other = torch.cat(tuple([rot for rot in otherrotations]),dim =1 )
             angvel_other = torch.cat(tuple([angvel for angvel in otherangularvelocities]),dim =1 )
-
+            self.progress_other = torch.clip(torch.cat(tuple([prog for prog in other_progress]), dim =1 ), min = -50, max = 50) * 0.1
+            self.conturing_err_other = torch.clip(torch.cat(tuple([err for err in other_conturingerr]), dim =1 ), min = -10, max = 10) * 0.25
 
         else:
             dist_other_clipped = torch.zeros((self.num_envs, 1, 1), device=self.device, dtype=torch.float, requires_grad=False)
@@ -228,13 +228,13 @@ class DmarEnv():
         self.vels_body[..., :-1] = torch.einsum('eaij, eaj -> eai',self.R, vels[..., :-1])
         
         
-        self.obs_buf = torch.cat((self.vels_body, 
+        self.obs_buf = torch.cat((self.vels_body*0.1, 
                                   steer, 
                                   gas, 
                                   lookahead_scaled[:,:,:,0], 
                                   lookahead_scaled[:,:,:,1], 
-                                  dir_other, 
-                                  dist_other_clipped, 
+                                  self.progress_other, 
+                                  self.conturing_err_other, 
                                   rot_other,
                                   vel_other * 0.1,
                                   angvel_other * 0.1, 
@@ -242,32 +242,14 @@ class DmarEnv():
                                   self.ranks.view(-1,self.num_agents,1) 
                                   ), 
                                   dim=2)
-        
-        #self.obs_buf, self.vels_body = compute_observations_jit(self.states,
-        #                                    self.active_track_tile,
-        #                                    self.horizon,
-        #                                    self.active_track_tile_counts,
-        #                                    self.active_centerlines,
-        #                                    self.all_envs,
-        #                                    self.active_alphas,
-        #                                    self.sub_tile_progress,
-        #                                    self.num_envs,
-        #                                    self.num_agents,
-        #                                    self.vn,
-        #                                    self.R,
-        #                                    self.lookahead_scaler,
-        #                                    self.last_actions,
-        #                                    self.ranks,
-        #                                    self.device)
 
     def compute_rewards(self,) -> None:
         
-        self.rew_buf, self.track_progress, self.conturing_err, self.reward_terms\
+        self.rew_buf, self.track_progress, self.reward_terms\
              = compute_rewards_jit(self.active_track_tile,
                                    self.tile_len,
                                    self.sub_tile_progress,
-                                   self.trackperp,
-                                   self.tile_car_vec,
+                                   self.conturing_err,
                                    self.old_track_progress,
                                    self.is_on_track,
                                    self.reward_scales,
@@ -408,8 +390,8 @@ class DmarEnv():
         if len(env_ids):
             self.reset_envs(env_ids)
         
-        track_dist = self.track_progress + self.lap_counter*self.track_lengths[self.active_track_ids].view(-1,1)
-        dist_sort, self.ranks = torch.sort(track_dist, dim = 1, descending = True)
+        self.track_dist = self.track_progress + self.lap_counter*self.track_lengths[self.active_track_ids].view(-1,1)
+        dist_sort, self.ranks = torch.sort(self.track_dist, dim = 1, descending = True)
         self.ranks = torch.sort(self.ranks, dim = 1)[1]
 
         #compute closest point on centerline
@@ -423,6 +405,8 @@ class DmarEnv():
 
         self.sub_tile_progress = torch.einsum('eac, eac-> ea', self.trackdir, self.tile_car_vec)
 
+        self.conturing_err = torch.einsum('eac, eac-> ea', self.trackperp, self.tile_car_vec)
+            
         self.compute_observations()
         self.compute_rewards()
 
@@ -491,7 +475,8 @@ class DmarEnv():
             #call refresh on track drawing only in render mode
             # if self.viewer.do_render:
             if self.viewer.env_idx_render in env_ids:
-                self.viewer.draw_track()
+                self.viewer.draw_track_reset()
+                
  
     def get_state(self) -> torch.Tensor:
         return self.states.squeeze()
@@ -516,8 +501,7 @@ class DmarEnv():
 def compute_rewards_jit(active_track_tile : torch.Tensor,
                         tile_len : float,
                         sub_tile_progress : torch.Tensor,
-                        trackperp : torch.Tensor,
-                        tile_car_vec : torch.Tensor,
+                        conturing_err : torch.Tensor,
                         old_track_progress : torch.Tensor,
                         is_on_track : torch.Tensor,
                         reward_scales : Dict[str, float],
@@ -530,10 +514,9 @@ def compute_rewards_jit(active_track_tile : torch.Tensor,
                         is_collision : torch.Tensor,
                         reward_terms : Dict[str, torch.Tensor],
                         num_agents : int
-                        ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, Dict[str, torch.Tensor]]:
+                        ) -> Tuple[torch.Tensor, torch.Tensor, Dict[str, torch.Tensor]]:
 
             track_progress = active_track_tile*tile_len + sub_tile_progress
-            conturing_err = torch.einsum('eac, eac-> ea', trackperp, tile_car_vec)
             rew_progress = torch.clip(track_progress-old_track_progress, min = -10, max = 10) * reward_scales['progress']
             rew_contouring = -torch.square(0.1*conturing_err) * reward_scales['contouring']
             rew_on_track = reward_scales['offtrack']*~is_on_track 
@@ -552,116 +535,4 @@ def compute_rewards_jit(active_track_tile : torch.Tensor,
             reward_terms['sidevel'] += rew_sidevel
             reward_terms['rank'] += rew_rank
             reward_terms['collision'] += rew_collision
-            return rew_buf, track_progress, conturing_err, reward_terms
-
-#TODO: fix bug with list size inference
-#@torch.jit.script
-def compute_observations_jit(states : torch.Tensor,
-                            active_track_tile : torch.Tensor,
-                            horizon : int,
-                            active_track_tile_counts : torch.Tensor,
-                            active_centerlines : torch.Tensor,
-                            all_envs : torch.Tensor,
-                            active_alphas : torch.Tensor,
-                            sub_tile_progress : torch.Tensor,
-                            num_envs : int,
-                            num_agents : int,
-                            vn : Dict[str, int],
-                            R : torch.Tensor,
-                            lookahead_scaler : float,
-                            last_actions : torch.Tensor,
-                            ranks : torch.Tensor, 
-                            device : str) -> Tuple[torch.Tensor, torch.Tensor]:
-
-        steer =  states[:,:,vn['S_STEER']].unsqueeze(2)
-        gas = states[:,:,vn['S_GAS']].unsqueeze(2)
-        
-        theta = states[:,:,2]
-        vels = states[:,:,3:6].clone()
-        tile_idx_unwrapped = active_track_tile.unsqueeze(2) + (4*torch.arange(horizon, device=device, dtype=torch.long)).unsqueeze(0).unsqueeze(0)
-        tile_idx = torch.remainder(tile_idx_unwrapped, active_track_tile_counts.view(-1,1,1))
-        centers = active_centerlines[:, tile_idx, :]
-        centers = centers[all_envs,all_envs, ...]
-        angles_at_centers = active_alphas[:,tile_idx]
-        angles_at_centers = angles_at_centers[all_envs, all_envs, ...]
-        trackdir_lookahead = torch.stack((torch.cos(angles_at_centers), torch.sin(angles_at_centers)), dim = 3)
-        interpolated_centers = centers + trackdir_lookahead*sub_tile_progress.view(num_envs, num_agents, 1, 1)
-        
-        lookahead = (interpolated_centers - torch.tile(states[:,:,0:2].unsqueeze(2), (1,1,horizon, 1)))
-        
-        R[:, :, 0, 0 ] = torch.cos(theta)
-        R[:, :, 0, 1 ] = torch.sin(theta)
-        R[:, :, 1, 0 ] = -torch.sin(theta)
-        R[:, :, 1, 1 ] = torch.cos(theta)
-        
-        lookahead_body = torch.einsum('eaij, eatj->eati', R, lookahead)
-        lookahead_scaled = lookahead_scaler*lookahead_body
-
-        otherpositions = []
-        otherrotations = []
-        othervelocities = []
-        otherangularvelocities = []
-
-        if num_agents > 1:
-            for agent in range(num_agents):
-                selfpos = states[:, agent, 0:2].view(-1,1,2)
-                selfrot = states[:, agent, 2].view(-1,1,1)
-                selfvel = states[:, agent, vn['S_DX']: vn['S_DY']+1].view(-1,1,2)
-                selfangvel = states[:, agent, vn['S_DTHETA']].view(-1,1,1)
-                
-                
-                otherpos = torch.cat((states[:, :agent, 0:2], states[:, agent+1:, 0:2]), dim = 1)
-                otherpositions.append((otherpos - selfpos).view(-1, (num_agents-1), 2))    
-                otherrotations.append(torch.cat((states[:, :agent, 2], states[:, agent+1:, 2]), dim = 1).view(-1, 1, num_agents-1) - selfrot)
-
-                othervel = torch.cat((states[:, :agent, vn['S_DX']: vn['S_DY']+1], states[:, agent+1:, vn['S_DX']: vn['S_DY']+1]), dim = 1)
-                othervelocities.append((othervel - selfvel).view(-1, (num_agents-1), 2))    
-                otherangvel = torch.cat((states[:, :agent, vn['S_DTHETA']], states[:, agent+1:, vn['S_DTHETA']]), dim = 1).view(-1, 1, num_agents-1)
-                otherangularvelocities.append(otherangvel - selfangvel)
-
-
-            pos_other = []
-            vel_other = []
-            rot_other = []
-            angvel_other = []
-            for idx in range(num_agents-1):
-                pos_other.append(otherpositions[idx].view(-1,1,(num_agents-1), 2))
-                vel_other.append(othervelocities[idx].view(-1,1,(num_agents-1), 2))
-    
-            pos_other = torch.cat(tuple(pos_other), dim = 1)
-            vel_other = torch.cat(tuple(vel_other), dim = 1)
-            
-            pos_other = torch.einsum('eaij, eaoj->eaoi', R, pos_other)
-            norm_pos_other = torch.norm(pos_other, dim = 3).view(num_envs, num_agents, -1, 1)
-            dir_other = torch.div(pos_other, norm_pos_other).reshape(num_envs, num_agents, -1)
-            dist_other_clipped = torch.clip(0.1*norm_pos_other, min = 0, max = 3).view(num_envs, num_agents, -1)
-            vel_other = torch.einsum('eaij, eaoj->eaoi', R, vel_other).reshape(num_envs, num_agents, -1)
-            
-            rot_other = torch.cat(tuple(otherrotations),dim =1)
-            angvel_other = torch.cat(tuple(otherangularvelocities),dim =1 )
-            
-
-
-        else:
-            dist_other_clipped = torch.zeros((num_envs, 1, 1), device=device, dtype=torch.float, requires_grad=False)
-            dir_other = torch.zeros((num_envs, 1, 2), device=device, dtype=torch.float, requires_grad=False)
-                
-        vels_body = vels
-        vels_body[..., :-1] = torch.einsum('eaij, eaj -> eai',R, vels[..., :-1])
-        
-        
-        obs_buf = torch.cat((vels_body, 
-                            steer, 
-                            gas, 
-                            lookahead_scaled[:,:,:,0], 
-                            lookahead_scaled[:,:,:,1], 
-                            dir_other, 
-                            dist_other_clipped, 
-                            rot_other,
-                            vel_other * 0.1,
-                            angvel_other * 0.1, 
-                            last_actions, 
-                            ranks.view(-1,num_agents,1) 
-                            ), 
-                            dim=2)
-        return obs_buf, vels_body
+            return rew_buf, track_progress, reward_terms

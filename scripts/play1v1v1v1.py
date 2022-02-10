@@ -44,7 +44,7 @@ def play():
         t1 = time.time()
         actions = policy(obs)
         #actions[:,1:,1] *=0.9
-        obs,_, rew, dones, info = env.step(actions)
+        obs, _, rew, dones, info = env.step(actions)
 
         
         dones_idx = torch.unique(torch.where(dones)[0])
@@ -59,27 +59,32 @@ def play():
         #cont = env.conturing_err.cpu().numpy()
         act = actions[:,0,:].cpu().detach().numpy()
         states = env.states.cpu().numpy()
+        relprogress = env.progress_other[env.viewer.env_idx_render, 0, 0]
+        relconturingerr = env.conturing_err_other[env.viewer.env_idx_render, 0, 0]
         #om_mean = np.mean(states[env.viewer.env_idx_render,0, env.vn['S_W0']:env.vn['S_W3'] +1 ])
         step = env.episode_length_buf[env.viewer.env_idx_render].item()
         time_sim = cfg['sim']['dt']*cfg['sim']['decimation']*step
-        viewermsg = [(f"""{'p0 '+str(modelnrs[0])}{' ts: '}{policy_infos[0]['trueskill']['mu']:.1f}"""),
-                     (f"""{'p1 '+str(modelnrs[1])}{' ts: '}{policy_infos[1]['trueskill']['mu']:.1f}"""),
-                     (f"""{'p2 '+str(modelnrs[2])}{' ts: '}{policy_infos[2]['trueskill']['mu']:.1f}"""),
-                     (f"""{'p3 '+str(modelnrs[3])}{' ts: '}{policy_infos[3]['trueskill']['mu']:.1f}"""),
+        viewermsg = [(f"""{'relative proggress a1-a0:':>{10}}{' '}{relprogress.item():.2f}"""),
+                     (f"""{'relative conturingerr a1-a0:':>{10}}{' '}{relconturingerr.item():.2f}"""),
+                    #(f"""{'p0 '+str(modelnrs[0])}{' ts: '}{policy_infos[0]['trueskill']['mu']:.1f}"""), 
+                     #(f"""{'p1 '+str(modelnrs[1])}{' ts: '}{policy_infos[1]['trueskill']['mu']:.1f}"""),
+                     #(f"""{'p2 '+str(modelnrs[2])}{' ts: '}{policy_infos[2]['trueskill']['mu']:.1f}"""),
+                     #(f"""{'p3 '+str(modelnrs[3])}{' ts: '}{policy_infos[3]['trueskill']['mu']:.1f}"""),
                      #(f"""{'Win prob p0 : ':>{10}}{win_prob:.3f}"""),
                      #(f"""{'rewards:':>{10}}{' '}{100*rewnp[env.viewer.env_idx_render]:.2f}"""   ),
                      #(f"""{'velocity x:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 0]:.2f}"""),
                      #(f"""{'velocity y:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 1]:.2f}"""),
                      #(f"""{'ang vel:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 2]:.2f}"""),
                      #(f"""{'steer:':>{10}}{' '}{states[env.viewer.env_idx_render, 0, env.vn['S_STEER']]:.2f}"""),
-                     (f"""{'gas state:':>{10}}{' '}{states[env.viewer.env_idx_render, 0, env.vn['S_GAS']]:.2f}"""),
-                     (f"""{'gas act:':>{10}}{' '}{act[env.viewer.env_idx_render, env.vn['A_GAS']]:.2f}"""),
+                     #(f"""{'gas state:':>{10}}{' '}{states[env.viewer.env_idx_render, 0, env.vn['S_GAS']]:.2f}"""),
+                     #(f"""{'gas act:':>{10}}{' '}{act[env.viewer.env_idx_render, env.vn['A_GAS']]:.2f}"""),
                      #(f"""{'brake:':>{10}}{' '}{act[env.viewer.env_idx_render, env.vn['A_BRAKE']]:.2f}"""),
                      #(f"""{'om_mean:':>{10}}{' '}{om_mean:.2f}"""),
-                     (f"""{'collision:':>{10}}{' '}{env.is_collision[0,0].item():.2f}"""),
-                     (f"""{'rank ag 0 :':>{10}}{' '}{1+env.ranks[env.viewer.env_idx_render, 0].item():.2f}"""),
-                     (f"""{'laps ag 0 :':>{10}}{' '}{env.lap_counter[env.viewer.env_idx_render, 0].item():.2f}"""),
-                     (f"""{'time :':>{10}}{' '}{time_sim:.2f}""")]
+                     #(f"""{'collision:':>{10}}{' '}{env.is_collision[0,0].item():.2f}"""),
+                     #(f"""{'rank ag 0 :':>{10}}{' '}{1+env.ranks[env.viewer.env_idx_render, 0].item():.2f}"""),
+                     #(f"""{'laps ag 0 :':>{10}}{' '}{env.lap_counter[env.viewer.env_idx_render, 0].item():.2f}"""),
+                     #(f"""{'time :':>{10}}{' '}{time_sim:.2f}""")
+                     ]
 
         #env.viewer.clear_markers()
         

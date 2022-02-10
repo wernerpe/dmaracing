@@ -40,7 +40,7 @@ def play():
 
         idx_veloth = 39
         vel_other = obsnp[env.viewer.env_idx_render, idx_veloth:idx_veloth+2]
-
+        print(obsnp)
         viewermsg = [
                      (f"""{'rewards:':>{10}}{' '}{100*rewnp[env.viewer.env_idx_render]:.2f}"""   ),
                      #(f"""{'velocity x:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 0]:.2f}"""),
