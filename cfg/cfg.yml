@@ -75,5 +75,5 @@ learn:
   collisionRewardScale: -300.0
   horizon: 15
   
-  timeout: 30.0  # 120.0 #[s]
+  timeout: 120.0 #[s]
   offtrack_reset: 1.0 #[s]
