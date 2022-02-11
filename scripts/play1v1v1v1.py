@@ -130,7 +130,7 @@ def play():
 
 if __name__ == "__main__":
     args = CmdLineArguments()
-    SOUND = False
+    SOUND = True
     args.device = 'cuda:0'
     args.headless = False 
     args.test = True
