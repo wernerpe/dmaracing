@@ -55,7 +55,7 @@ def play():
             print("wins_0 / races: ", num_agent_0_wins, '/', num_races, '=', num_agent_0_wins*1.0/(num_races+0.001))
         obsnp = obs[:,0,:].cpu().numpy()
         rewnp = rew[:,0].cpu().numpy()
-        cont = env.conturing_err.cpu().numpy()
+        cont = env.contouring_err.cpu().numpy()
         act = actions[:,0,:].cpu().detach().numpy()
         states = env.states.cpu().numpy()
         om_mean = np.mean(states[env.viewer.env_idx_render,0, env.vn['S_W0']:env.vn['S_W3'] +1 ])

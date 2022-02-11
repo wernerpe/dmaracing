@@ -190,7 +190,7 @@ class DmarEnv():
         othervelocities = []
         otherangularvelocities = []
         other_progress = []
-        other_conturingerr = []
+        other_contouringerr = []
 
         if self.num_agents > 1:
             for agent in range(self.num_agents):
@@ -202,8 +202,8 @@ class DmarEnv():
                 selftrackprogress = self.track_dist[:, agent].view(-1,1,1)
                 other_progress.append(torch.cat((self.track_dist[:, :agent], self.track_dist[:, agent+1:]), dim = 1).view(-1, 1, self.num_agents-1) - selftrackprogress)
 
-                selfconturingerr = self.conturing_err[:, agent]
-                other_conturingerr.append(torch.cat((self.conturing_err[:, :agent], self.conturing_err[:, agent+1:]), dim = 1).view(-1, 1, self.num_agents-1) - selfconturingerr.view(-1,1,1))
+                selfcontouringerr = self.contouring_err[:, agent]
+                other_contouringerr.append(torch.cat((self.contouring_err[:, :agent], self.contouring_err[:, agent+1:]), dim = 1).view(-1, 1, self.num_agents-1) - selfcontouringerr.view(-1,1,1))
                 
                 otherrotations.append(torch.cat((self.states[:, :agent, 2], self.states[:, agent+1:, 2]), dim = 1).view(-1, 1, self.num_agents-1) - selfrot)
 
@@ -219,7 +219,7 @@ class DmarEnv():
             rot_other = torch.cat(tuple([rot for rot in otherrotations]),dim =1 )
             angvel_other = torch.cat(tuple([angvel for angvel in otherangularvelocities]),dim =1 )
             self.progress_other = torch.clip(torch.cat(tuple([prog for prog in other_progress]), dim =1 ), min = -50, max = 50) * 0.1
-            self.conturing_err_other = torch.clip(torch.cat(tuple([err for err in other_conturingerr]), dim =1 ), min = -10, max = 10) * 0.25
+            self.contouring_err_other = torch.clip(torch.cat(tuple([err for err in other_contouringerr]), dim =1 ), min = -10, max = 10) * 0.25
 
         else:
             dist_other_clipped = torch.zeros((self.num_envs, 1, 1), device=self.device, dtype=torch.float, requires_grad=False)
@@ -235,7 +235,7 @@ class DmarEnv():
                                   lookahead_scaled[:,:,:,0], 
                                   lookahead_scaled[:,:,:,1], 
                                   self.progress_other, 
-                                  self.conturing_err_other, 
+                                  self.contouring_err_other, 
                                   rot_other,
                                   vel_other * 0.1,
                                   angvel_other * 0.1, 
@@ -250,7 +250,7 @@ class DmarEnv():
              = compute_rewards_jit(self.active_track_tile,
                                    self.tile_len,
                                    self.sub_tile_progress,
-                                   self.conturing_err,
+                                   self.contouring_err,
                                    self.old_track_progress,
                                    self.is_on_track,
                                    self.reward_scales,
@@ -418,7 +418,7 @@ class DmarEnv():
 
         self.sub_tile_progress = torch.einsum('eac, eac-> ea', self.trackdir, self.tile_car_vec)
 
-        self.conturing_err = torch.einsum('eac, eac-> ea', self.trackperp, self.tile_car_vec)
+        self.contouring_err = torch.einsum('eac, eac-> ea', self.trackperp, self.tile_car_vec)
             
         self.compute_observations()
         self.compute_rewards()
@@ -514,7 +514,7 @@ class DmarEnv():
 def compute_rewards_jit(active_track_tile : torch.Tensor,
                         tile_len : float,
                         sub_tile_progress : torch.Tensor,
-                        conturing_err : torch.Tensor,
+                        contouring_err : torch.Tensor,
                         old_track_progress : torch.Tensor,
                         is_on_track : torch.Tensor,
                         reward_scales : Dict[str, float],
@@ -531,7 +531,7 @@ def compute_rewards_jit(active_track_tile : torch.Tensor,
 
             track_progress = active_track_tile*tile_len + sub_tile_progress
             rew_progress = torch.clip(track_progress-old_track_progress, min = -10, max = 10) * reward_scales['progress']
-            rew_contouring = -torch.square(0.1*conturing_err) * reward_scales['contouring']
+            rew_contouring = -torch.square(0.1*contouring_err) * reward_scales['contouring']
             rew_on_track = reward_scales['offtrack']*~is_on_track 
             rew_actionrate = -torch.sum(torch.square(actions-last_actions), dim = 2) *reward_scales['actionrate']
             rew_energy = -torch.sum(torch.square(states[:,:,vn['S_W0']:vn['S_W3']+1]), dim = 2)*reward_scales['energy']

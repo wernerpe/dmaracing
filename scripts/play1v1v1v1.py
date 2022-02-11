@@ -60,21 +60,21 @@ def play():
         #    print("wins_0 / races: ", num_agent_0_wins, '/', num_races, '=', num_agent_0_wins*1.0/(num_races+0.001))
         #obsnp = obs[:,0,:].cpu().numpy()
         #rewnp = rew[:,0].cpu().numpy()
-        #cont = env.conturing_err.cpu().numpy()
+        #cont = env.contouring_err.cpu().numpy()
         act = actions[:,0,:].cpu().detach().numpy()
         states = env.states.cpu().numpy()
         relprogress = env.progress_other[env.viewer.env_idx_render, 0, 0]
-        relconturingerr = env.conturing_err_other[env.viewer.env_idx_render, 0, 0]
+        relcontouringerr = env.contouring_err_other[env.viewer.env_idx_render, 0, 0]
         #om_mean = np.mean(states[env.viewer.env_idx_render,0, env.vn['S_W0']:env.vn['S_W3'] +1 ])
         step = env.episode_length_buf[env.viewer.env_idx_render].item()
         time_sim = cfg['sim']['dt']*cfg['sim']['decimation']*step
         rank = env.ranks[env.viewer.env_idx_render, 0].item() +1
-        viewermsg = [(f"""{'relative proggress a1-a0:':>{10}}{' '}{relprogress.item():.2f}"""),
-                     (f"""{'relative conturingerr a1-a0:':>{10}}{' '}{relconturingerr.item():.2f}"""),
-                    #(f"""{'p0 '+str(modelnrs[0])}{' ts: '}{policy_infos[0]['trueskill']['mu']:.1f}"""), 
-                     #(f"""{'p1 '+str(modelnrs[1])}{' ts: '}{policy_infos[1]['trueskill']['mu']:.1f}"""),
-                     #(f"""{'p2 '+str(modelnrs[2])}{' ts: '}{policy_infos[2]['trueskill']['mu']:.1f}"""),
-                     #(f"""{'p3 '+str(modelnrs[3])}{' ts: '}{policy_infos[3]['trueskill']['mu']:.1f}"""),
+        viewermsg = [#(f"""{'relative proggress a1-a0:':>{10}}{' '}{relprogress.item():.2f}"""),
+                     #(f"""{'relative contouringerr a1-a0:':>{10}}{' '}{relcontouringerr.item():.2f}"""),
+                     (f"""{'p0 '+str(modelnrs[0])}{' ts: '}{policy_infos[0]['trueskill']['mu']:.1f}"""), 
+                     (f"""{'p1 '+str(modelnrs[1])}{' ts: '}{policy_infos[1]['trueskill']['mu']:.1f}"""),
+                     (f"""{'p2 '+str(modelnrs[2])}{' ts: '}{policy_infos[2]['trueskill']['mu']:.1f}"""),
+                     (f"""{'p3 '+str(modelnrs[3])}{' ts: '}{policy_infos[3]['trueskill']['mu']:.1f}"""),
                      #(f"""{'Win prob p0 : ':>{10}}{win_prob:.3f}"""),
                      #(f"""{'rewards:':>{10}}{' '}{100*rewnp[env.viewer.env_idx_render]:.2f}"""   ),
                      #(f"""{'velocity x:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 0]:.2f}"""),
@@ -82,7 +82,7 @@ def play():
                      #(f"""{'ang vel:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 2]:.2f}"""),
                      #(f"""{'steer:':>{10}}{' '}{states[env.viewer.env_idx_render, 0, env.vn['S_STEER']]:.2f}"""),
                      #(f"""{'gas state:':>{10}}{' '}{states[env.viewer.env_idx_render, 0, env.vn['S_GAS']]:.2f}"""),
-                     #(f"""{'gas act:':>{10}}{' '}{act[env.viewer.env_idx_render, env.vn['A_GAS']]:.2f}"""),
+                     #(f"""{'gas:':>{10}}{' '}{act[env.viewer.env_idx_render, env.vn['A_GAS']]:.2f}"""),
                      #(f"""{'brake:':>{10}}{' '}{act[env.viewer.env_idx_render, env.vn['A_BRAKE']]:.2f}"""),
                      #(f"""{'om_mean:':>{10}}{' '}{om_mean:.2f}"""),
                      #(f"""{'collision:':>{10}}{' '}{env.is_collision[0,0].item():.2f}"""),
@@ -90,17 +90,17 @@ def play():
                      #(f"""{'laps ag 0 :':>{10}}{' '}{env.lap_counter[env.viewer.env_idx_render, 0].item():.2f}"""),
                      #(f"""{'time :':>{10}}{' '}{time_sim:.2f}""")
                      ]
-        diff =  rank-rank_old
-        col = torch.any(env.is_collision[env.viewer.env_idx_render])
-        if col and idx%17 ==0:
-            threading.Thread(target=playsound.playsound, args=('dmaracing/utils/audio/collisions.mp3',), daemon=True).start()
-        if col and idx%15 == 0:
-            threading.Thread(target=playsound.playsound, args=('dmaracing/utils/audio/oof.mp3',), daemon=True).start()  
-        if diff>0 and not playedlasttime:
-            threading.Thread(target=playsound.playsound, args=('dmaracing/utils/audio/overtaking.mp3',), daemon=True).start()
-            playedlasttime = True
-            #playsound.playsound('dmaracing/utils/audio/overtaking.mp3')   
-            #env.viewer.clear_markers()
+        if SOUND:
+            diff =  rank-rank_old
+            col = torch.any(env.is_collision[env.viewer.env_idx_render])
+            if col and idx%47 ==0:
+                threading.Thread(target=playsound.playsound, args=('dmaracing/utils/audio/collisions.mp3',), daemon=True).start()
+            if col and idx%45 == 0:
+                threading.Thread(target=playsound.playsound, args=('dmaracing/utils/audio/oof.mp3',), daemon=True).start()  
+            if diff>0 and not playedlasttime:
+                threading.Thread(target=playsound.playsound, args=('dmaracing/utils/audio/overtaking.mp3',), daemon=True).start()
+                playedlasttime = True
+                
         elif playedlasttime:
             playedlasttime = False
         rank_old = rank
@@ -130,6 +130,7 @@ def play():
 
 if __name__ == "__main__":
     args = CmdLineArguments()
+    SOUND = False
     args.device = 'cuda:0'
     args.headless = False 
     args.test = True
@@ -137,7 +138,7 @@ if __name__ == "__main__":
 
     cfg, cfg_train, logdir = getcfg(path_cfg)
 
-    chkpts = [-1, 3000, 4300, 3800]
+    chkpts = [-1, 8800, 6300, 4400]
     runs = [-1, -1, -1, -1]
     cfg['sim']['numEnv'] = 1
     cfg['sim']['numAgents'] = 4

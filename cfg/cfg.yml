@@ -61,7 +61,7 @@ learn:
   #[posx, posy, theta, vellong, vellat, dtheta, steer]
   resetrand: [4.0, 4.0, 0.1, 0.1, 0.01,  0.1, 0.0]
   reset_tile_rand: 40
-  resetgrid: False
+  resetgrid: True
   defaultactions: [0., 0.2, 0.0]
   actionscale: [1.0, 0.5, 0.2]
 
