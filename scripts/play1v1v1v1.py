@@ -8,6 +8,8 @@ import os
 import time
 #import trueskill
 from scipy.stats import norm
+import playsound
+import threading
 
 def play():
     env = DmarEnv(cfg, args)
@@ -39,6 +41,8 @@ def play():
     #win_prob = 1 - norm.cdf((0-mu_match)/(np.sqrt(2*var_match)))
     #print("win probability agent 0: ", win_prob)
     idx = 0 
+    rank_old = env.ranks[env.viewer.env_idx_render, 0].item()
+    playedlasttime = True
     while True:
     #for idx in range(1000):
         t1 = time.time()
@@ -64,6 +68,7 @@ def play():
         #om_mean = np.mean(states[env.viewer.env_idx_render,0, env.vn['S_W0']:env.vn['S_W3'] +1 ])
         step = env.episode_length_buf[env.viewer.env_idx_render].item()
         time_sim = cfg['sim']['dt']*cfg['sim']['decimation']*step
+        rank = env.ranks[env.viewer.env_idx_render, 0].item() +1
         viewermsg = [(f"""{'relative proggress a1-a0:':>{10}}{' '}{relprogress.item():.2f}"""),
                      (f"""{'relative conturingerr a1-a0:':>{10}}{' '}{relconturingerr.item():.2f}"""),
                     #(f"""{'p0 '+str(modelnrs[0])}{' ts: '}{policy_infos[0]['trueskill']['mu']:.1f}"""), 
@@ -81,13 +86,24 @@ def play():
                      #(f"""{'brake:':>{10}}{' '}{act[env.viewer.env_idx_render, env.vn['A_BRAKE']]:.2f}"""),
                      #(f"""{'om_mean:':>{10}}{' '}{om_mean:.2f}"""),
                      #(f"""{'collision:':>{10}}{' '}{env.is_collision[0,0].item():.2f}"""),
-                     #(f"""{'rank ag 0 :':>{10}}{' '}{1+env.ranks[env.viewer.env_idx_render, 0].item():.2f}"""),
+                     (f"""{'rank ag 0 :':>{10}}{' '}{rank:.2f}"""),
                      #(f"""{'laps ag 0 :':>{10}}{' '}{env.lap_counter[env.viewer.env_idx_render, 0].item():.2f}"""),
                      #(f"""{'time :':>{10}}{' '}{time_sim:.2f}""")
                      ]
-
-        #env.viewer.clear_markers()
-        
+        diff =  rank-rank_old
+        col = torch.any(env.is_collision[env.viewer.env_idx_render])
+        if col and idx%17 ==0:
+            threading.Thread(target=playsound.playsound, args=('dmaracing/utils/audio/collisions.mp3',), daemon=True).start()
+        if col and idx%15 == 0:
+            threading.Thread(target=playsound.playsound, args=('dmaracing/utils/audio/oof.mp3',), daemon=True).start()  
+        if diff>0 and not playedlasttime:
+            threading.Thread(target=playsound.playsound, args=('dmaracing/utils/audio/overtaking.mp3',), daemon=True).start()
+            playedlasttime = True
+            #playsound.playsound('dmaracing/utils/audio/overtaking.mp3')   
+            #env.viewer.clear_markers()
+        elif playedlasttime:
+            playedlasttime = False
+        rank_old = rank
         #closest_point_marker = env.interpolated_centers[env.viewer.env_idx_render, 0, :, :].cpu().numpy()
         #env.viewer.add_point(closest_point_marker, 2,(222,10,0), 2)
         env.viewer.x_offset = int(-env.viewer.width/env.viewer.scale_x*env.states[env.viewer.env_idx_render, 0, 0])
@@ -97,7 +113,7 @@ def play():
         for msg in viewermsg:
             env.viewer.add_string(msg)
 
-       
+        idx += 1
         evt = env.viewer_events
 
         if evt == 121:
@@ -121,7 +137,7 @@ if __name__ == "__main__":
 
     cfg, cfg_train, logdir = getcfg(path_cfg)
 
-    chkpts = [-1, 18000, 16600, 4000]
+    chkpts = [-1, 3000, 4300, 3800]
     runs = [-1, -1, -1, -1]
     cfg['sim']['numEnv'] = 1
     cfg['sim']['numAgents'] = 4
