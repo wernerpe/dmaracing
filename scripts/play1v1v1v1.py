@@ -33,13 +33,16 @@ def play():
     num_agent_0_wins = 0
     skill_ag0 = [policy_infos[0]['trueskill']['mu'], policy_infos[0]['trueskill']['sigma']]
     skill_ag1 = [policy_infos[1]['trueskill']['mu'], policy_infos[1]['trueskill']['sigma']]
+    
     #predicted win percentage
+    
     #ratings = [trueskill.Rating(mu=skill_ag0), trueskill.Rating(mu=skill_ag1)]
     #print("matchup trueskill: ag0: ", skill_ag0,', ag1: ', skill_ag0)
     #mu_match = skill_ag0[0] - skill_ag1[0]
     #var_match = skill_ag0[1]**2 + skill_ag1[1]**2
     #win_prob = 1 - norm.cdf((0-mu_match)/(np.sqrt(2*var_match)))
     #print("win probability agent 0: ", win_prob)
+
     idx = 0 
     rank_old = env.ranks[env.viewer.env_idx_render, 0].item()
     playedlasttime = True
@@ -120,7 +123,7 @@ def play():
             print("env ", env.viewer.env_idx_render, " reset")
             env.episode_length_buf[env.viewer.env_idx_render] = 1e9
         
-        path = "/home/peter/git/dmaracing/logs/frames/4ag_fr_" + str(idx) + ".jpg" 
+        #path = "/home/peter/git/dmaracing/logs/frames/4ag_fr_" + str(idx) + ".jpg" 
         #env.viewer.save_frame(path)
         #print(idx)
         #t2 = time.time()
