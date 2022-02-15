@@ -257,8 +257,7 @@ class DmarEnv():
                                   dim=2)
 
 
-    def compute_rewards(self,) -> None:
-        
+    def compute_rewards(self,) -> None:  
         self.rew_buf, self.track_progress, self.reward_terms\
              = compute_rewards_jit(self.active_track_tile,
                                    self.tile_len,
