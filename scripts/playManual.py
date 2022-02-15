@@ -5,8 +5,8 @@ import os
 import numpy as np
 
 def play():
-    cfg['sim']['numEnv'] = 2
-    cfg['sim']['numAgents'] = 2
+    cfg['sim']['numEnv'] = 1
+    cfg['sim']['numAgents'] = 4
     cfg['track']['num_tracks'] = 3
     cfg['viewer']['multiagent'] = True
     cfg['learn']['defaultactions'] = [0,0,0]
@@ -40,7 +40,7 @@ def play():
 
         idx_veloth = 39
         vel_other = obsnp[env.viewer.env_idx_render, idx_veloth:idx_veloth+2]
-        print(obsnp)
+        #print(env.active_agents[env.viewer.env_idx_render])
         viewermsg = [
                      (f"""{'rewards:':>{10}}{' '}{100*rewnp[env.viewer.env_idx_render]:.2f}"""   ),
                      #(f"""{'velocity x:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 0]:.2f}"""),

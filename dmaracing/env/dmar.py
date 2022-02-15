@@ -116,6 +116,7 @@ class DmarEnv():
         self.offtrack_reset_s = cfg['learn']['offtrack_reset']
         self.offtrack_reset = int(self.offtrack_reset_s/(self.decimation*self.dt))
         self.max_episode_length = int(self.timeout_s/(self.decimation*self.dt))
+        self.agent_dropout_prob = cfg['learn']['agent_dropout_prob']
 
         self.lap_counter = torch.zeros((self.num_envs, self.num_agents), requires_grad=False, device=self.device, dtype=torch.int)
         self.track_progress = torch.zeros((self.num_envs, self.num_agents), requires_grad=False, device=self.device, dtype=torch.float)
@@ -148,7 +149,15 @@ class DmarEnv():
             self._writer = SummaryWriter(log_dir=self._logdir, flush_secs=10)
 
         self.active_agents = torch_zeros((self.num_envs, self.num_agents)) == 0
-        self.active_obs_template = torch.ones((self.num_envs, self.num_agents-1), requires_grad=False, device=self.device)
+        self.active_obs_template = torch.ones((self.num_envs, self.num_agents, self.num_agents-1), requires_grad=False, device=self.device)
+        self.ado_idx_lookup = torch.zeros((self.num_agents, self.num_agents), requires_grad=False, device=self.device, dtype=torch.long)
+        for row in range(self.num_agents):
+            for col in range(self.num_agents):
+                if col<row:
+                    self.ado_idx_lookup[row, col] = row-1
+                elif row<col:
+                    self.ado_idx_lookup[row, col] = row
+      
 
         self.total_step = 0
         self.viewer.center_cam(self.states)
@@ -215,12 +224,13 @@ class DmarEnv():
 
 
             
-            vel_other = torch.cat(tuple([vel.view(-1,1,(self.num_agents-1), 2) for vel in othervelocities]), dim = 1)
-            vel_other = torch.einsum('eaij, eaoj->eaoi', self.R, vel_other).reshape(self.num_envs, self.num_agents, -1)
-            rot_other = torch.cat(tuple([rot for rot in otherrotations]),dim =1 )
-            angvel_other = torch.cat(tuple([angvel for angvel in otherangularvelocities]),dim =1 )
-            self.progress_other = torch.clip(torch.cat(tuple([prog for prog in other_progress]), dim =1 ), min = -50, max = 50) * 0.1
-            self.contouring_err_other = torch.clip(torch.cat(tuple([err for err in other_contouringerr]), dim =1 ), min = -10, max = 10) * 0.25
+            vel_other = torch.cat(tuple([vel.view(-1,1,(self.num_agents-1), 2) for vel in othervelocities]), dim = 1)*\
+                        self.active_obs_template.view(self.num_envs, self.num_agents, self.num_agents-1, 1)
+            vel_other = torch.einsum('eaij, eaoj->eaoi', self.R, vel_other)
+            rot_other = torch.cat(tuple([rot for rot in otherrotations]),dim =1 ) * self.active_obs_template
+            angvel_other = torch.cat(tuple([angvel for angvel in otherangularvelocities]),dim =1 ) * self.active_obs_template
+            self.progress_other = torch.clip(torch.cat(tuple([prog for prog in other_progress]), dim =1 ), min = -50, max = 50) * self.active_obs_template
+            self.contouring_err_other = torch.clip(torch.cat(tuple([err for err in other_contouringerr]), dim =1 ), min = -10, max = 10) * self.active_obs_template
 
         else:
             dist_other_clipped = torch.zeros((self.num_envs, 1, 1), device=self.device, dtype=torch.float, requires_grad=False)
@@ -235,15 +245,17 @@ class DmarEnv():
                                   gas, 
                                   lookahead_scaled[:,:,:,0], 
                                   lookahead_scaled[:,:,:,1], 
-                                  self.progress_other*self.active_obs_template, 
-                                  self.contouring_err_other*self.active_obs_template, 
-                                  rot_other*self.active_obs_template,
-                                  vel_other*self.active_obs_template * 0.1,
-                                  angvel_other*self.active_obs_template * 0.1, 
+                                  self.progress_other * 0.1, 
+                                  self.contouring_err_other * 0.25, 
+                                  rot_other,
+                                  vel_other[..., 0] * 0.1,
+                                  vel_other[..., 1] * 0.1,
+                                  angvel_other * 0.1, 
                                   self.last_actions, 
                                   self.ranks.view(-1,self.num_agents,1) 
                                   ), 
                                   dim=2)
+
 
     def compute_rewards(self,) -> None:
         
@@ -284,7 +296,7 @@ class DmarEnv():
 
     def reset_envs(self, env_ids) -> None:
         self.resample_track(env_ids)
-        self.active_agents[env_ids, 1:] = torch.rand((len(env_ids),self.num_agents-1), device=self.device) > 0.5
+        self.active_agents[env_ids, 1:] = torch.rand((len(env_ids),self.num_agents-1), device=self.device) > self.agent_dropout_prob
         tile_idx_env = (torch.rand((len(env_ids),1), device=self.device) * self.active_track_tile_counts[env_ids].view(-1,1)).to(dtype=torch.long)
         tile_idx_env = torch.tile(tile_idx_env, (self.num_agents,))
 
@@ -330,7 +342,6 @@ class DmarEnv():
         dists = torch.norm(self.states[env_ids,:, 0:2].unsqueeze(2)-self.active_centerlines[env_ids].unsqueeze(1), dim=3)
         self.old_active_track_tile[env_ids, :] = torch.sort(dists, dim = 2)[1][:,:, 0]
         
-        self.info = {}
         self.info['episode'] = {}
         
         for key in self.reward_terms.keys():
@@ -406,9 +417,13 @@ class DmarEnv():
         self.check_termination()
         
         env_ids = torch.where(self.reset_buf)[0]
+        self.info = {}
+        
         if len(env_ids):
             self.reset_envs(env_ids)
         
+        self.info['agent_active'] = self.active_agents
+
         self.track_dist = self.track_progress + self.lap_counter*self.track_lengths[self.active_track_ids].view(-1,1)
         dist_sort, self.ranks = torch.sort(self.track_dist, dim = 1, descending = True)
         self.ranks = torch.sort(self.ranks, dim = 1)[1]
@@ -428,6 +443,10 @@ class DmarEnv():
 
         self.active_obs_template[...] = 1.0
         idx_1, idx_2 = torch.where(~self.active_agents)
+        #remove ado observations of deactivated envs for active ones
+        for ag in range(self.num_agents):
+            self.active_obs_template[idx_1, ag, self.ado_idx_lookup[idx_2,  ag]] = 0
+
 
         self.compute_observations()
         self.compute_rewards()

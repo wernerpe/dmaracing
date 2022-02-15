@@ -16,9 +16,10 @@ import numpy as np
 import trueskill
 import matplotlib.pyplot as plt
 
-result = [0,1,0,1]
+result1 = [0,1,0,1]
+result2 = [1,0,1,0]
 start = [5, 10, 15, 20]
-N = 10000
+N = 1000
 
 ratings = [(trueskill.Rating(mu = s),) for s in start]
 
@@ -26,6 +27,10 @@ mu = [start]
 for it in range(N):
     if it%1000 ==0:
         print(it)
+    if int(it/25) %2 == 0:
+        result = result1
+    else:
+        result = result2
     ratings = trueskill.rate(ratings, result)
     mu.append([ratings[idx][0].mu for idx in range(len(ratings))])
 
