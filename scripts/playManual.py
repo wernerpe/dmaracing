@@ -24,7 +24,7 @@ def play():
     vel_cmd = 0.0
     steer_cmd = 0.0
     brk_cmd = 0.0
-      
+    lastvel = 0
     while True:
         actions[0 , 0, 0] = steer_cmd 
         actions[0 , 0, 1] = vel_cmd
@@ -40,6 +40,8 @@ def play():
 
         idx_veloth = 39
         vel_other = obsnp[env.viewer.env_idx_render, idx_veloth:idx_veloth+2]
+        #print(states[env.viewer.env_idx_render,0, env.vn['S_W0']:env.vn['S_W3'] +1 ])
+       
         #print(env.active_agents[env.viewer.env_idx_render])
         viewermsg = [
                      (f"""{'rewards:':>{10}}{' '}{100*rewnp[env.viewer.env_idx_render]:.2f}"""   ),
@@ -75,7 +77,7 @@ def play():
             print('vel_cmd', vel_cmd, env.states[0,0,env.vn['S_DX']])
         elif evt == 107:
             vel_cmd = 0.0
-            brk_cmd += 0.1
+            #brk_cmd += 0.1
             print('vel_cmd', vel_cmd, env.states[0,0,env.vn['S_DX']])
         elif evt == 106:
             steer_cmd += 0.4 * (steer_cmd < 1)

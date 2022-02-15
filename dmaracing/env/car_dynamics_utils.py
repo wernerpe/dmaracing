@@ -47,7 +47,7 @@ def allocate_car_dynamics_tensors(task):
     task.wheels_on_track_segments = torch.zeros((task.num_envs, task.num_agents, 4, task.max_track_num_tiles), requires_grad=False, device=task.device)>1
     task.slip = torch.zeros((task.num_envs, task.num_agents, 4), requires_grad=False, device=task.device)>1
     task.wheel_locations_world = torch.zeros((task.num_envs, task.num_agents, 4, 2), requires_grad=False, device=task.device)
-    task.drag_reduction_points = torch.zeros((task.num_envs, task.num_agents*20, 2), requires_grad=False, device=task.device)
+    task.drag_reduction_points = torch.zeros((task.num_envs, task.num_agents*30, 2), requires_grad=False, device=task.device)
     task.drag_reduction_write_idx = 0
     task.drag_reduced = torch.zeros((task.num_envs, task.num_agents), requires_grad=False, device=task.device) > 1.0
     

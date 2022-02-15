@@ -29,17 +29,20 @@ def play():
     policy = runner.get_inference_policy(device=env.device)
     
     time_per_step = cfg['sim']['dt']*cfg['sim']['decimation']
+    
+    ag = 0
 
     num_races = 0
     num_agent_0_wins = 0
     skill_ag = [[p_infos['trueskill']['mu'], p_infos['trueskill']['sigma']] for p_infos in policy_infos]
     mu = [skill[0] for skill in skill_ag]
     sigma = [skill[1] for skill in skill_ag]
-    win_prob = compute_winprob_i(mu, sigma, 0)
-    print("win probability agent 0: ", win_prob)
+    #win_prob = compute_winprob_i(mu, sigma, 0)
+    #print("win probability agent 0: ", win_prob)
     idx = 0 
     rank_old = env.ranks[env.viewer.env_idx_render, 0].item()
     playedlasttime = False
+    lastvel = 0
     while True:
     #for idx in range(1000):
         t1 = time.time()
@@ -55,17 +58,22 @@ def play():
              
         #if idx %300 ==0:
         #    print("wins_0 / races: ", num_agent_0_wins, '/', num_races, '=', num_agent_0_wins*1.0/(num_races+0.001))
-        #obsnp = obs[:,0,:].cpu().numpy()
+        obsnp = obs[:,ag,:].cpu().numpy()
         #rewnp = rew[:,0].cpu().numpy()
         #cont = env.contouring_err.cpu().numpy()
-        act = actions[:,0,:].cpu().detach().numpy()
+        act = actions[:,ag,:].cpu().detach().numpy()
         states = env.states.cpu().numpy()
-        relprogress = env.progress_other[env.viewer.env_idx_render, 0, 0]
-        relcontouringerr = env.contouring_err_other[env.viewer.env_idx_render, 0, 0]
-        #om_mean = np.mean(states[env.viewer.env_idx_render,0, env.vn['S_W0']:env.vn['S_W3'] +1 ])
+        relprogress = env.progress_other[env.viewer.env_idx_render, ag, 0]
+        relcontouringerr = env.contouring_err_other[env.viewer.env_idx_render, ag, 0]
+        om_mean = np.mean(states[env.viewer.env_idx_render,ag, env.vn['S_W0']:env.vn['S_W3'] +1 ])
         step = env.episode_length_buf[env.viewer.env_idx_render].item()
         time_sim = cfg['sim']['dt']*cfg['sim']['decimation']*step
-        rank = env.ranks[env.viewer.env_idx_render, 0].item() +1
+        rank = env.ranks[env.viewer.env_idx_render, ag].item() +1
+        vel = env.vels_body[env.viewer.env_idx_render,ag, 0].item() 
+        acc = vel - lastvel
+        lastvel = vel
+        print(states[env.viewer.env_idx_render,ag, env.vn['S_W0']:env.vn['S_W3'] +1 ])
+        
         viewermsg = [#(f"""{'relative proggress a1-a0:':>{10}}{' '}{relprogress.item():.2f}"""),
                      #(f"""{'relative contouringerr a1-a0:':>{10}}{' '}{relcontouringerr.item():.2f}"""),
                      (f"""{'p0 '+str(modelnrs[0])}{' ts: '}{policy_infos[0]['trueskill']['mu']:.1f}"""), 
@@ -74,14 +82,14 @@ def play():
                      (f"""{'p3 '+str(modelnrs[3])}{' ts: '}{policy_infos[3]['trueskill']['mu']:.1f}"""),
                      #(f"""{'Win prob p0 : ':>{10}}{win_prob:.3f}"""),
                      #(f"""{'rewards:':>{10}}{' '}{100*rewnp[env.viewer.env_idx_render]:.2f}"""   ),
-                     #(f"""{'velocity x:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 0]:.2f}"""),
+                     (f"""{'acc:':>{10}}{' '}{acc:.2f}"""),
                      #(f"""{'velocity y:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 1]:.2f}"""),
                      #(f"""{'ang vel:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 2]:.2f}"""),
                      #(f"""{'steer:':>{10}}{' '}{states[env.viewer.env_idx_render, 0, env.vn['S_STEER']]:.2f}"""),
-                     #(f"""{'gas state:':>{10}}{' '}{states[env.viewer.env_idx_render, 0, env.vn['S_GAS']]:.2f}"""),
-                     #(f"""{'gas:':>{10}}{' '}{act[env.viewer.env_idx_render, env.vn['A_GAS']]:.2f}"""),
+                     (f"""{'gas state:':>{10}}{' '}{states[env.viewer.env_idx_render, ag, env.vn['S_GAS']]:.2f}"""),
+                     (f"""{'gas:':>{10}}{' '}{act[env.viewer.env_idx_render, env.vn['A_GAS']]:.2f}"""),
                      #(f"""{'brake:':>{10}}{' '}{act[env.viewer.env_idx_render, env.vn['A_BRAKE']]:.2f}"""),
-                     #(f"""{'om_mean:':>{10}}{' '}{om_mean:.2f}"""),
+                     (f"""{'om_mean:':>{10}}{' '}{om_mean:.2f}"""),
                      #(f"""{'collision:':>{10}}{' '}{env.is_collision[0,0].item():.2f}"""),
                      (f"""{'rank ag 0 :':>{10}}{' '}{rank:.2f}"""),
                      #(f"""{'laps ag 0 :':>{10}}{' '}{env.lap_counter[env.viewer.env_idx_render, 0].item():.2f}"""),
@@ -103,8 +111,8 @@ def play():
         rank_old = rank
         #closest_point_marker = env.interpolated_centers[env.viewer.env_idx_render, 0, :, :].cpuy().numpy()
         #env.viewer.add_point(closest_point_marker, 2,(222,10,0), 2)
-        env.viewer.x_offset = int(-env.viewer.width/env.viewer.scale_x*env.states[env.viewer.env_idx_render, 0, 0])
-        env.viewer.y_offset = int(env.viewer.height/env.viewer.scale_y*env.states[env.viewer.env_idx_render, 0, 1])
+        env.viewer.x_offset = int(-env.viewer.width/env.viewer.scale_x*env.states[env.viewer.env_idx_render, ag, 0])
+        env.viewer.y_offset = int(env.viewer.height/env.viewer.scale_y*env.states[env.viewer.env_idx_render, ag, 1])
         env.viewer.draw_track()
         env.viewer.clear_string()
         for msg in viewermsg:
@@ -112,7 +120,12 @@ def play():
 
         idx += 1
         evt = env.viewer_events
-
+        
+        if evt == 105:
+            ag = (ag + 1) % env.num_agents
+        if evt == 117:
+            ag = (ag - 1) % env.num_agents
+            
         if evt == 121:
             print("env ", env.viewer.env_idx_render, " reset")
             env.episode_length_buf[env.viewer.env_idx_render] = 1e9
@@ -127,7 +140,7 @@ def play():
 
 if __name__ == "__main__":
     args = CmdLineArguments()
-    SOUND = True
+    SOUND = False
     args.device = 'cuda:0'
     args.headless = False 
     args.test = True

@@ -298,6 +298,8 @@ class DmarEnv():
         self.active_agents[env_ids, 1:] = torch.rand((len(env_ids),self.num_agents-1), device=self.device) > self.agent_dropout_prob
         tile_idx_env = (torch.rand((len(env_ids),1), device=self.device) * self.active_track_tile_counts[env_ids].view(-1,1)).to(dtype=torch.long)
         tile_idx_env = torch.tile(tile_idx_env, (self.num_agents,))
+        self.drag_reduction_points[env_ids,:,:] = 0.0
+        self.drag_reduced[env_ids, :] = False
 
         if self.num_agents >1:
             if not self.reset_grid:
@@ -410,6 +412,18 @@ class DmarEnv():
         #check if any tire is off track
         self.is_on_track = ~torch.any(~torch.any(self.wheels_on_track_segments, dim = 3), dim=2)
         self.time_off_track += 1.0*~self.is_on_track
+        
+        #update drag_reduction
+        self.drag_reduction_points[:, self.drag_reduction_write_idx:self.drag_reduction_write_idx+self.num_agents, :] = \
+                        self.states[:,:,0:2]
+        self.drag_reduction_write_idx = (self.drag_reduction_write_idx + self.num_agents) % self.drag_reduction_points.shape[1]
+        leading_pts = self.states[:,:,0:2] + 5*torch.cat((torch.cos(self.states[:,:,2].view(self.num_envs, self.num_agents,1)),
+                                                          torch.sin(self.states[:,:,2].view(self.num_envs, self.num_agents,1))), dim = 2)
+
+        dists = leading_pts.view(self.num_envs, self.num_agents,1,2) - self.drag_reduction_points.view(self.num_envs, 1, -1, 2)
+        dists = torch.min(torch.norm(dists, dim=3), dim=2)[0]
+        self.drag_reduced[:] = False 
+        self.drag_reduced = dists <= 3.0
         
         #get env_ids to reset
         self.time_out_buf *= False

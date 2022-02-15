@@ -72,9 +72,9 @@ def step_cars(state : torch.Tensor,
     wheel_locations_bodycentric_world = torch.nn.functional.pad(wheel_locations_bodycentric_world, (0,1))
    
     #set gas 
-    diff = actions[:, :, vn['A_GAS']] - state[:, :, vn['S_GAS']] 
-    state[:, :, vn['S_GAS']] += torch.clamp(diff, max=0.1)
-    state[:, :, vn['S_GAS']] = torch.clamp(state[:, :, vn['S_GAS']], 0, 1)
+    #diff = actions[:, :, vn['A_GAS']] - state[:, :, vn['S_GAS']] 
+    #state[:, :, vn['S_GAS']] += torch.clip(diff, min =-0.1, max=0.06)
+    state[:, :, vn['S_GAS']] = torch.clip(actions[:, :, vn['A_GAS']], 0, 1)*(1.0*~drag_reduced + mod_par['drag_reduction']*drag_reduced)
     
     #set wheel speeds
     num = sim_par['dt'] * mod_par['ENGINE_POWER']*state[:, :, vn['S_GAS']]
@@ -89,7 +89,7 @@ def step_cars(state : torch.Tensor,
     val = need_clip * torch.abs(state[:, :, vn['S_W0']:vn['S_W3']+1]) + ~need_clip*val
     state[:, :, vn['S_W0']:vn['S_W3']+1] += dir*val
     state[:, :, vn['S_W0']:vn['S_W3']+1] = 1.0*(0.9 >= actions[:, :, vn['A_BRAKE']]).unsqueeze(2) * state[:, :, vn['S_W0']:vn['S_W3']+1]
-    
+    state[:, :, vn['S_W0']:vn['S_W3']+1] = torch.clip(state[:, :, vn['S_W0']:vn['S_W3']+1], min = -100, max = 100)
     vr = state[:, :, vn['S_W0']:vn['S_W3']+1] * mod_par['WHEEL_R']
     omega_body  = torch.nn.functional.pad(state[:, :, vn['S_DTHETA']].unsqueeze(2), (2, 0))
     
@@ -109,7 +109,6 @@ def step_cars(state : torch.Tensor,
     p_force = -vs*10.0
     f_force *= 245000 *mod_par['SIZE']**2
     p_force *= 205000 *mod_par['SIZE']**2
-    
 
     #check which tires are on track
     # Multi track A_track [ntracks, polygon = 4*300, coords = 2]
@@ -127,6 +126,7 @@ def step_cars(state : torch.Tensor,
     p_force = slip * (0.9*f_lim * torch.div(p_force, f_tot)) + ~slip * p_force
 
     state[:, :, vn['S_W0']:vn['S_W3']+1] -= sim_par['dt']*mod_par['WHEEL_R']/mod_par['WHEEL_MOMENT_OF_INERTIA'] * f_force
+    state[:, :, vn['S_W0']:vn['S_W3']+1] *= 0.9
 
     #apply force to center
     wheel_forces = f_force.unsqueeze(3)*wheel_dirs_forward + p_force.unsqueeze(3)*wheel_dirs_side
