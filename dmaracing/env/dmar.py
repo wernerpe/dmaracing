@@ -476,7 +476,8 @@ class DmarEnv():
         self.states, self.contact_wrenches, self.shove, self.wheels_on_track_segments, self.slip, self.wheel_locations_world\
                                                                                           = step_cars(
                                                                                             self.states, 
-                                                                                            self.actions, 
+                                                                                            self.actions,
+                                                                                            self.drag_reduced, 
                                                                                             self.wheel_locations, 
                                                                                             self.R, 
                                                                                             self.contact_wrenches,

@@ -7,6 +7,7 @@ from dmaracing.env.car_dynamics_utils import resolve_collsions
 @torch.jit.script
 def step_cars(state : torch.Tensor, 
               actions : torch.Tensor,
+              drag_reduced : torch.Tensor,
               wheel_locations: torch.Tensor,
               R: torch.Tensor, 
               contact_wrenches : torch.Tensor,
