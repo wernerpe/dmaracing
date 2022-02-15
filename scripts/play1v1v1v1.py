@@ -11,7 +11,7 @@ from scipy.stats import norm
 import playsound
 import threading
 
-compute_winprob
+
 def play():
     env = DmarEnv(cfg, args)
     #env.viewer.mark_env(0)
@@ -32,19 +32,14 @@ def play():
 
     num_races = 0
     num_agent_0_wins = 0
-    skill_ag0 = [policy_infos[0]['trueskill']['mu'], policy_infos[0]['trueskill']['sigma']]
-    skill_ag1 = [policy_infos[1]['trueskill']['mu'], policy_infos[1]['trueskill']['sigma']]
-
-    #predicted win percentage
-    #ratings = [trueskill.Rating(mu=skill_ag0), trueskill.Rating(mu=skill_ag1)]
-    #print("matchup trueskill: ag0: ", skill_ag0,', ag1: ', skill_ag0)
-    #mu_match = skill_ag0[0] - skill_ag1[0]
-    #var_match = skill_ag0[1]**2 + skill_ag1[1]**2
-    #win_prob = 1 - norm.cdf((0-mu_match)/(np.sqrt(2*var_match)))
-    #print("win probability agent 0: ", win_prob)
+    skill_ag = [[p_infos['trueskill']['mu'], p_infos['trueskill']['sigma']] for p_infos in policy_infos]
+    mu = [skill[0] for skill in skill_ag]
+    sigma = [skill[1] for skill in skill_ag]
+    win_prob = compute_winprob_i(mu, sigma, 0)
+    print("win probability agent 0: ", win_prob)
     idx = 0 
     rank_old = env.ranks[env.viewer.env_idx_render, 0].item()
-    playedlasttime = True
+    playedlasttime = False
     while True:
     #for idx in range(1000):
         t1 = time.time()
@@ -103,10 +98,10 @@ def play():
                 threading.Thread(target=playsound.playsound, args=('dmaracing/utils/audio/overtaking.mp3',), daemon=True).start()
                 playedlasttime = True
                 
-        elif playedlasttime:
-            playedlasttime = False
+            elif playedlasttime:
+                playedlasttime = False
         rank_old = rank
-        #closest_point_marker = env.interpolated_centers[env.viewer.env_idx_render, 0, :, :].cpu().numpy()
+        #closest_point_marker = env.interpolated_centers[env.viewer.env_idx_render, 0, :, :].cpuy().numpy()
         #env.viewer.add_point(closest_point_marker, 2,(222,10,0), 2)
         env.viewer.x_offset = int(-env.viewer.width/env.viewer.scale_x*env.states[env.viewer.env_idx_render, 0, 0])
         env.viewer.y_offset = int(env.viewer.height/env.viewer.scale_y*env.states[env.viewer.env_idx_render, 0, 1])
