@@ -70,8 +70,4 @@ def compute_winprob_i(ratings_mu, ratings_sigma, i, beta = np.sqrt(25.0/6)):
         var_pair = sigma_i**2 + sigma_idx**2
         winprob *= 1 - norm.cdf((0-mu_pair)/(np.sqrt(2*var_pair)))
     
-<<<<<<< HEAD
     return winprob
-=======
-    return winprob
->>>>>>> bcf7235ae1aaefc7b0bf89659bc4e4b540aba56f
