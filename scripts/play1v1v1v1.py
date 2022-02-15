@@ -11,6 +11,7 @@ from scipy.stats import norm
 import playsound
 import threading
 
+compute_winprob
 def play():
     env = DmarEnv(cfg, args)
     #env.viewer.mark_env(0)
@@ -33,6 +34,7 @@ def play():
     num_agent_0_wins = 0
     skill_ag0 = [policy_infos[0]['trueskill']['mu'], policy_infos[0]['trueskill']['sigma']]
     skill_ag1 = [policy_infos[1]['trueskill']['mu'], policy_infos[1]['trueskill']['sigma']]
+
     #predicted win percentage
     #ratings = [trueskill.Rating(mu=skill_ag0), trueskill.Rating(mu=skill_ag1)]
     #print("matchup trueskill: ag0: ", skill_ag0,', ag1: ', skill_ag0)
@@ -138,7 +140,7 @@ if __name__ == "__main__":
 
     cfg, cfg_train, logdir = getcfg(path_cfg)
 
-    chkpts = [-1, 8800, 6300, 4400]
+    chkpts = [-1, 20000, 15000, 8000]
     runs = [-1, -1, -1, -1]
     cfg['sim']['numEnv'] = 1
     cfg['sim']['numAgents'] = 4
