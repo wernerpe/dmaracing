@@ -195,7 +195,7 @@ class DmarEnv():
         self.lookahead_body = torch.einsum('eaij, eatj->eati', self.R, self.lookahead)
         lookahead_scaled = self.lookahead_scaler*self.lookahead_body
 
-        #otherpositions = []
+        otherpositions = []
         otherrotations = []
         othervelocities = []
         otherangularvelocities = []
@@ -208,6 +208,9 @@ class DmarEnv():
                 selfrot = self.states[:, agent, 2].view(-1,1,1)
                 selfvel = self.states[:, agent, self.vn['S_DX']: self.vn['S_DY']+1].view(-1,1,2)
                 selfangvel = self.states[:, agent, self.vn['S_DTHETA']].view(-1,1,1)
+                
+                otherpos = torch.cat((self.states[:, :agent, 0:2], self.states[:, agent+1:, 0:2]), dim = 1)
+                otherpositions.append((otherpos - selfpos).view(-1, (self.num_agents-1), 2))    
                 
                 selftrackprogress = self.track_dist[:, agent].view(-1,1,1)
                 other_progress.append(torch.cat((self.track_dist[:, :agent], self.track_dist[:, agent+1:]), dim = 1).view(-1, 1, self.num_agents-1) - selftrackprogress)
@@ -223,18 +226,24 @@ class DmarEnv():
                 otherangularvelocities.append(otherangvel - selfangvel)
 
 
-            
+            pos_other = torch.cat(tuple([pos.view(-1,1,(self.num_agents-1), 2) for pos in otherpositions]), dim = 1)
+            pos_other = torch.einsum('eaij, eaoj->eaoi', self.R, pos_other)
+            norm_pos_other = torch.norm(pos_other, dim = 3).view(self.num_envs, self.num_agents, -1)
+            is_other_close = (norm_pos_other<self.cfg['learn']['distance_obs_cutoff'])
+
             vel_other = torch.cat(tuple([vel.view(-1,1,(self.num_agents-1), 2) for vel in othervelocities]), dim = 1)*\
                         self.active_obs_template.view(self.num_envs, self.num_agents, self.num_agents-1, 1)
-            vel_other = torch.einsum('eaij, eaoj->eaoi', self.R, vel_other)
-            rot_other = torch.cat(tuple([rot for rot in otherrotations]),dim =1 ) * self.active_obs_template
-            angvel_other = torch.cat(tuple([angvel for angvel in otherangularvelocities]),dim =1 ) * self.active_obs_template
-            self.progress_other = torch.clip(torch.cat(tuple([prog for prog in other_progress]), dim =1 ), min = -50, max = 50) * self.active_obs_template
-            self.contouring_err_other = torch.clip(torch.cat(tuple([err for err in other_contouringerr]), dim =1 ), min = -10, max = 10) * self.active_obs_template
+
+            vel_other = torch.einsum('eaij, eaoj->eaoi', self.R, vel_other)*is_other_close.view(self.num_envs, self.num_agents,self.num_agents-1, 1)
+
+            rot_other = torch.cat(tuple([rot for rot in otherrotations]),dim =1 ) * self.active_obs_template * is_other_close
+            angvel_other = torch.cat(tuple([angvel for angvel in otherangularvelocities]),dim =1 ) * self.active_obs_template * is_other_close
+
+            self.progress_other = torch.clip(torch.cat(tuple([prog for prog in other_progress]), dim =1 ), min = -50, max = 50) * self.active_obs_template * is_other_close
+            self.contouring_err_other = torch.clip(torch.cat(tuple([err for err in other_contouringerr]), dim =1 ), min = -10, max = 10) * self.active_obs_template * is_other_close
 
         else:
-            dist_other_clipped = torch.zeros((self.num_envs, 1, 1), device=self.device, dtype=torch.float, requires_grad=False)
-            dir_other = torch.zeros((self.num_envs, 1, 2), device=self.device, dtype=torch.float, requires_grad=False)
+            raise NotImplementedError
                 
         self.vels_body = vels
         self.vels_body[..., :-1] = torch.einsum('eaij, eaj -> eai',self.R, vels[..., :-1])
