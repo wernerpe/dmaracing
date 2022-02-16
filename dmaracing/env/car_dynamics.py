@@ -104,7 +104,9 @@ def step_cars(state : torch.Tensor,
     
     #wheel vels (num_env, num_agnt, 4, 2) wheel_dir (num_env, num_agnt, 4, 2) -> wheel force proj (num_env, num_agnt, 4, )
     vf = torch.einsum('ijkl, ijkl -> ijk', wheel_vels, wheel_dirs_forward)                        
-    vs = torch.einsum('ijkl, ijkl -> ijk', wheel_vels, wheel_dirs_side)                        
+    vs = torch.einsum('ijkl, ijkl -> ijk', wheel_vels, wheel_dirs_side)           
+    
+    #black magic             
     f_force = -vf + vr 
     p_force = -vs*10.0
     f_force *= 245000 *mod_par['SIZE']**2
@@ -143,6 +145,8 @@ def step_cars(state : torch.Tensor,
     state[:, :, vn['S_DX']:vn['S_DTHETA'] + 1] += sim_par['dt']*acc
 
     if collide:
+        #resolve collisions using a combination of spring force and "shove" which pushes the vertex 
+        #in collision out of collision
         contact_wrenches, shove = resolve_collsions(contact_wrenches,
                                                     shove,
                                                     state,
