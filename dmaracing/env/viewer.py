@@ -73,6 +73,7 @@ class Viewer:
         self.marked_env = None
         self.state = []
         self.slip_markers = []
+        self.drag_reduced_markers = []
 
         self.draw_track()
         if not self._headless:
@@ -92,16 +93,18 @@ class Viewer:
         return None
         
 
-    def render(self, state, slip, wheel_locs):
+    def render(self, state, slip, drag_reduced, wheel_locs):
         self.state = state.clone()
         self.slip = slip.clone()
         self.wheel_locs = wheel_locs.clone()
+        self.drag_reduced = drag_reduced.clone()
 
         if self.do_render:
             #do drawing
             #listen for keypressed events
             self.img = self.track_canvas.copy()
             self.car_img = self.img.copy()
+            #self.car_indicator_img = self.img.copy()
 
             if self.draw_multiagent:
                 self.add_slip_markers()
@@ -187,6 +190,7 @@ class Viewer:
 
             px_car_box_world = self.cords2px(car_box_world)
             px_car_heading_world = self.cords2px(car_heading_world)
+            px_car_cm_world = self.cords2px_np(transl[:,...].cpu().numpy())
 
             for idx in range(self.num_cars):
                 px_x_number = (self.width/self.scale_x*transl[idx, 0] + self.width/2.0).cpu().numpy().astype(np.int32).item()
@@ -196,8 +200,15 @@ class Viewer:
                 cv.polylines(self.img, [px_pts_car], isClosed = True, color = (255-int(self.colors[idx]),0,int(self.colors[idx])), thickness = self.thickness)
                 cv.fillPoly(self.car_img, [px_pts_car], color = (255-int(self.colors[idx]),0,int(self.colors[idx]), 0.9))
                 cv.polylines(self.img, [px_pts_heading], isClosed = True, color = (0, 0, 255), thickness = 2)
-                cv.putText(self.img, str(idx), (px_x_number+ self.x_offset, px_y_number + self.y_offset-10), self.font, 0.5, (int(self.colors[idx]),0,int(self.colors[idx])), 1, cv.LINE_AA)   
+                if self.drag_reduced[self.env_idx_render, idx]:
+                    cv.putText(self.img, str(idx)+' dr', (px_x_number+ self.x_offset, px_y_number + self.y_offset-10), self.font, 0.5, (int(self.colors[idx]),0,int(self.colors[idx])), 1, cv.LINE_AA)   
+                else:
+                    cv.putText(self.img, str(idx), (px_x_number+ self.x_offset, px_y_number + self.y_offset-10), self.font, 0.5, (int(self.colors[idx]),0,int(self.colors[idx])), 1, cv.LINE_AA)   
+                #if self.drag_reduced[self.env_idx_render, idx]:
+                    #self.car_indicator_img = cv.circle(self.car_indicator_img, (px_car_cm_world[idx, 0], px_car_cm_world[idx, 1]),\
+                    #                         int(2000/(self.scale_x)), (0, 255, 0), -1)
             self.img = cv.addWeighted(self.car_img, 0.5, self.img, 0.5, 0)
+            #self.img = cv.addWeighted(self.car_indicator_img, 0.2, self.img, 0.8, 0)
 
     def draw_singleagent_rep(self, state):
             transl = state[:, 0, 0:2]
@@ -230,6 +241,7 @@ class Viewer:
                 cv.fillPoly(self.car_img, [px_pts_car], color = (int(255-self.colors[idx]),0,int(self.colors[idx]), 0.9))
                 cv.polylines(self.img, [px_pts_heading], isClosed = True, color = (int(self.colors[idx]),0,int(self.colors[idx])), thickness = self.thickness)
                 cv.putText(self.img, str(idx), (px_x_number+ self.x_offset, px_y_number + self.y_offset -10), self.font, 0.5, (int(self.colors[idx]),0,int(self.colors[idx])), 1, cv.LINE_AA)
+                
             self.img = cv.addWeighted(self.car_img, 0.5, self.img, 0.5, 0)
 
     def add_slip_markers(self,):
