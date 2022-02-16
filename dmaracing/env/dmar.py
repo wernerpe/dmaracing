@@ -274,7 +274,8 @@ class DmarEnv():
                                    self.ranks,
                                    self.is_collision,
                                    self.reward_terms,
-                                   self.num_agents
+                                   self.num_agents,
+                                   self.active_agents
                                    )        
 
     def check_termination(self) -> None:
@@ -568,7 +569,8 @@ def compute_rewards_jit(active_track_tile : torch.Tensor,
                         ranks : torch.Tensor,
                         is_collision : torch.Tensor,
                         reward_terms : Dict[str, torch.Tensor],
-                        num_agents : int
+                        num_agents : int,
+                        active_agents : torch.Tensor
                         ) -> Tuple[torch.Tensor, torch.Tensor, Dict[str, torch.Tensor]]:
 
             track_progress = active_track_tile*tile_len + sub_tile_progress
@@ -578,7 +580,9 @@ def compute_rewards_jit(active_track_tile : torch.Tensor,
             rew_actionrate = -torch.sum(torch.square(actions-last_actions), dim = 2) *reward_scales['actionrate']
             rew_energy = -torch.sum(torch.square(states[:,:,vn['S_W0']:vn['S_W3']+1]), dim = 2)*reward_scales['energy']
             rew_sidevel = -torch.square(vels_body[:,:,1])*reward_scales['sidevel']
-            rew_rank = 1.0/num_agents*(num_agents/2.0-ranks)*reward_scales['rank']
+            num_active_agents = torch.sum(1.0*active_agents, dim = 1)
+            rew_rank = 1.0/num_agents*(num_active_agents.view(-1,1)/2.0-ranks)*reward_scales['rank']
+            
             rew_collision = is_collision*reward_scales['collision']
             rew_buf = torch.clip(rew_progress + rew_on_track + rew_contouring + rew_actionrate + rew_sidevel + rew_energy + rew_rank + rew_collision, min = 0, max = None)
 
