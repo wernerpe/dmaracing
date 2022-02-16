@@ -491,7 +491,7 @@ class DmarEnv():
         #if log_video freq is set only redner in fixed intervals 
         if self.log_video_freq>=0:
             if (self._global_step % self.log_video_freq == 0) and (self._global_step > 0):
-                self.viewer_events = self.viewer.render(self.states[:,:,[0,1,2,10]], self.slip, self.wheel_locations_world)
+                self.viewer_events = self.viewer.render(self.states[:,:,[0,1,2,10]], self.slip, self.drag_reduced, self.wheel_locations_world)
         else:
             self.viewer_events = self.viewer.render(self.states[:,:,[0,1,2,10]], self.slip, self.drag_reduced, self.wheel_locations_world)
     
