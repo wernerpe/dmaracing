@@ -88,7 +88,7 @@ def play():
                      #(f"""{'steer:':>{10}}{' '}{states[env.viewer.env_idx_render, 0, env.vn['S_STEER']]:.2f}"""),
                      (f"""{'gas state:':>{10}}{' '}{states[env.viewer.env_idx_render, ag, env.vn['S_GAS']]:.2f}"""),
                      (f"""{'gas:':>{10}}{' '}{act[env.viewer.env_idx_render, env.vn['A_GAS']]:.2f}"""),
-                     #(f"""{'brake:':>{10}}{' '}{act[env.viewer.env_idx_render, env.vn['A_BRAKE']]:.2f}"""),
+                     (f"""{'brake:':>{10}}{' '}{act[env.viewer.env_idx_render, env.vn['A_BRAKE']]:.2f}"""),
                      (f"""{'om_mean:':>{10}}{' '}{om_mean:.2f}"""),
                      #(f"""{'collision:':>{10}}{' '}{env.is_collision[0,0].item():.2f}"""),
                      (f"""{'rank ag 0 :':>{10}}{' '}{rank:.2f}"""),
@@ -148,7 +148,7 @@ if __name__ == "__main__":
 
     cfg, cfg_train, logdir = getcfg(path_cfg)
 
-    chkpts = [-1, 20000, 15000, 8000]
+    chkpts = [-1, 13000, 10000, 5000]
     runs = [-1, -1, -1, -1]
     cfg['sim']['numEnv'] = 1
     cfg['sim']['numAgents'] = 4

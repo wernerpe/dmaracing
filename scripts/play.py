@@ -42,7 +42,7 @@ def play():
         obsnp = obs[:,0,:].cpu().numpy()
         rewnp = rew[:,0].cpu().numpy()
         cont = env.contuoring_err.cpu().numpy()
-        act = actions[:,0,:].cpu().detach().numpy()
+        act = env.actions[:,0,:].cpu().detach().numpy()
         states = env.states.cpu().numpy()
         om_mean = np.mean(states[env.viewer.env_idx_render,0, env.vn['S_W0']:env.vn['S_W3'] +1 ])
 

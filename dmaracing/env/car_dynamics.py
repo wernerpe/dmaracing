@@ -84,7 +84,7 @@ def step_cars(state : torch.Tensor,
     #set brake
     #break >0.9 -> lock up wheels
     dir =  -torch.sign(state[:, :, vn['S_W0']:vn['S_W3']+1])
-    val = mod_par['BREAKFORCE'] * actions[:, :, vn['A_BRAKE']].unsqueeze(2)
+    val = torch.clip(mod_par['BREAKFORCE'] * actions[:, :, vn['A_BRAKE']].unsqueeze(2), min = 0.0)
     need_clip = torch.abs(val)>torch.abs(state[:, :, vn['S_W0']:vn['S_W3']+1])
     val = need_clip * torch.abs(state[:, :, vn['S_W0']:vn['S_W3']+1]) + ~need_clip*val
     state[:, :, vn['S_W0']:vn['S_W3']+1] += dir*val
