@@ -27,7 +27,7 @@ model:
   LENGTH_SCALE: 200
   MASS_SCALE: 160
   MOMENT_OF_INERTIA_SCALE: 7.0
-  drag_reduction: 1.8
+  drag_reduction: 1.3
 
 viewer:
   width: 1200  # 1200

@@ -348,7 +348,8 @@ class DmarEnv():
             self.states[env_ids, agent, self.vn['S_W0']:self.vn['S_W3']+1] = (vels_long/self.modelParameters['WHEEL_R']).unsqueeze(1)
         
         idx_inactive, idx2_inactive = torch.where(~self.active_agents[env_ids, :].view(len(env_ids), self.num_agents))
-        self.states[idx_inactive, idx2_inactive, self.vn['S_X']:self.vn['S_Y']+1] = 10000.0
+        if len(idx_inactive):
+            self.states[idx_inactive, idx2_inactive, self.vn['S_X']:self.vn['S_Y']+1] = 10000.0 + 1000*torch.rand((len(idx2_inactive),2), device=self.device, requires_grad=False)
         
         dists = torch.norm(self.states[env_ids,:, 0:2].unsqueeze(2)-self.active_centerlines[env_ids].unsqueeze(1), dim=3)
         self.old_active_track_tile[env_ids, :] = torch.sort(dists, dim = 2)[1][:,:, 0]
