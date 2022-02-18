@@ -36,6 +36,8 @@ runner:
 policy: 
   actor_hidden_dims: [512, 256, 32]
   critic_hidden_dims: [512, 256, 32]
+  encoder_hidden_dims: [256, 256]
   activation: elu # can be elu, relu, selu, crelu, lrelu, tanh, sigmoid
   init_noise_std: 1.0
+  encoder_type: attention2  # attention{1, 2}
   
