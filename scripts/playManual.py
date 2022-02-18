@@ -63,8 +63,8 @@ def play():
             brk_cmd = 0
             print('vel_cmd', vel_cmd, env.states[0,0,env.vn['S_DX']])
         elif evt == 107:
-            vel_cmd = 0.0
-            brk_cmd += 0.1
+            vel_cmd = -0.1
+            #brk_cmd += 0.1
             print('vel_cmd', vel_cmd, env.states[0,0,env.vn['S_DX']])
         elif evt == 106:
             steer_cmd += 0.1 * (steer_cmd < 1)

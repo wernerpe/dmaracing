@@ -76,9 +76,9 @@ def step_cars(state : torch.Tensor,
     wheel_locations_bodycentric_world = torch.nn.functional.pad(wheel_locations_bodycentric_world, (0,1))
    
     #set gas 
-    diff = actions[:, :, vn['A_GAS']] - state[:, :, vn['S_GAS']] 
-    state[:, :, vn['S_GAS']] += torch.clamp(diff, max=0.1)
-    state[:, :, vn['S_GAS']] = torch.clamp(state[:, :, vn['S_GAS']], 0, 1)
+    #diff = actions[:, :, vn['A_GAS']] - state[:, :, vn['S_GAS']] 
+    #state[:, :, vn['S_GAS']] += torch.clamp(diff, max=0.1)
+    state[:, :, vn['S_GAS']] = torch.clamp(actions[:, :, vn['A_GAS']], -1, 1)
     
     #set wheel speeds
     num = sim_par['dt'] * mod_par['ENGINE_POWER']*state[:, :, vn['S_GAS']]
@@ -107,12 +107,12 @@ def step_cars(state : torch.Tensor,
                             wheel_vels_bl.unsqueeze(2)), dim = 2)
     
     #wheel vels (num_env, num_agnt, 4, 2) wheel_dir (num_env, num_agnt, 4, 2) -> wheel force proj (num_env, num_agnt, 4, )
-    vf = torch.einsum('ijkl, ijkl -> ijk', wheel_vels, wheel_dirs_forward)                        
-    vs = torch.einsum('ijkl, ijkl -> ijk', wheel_vels, wheel_dirs_side)                        
-    f_force = -vf + vr
-    p_force = -vs*15.0
-    f_force *= 205000 *mod_par['SIZE']**2
-    p_force *= 205000 *mod_par['SIZE']**2
+    #vf = torch.einsum('ijkl, ijkl -> ijk', wheel_vels, wheel_dirs_forward)                        
+    #vs = torch.einsum('ijkl, ijkl -> ijk', wheel_vels, wheel_dirs_side)                        
+    #f_force = -vf + vr
+    #p_force = -vs*15.0
+    #f_force *= 205000 *mod_par['SIZE']**2
+    #p_force *= 205000 *mod_par['SIZE']**2
     
 
     #check which tires are on track
@@ -124,13 +124,13 @@ def step_cars(state : torch.Tensor,
     wheels_on_track_segments[:] = torch.einsum('jt, eawt -> eawj', S_track, wheels_on_track_segments_concat) >= 3.5
     wheel_on_track = torch.any(wheels_on_track_segments, dim = 3)
 
-    f_tot = torch.sqrt(torch.square(f_force) +torch.square(p_force)) + 1e-9
-    f_lim = ((1-mod_par['OFFTRACK_FRICTION_SCALE'])*mod_par['FRICTION_LIMIT'])*wheel_on_track + mod_par['OFFTRACK_FRICTION_SCALE']*mod_par['FRICTION_LIMIT']
-    slip = f_tot > f_lim
-    f_force = slip * (0.9*f_lim * torch.div(f_force, f_tot)) + ~slip * f_force
-    p_force = slip * (0.9*f_lim * torch.div(p_force, f_tot)) + ~slip * p_force
+    #f_tot = torch.sqrt(torch.square(f_force) +torch.square(p_force)) + 1e-9
+    #f_lim = ((1-mod_par['OFFTRACK_FRICTION_SCALE'])*mod_par['FRICTION_LIMIT'])*wheel_on_track + mod_par['OFFTRACK_FRICTION_SCALE']*mod_par['FRICTION_LIMIT']
+    #slip = f_tot > f_lim
+    #f_force = slip * (0.9*f_lim * torch.div(f_force, f_tot)) + ~slip * f_force
+    #p_force = slip * (0.9*f_lim * torch.div(p_force, f_tot)) + ~slip * p_force
 
-    state[:, :, vn['S_W0']:vn['S_W3']+1] -= sim_par['dt']*mod_par['WHEEL_R']/mod_par['WHEEL_MOMENT_OF_INERTIA'] * f_force
+    #state[:, :, vn['S_W0']:vn['S_W3']+1] -= sim_par['dt']*mod_par['WHEEL_R']/mod_par['WHEEL_MOMENT_OF_INERTIA'] * f_force
 
     #apply force to center
     # wheel_forces = f_force.unsqueeze(3)*wheel_dirs_forward + p_force.unsqueeze(3)*wheel_dirs_side
