@@ -47,7 +47,7 @@ def play():
     for idx in range(10000):
         t1 = time.time()
         actions = policy(obs)
-        #actions[:,1:,1] *=0.9
+        #actions[:,0,1] *=0.0
         obs, _, rew, dones, info = env.step(actions)
         if 'ranking' in info.keys():
             #avg = torch.mean(1.0*info['ranking'], dim = 0) 
@@ -169,9 +169,9 @@ if __name__ == "__main__":
 
     cfg, cfg_train, logdir = getcfg(path_cfg)
 
-    chkpts = [-1, -1, -1, -1]
+    chkpts = [3000, 3000, 3000, -1]
     runs = [-1, -1, -1, -1]
-    cfg['sim']['numEnv'] = 1
+    cfg['sim']['numEnv'] = 1000
     cfg['sim']['numAgents'] = 4
     #cfg['learn']['timeout'] = 300
     #cfg['learn']['offtrack_reset'] = 5.0

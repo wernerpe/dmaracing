@@ -14,6 +14,8 @@ def play():
     cfg['learn']['offtrack_reset'] = 100
     cfg['learn']['timeout'] = 100
     cfg['model']['OFFTRACK_FRICTION_SCALE'] = 1
+    cfg['model']['drag_reduction'] = 1.0
+    
     set_dependent_cfg_entries(cfg)
     
     env = DmarEnv(cfg, args)
@@ -26,9 +28,9 @@ def play():
     brk_cmd = 0.0
     lastvel = 0
     while True:
-        actions[0 , 0, 0] = steer_cmd 
-        actions[0 , 0, 1] = vel_cmd
-        actions[0 , 0, 2] = brk_cmd
+        actions[0 , :, 0] = steer_cmd 
+        actions[0 , :, 1] = vel_cmd
+        actions[0 , :, 2] = brk_cmd
         
         obs, _, rew, dones, info = env.step(actions)
         obsnp = obs[:,0,:].cpu().numpy()
