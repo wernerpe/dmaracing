@@ -44,10 +44,22 @@ def play():
     lastvel = 0
     all_results = []
     #while True:
+    perm = np.random.permutation(env.num_agents)    
+    inv_perm = np.argsort(perm)
+    env_perm = torch.tensor(perm, dtype=torch.long, device=env.device)
+    #inv_env_perm = torch.tensor(inv_perm, dtype=torch.long, device=env.device)
     for idx in range(10000):
+        #if idx%500 == 0:
+        #    perm = np.random.permutation(env.num_agents)    
+        #    inv_perm = np.argsort(perm)
+        #    env_perm = torch.tensor(perm, dtype=torch.long, device=env.device)
+        #    inv_env_perm = torch.tensor(inv_perm, dtype=torch.long, device=env.device)
+    
         t1 = time.time()
-        actions = policy(obs)
+        obs = obs#[:,env_perm,:]
+        actions = policy(obs)#[:,inv_env_perm,:]
         #actions[:,0,1] *=0.0
+
         obs, _, rew, dones, info = env.step(actions)
         if 'ranking' in info.keys():
             #avg = torch.mean(1.0*info['ranking'], dim = 0) 
@@ -62,6 +74,7 @@ def play():
             if len(all_results):
                 res = np.concatenate(tuple([r.cpu().numpy().reshape(-1,4) for r in all_results]), axis = 0)
                 print(len(res), np.mean(res, axis = 0))
+                print('overall', np.mean(res))
         #if idx %300 ==0:
         #    print("wins_0 / races: ", num_agent_0_wins, '/', num_races, '=', num_agent_0_wins*1.0/(num_races+0.001))
         obsnp = obs[:,ag,:].cpu().numpy()
@@ -169,7 +182,7 @@ if __name__ == "__main__":
 
     cfg, cfg_train, logdir = getcfg(path_cfg)
 
-    chkpts = [3000, 3000, 3000, -1]
+    chkpts = [10000, 10000, 10000, 10000]
     runs = [-1, -1, -1, -1]
     cfg['sim']['numEnv'] = 1000
     cfg['sim']['numAgents'] = 4

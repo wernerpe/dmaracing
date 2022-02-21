@@ -261,7 +261,7 @@ class DmarEnv():
                                   vel_other[..., 1] * 0.1,
                                   angvel_other * 0.1, 
                                   self.last_actions, 
-#                                  self.ranks.view(-1,self.num_agents,1) 
+                                #  self.ranks.view(-1,self.num_agents,1) 
                                   ), 
                                   dim=2)
 
@@ -291,8 +291,8 @@ class DmarEnv():
         if False and self.cfg['sim']['test_mode']:
             self.reset_buf = torch.max(1.0*(self.time_off_track[:, :] > self.offtrack_reset), dim = 1)[0].view(-1,1) > 0.0
         else:
-            self.reset_buf = self.time_off_track[:, 0].view(-1,1) > self.offtrack_reset
-            #self.reset_buf = torch.any(self.time_off_track[:, :] > self.offtrack_reset, dim = 1).view(-1,1)
+            #self.reset_buf = self.time_off_track[:, 0].view(-1,1) > self.offtrack_reset
+            self.reset_buf = torch.any(self.time_off_track[:, :] > self.offtrack_reset, dim = 1).view(-1,1)
         self.time_out_buf = self.episode_length_buf > self.max_episode_length
         self.reset_buf |= self.time_out_buf
 
