@@ -261,7 +261,7 @@ class DmarEnv():
                                   vel_other[..., 1] * 0.1,
                                   angvel_other * 0.1, 
                                   self.last_actions, 
-                                #  self.ranks.view(-1,self.num_agents,1) 
+                                  self.ranks.view(-1,self.num_agents,1) 
                                   ), 
                                   dim=2)
 

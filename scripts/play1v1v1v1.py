@@ -47,7 +47,7 @@ def play():
     perm = np.random.permutation(env.num_agents)    
     inv_perm = np.argsort(perm)
     env_perm = torch.tensor(perm, dtype=torch.long, device=env.device)
-    #inv_env_perm = torch.tensor(inv_perm, dtype=torch.long, device=env.device)
+    inv_env_perm = torch.tensor(inv_perm, dtype=torch.long, device=env.device)
     for idx in range(10000):
         #if idx%500 == 0:
         #    perm = np.random.permutation(env.num_agents)    
@@ -96,10 +96,10 @@ def play():
          
         viewermsg = [#(f"""{'relative proggress a1-a0:':>{10}}{' '}{relprogress.item():.2f}"""),
                      #(f"""{'relative contouringerr a1-a0:':>{10}}{' '}{relcontouringerr.item():.2f}"""),
-                     #(f"""{'p0 '+str(modelnrs[0])}{' ts: '}{policy_infos[0]['trueskill']['mu']:.1f}"""), 
-                     #(f"""{'p1 '+str(modelnrs[1])}{' ts: '}{policy_infos[1]['trueskill']['mu']:.1f}"""),
-                     #(f"""{'p2 '+str(modelnrs[2])}{' ts: '}{policy_infos[2]['trueskill']['mu']:.1f}"""),
-                     #(f"""{'p3 '+str(modelnrs[3])}{' ts: '}{policy_infos[3]['trueskill']['mu']:.1f}"""),
+                     (f"""{'p0 '+str(modelnrs[0])}{' ts: '}{policy_infos[0]['trueskill']['mu']:.1f}"""), 
+                     (f"""{'p1 '+str(modelnrs[1])}{' ts: '}{policy_infos[1]['trueskill']['mu']:.1f}"""),
+                     (f"""{'p2 '+str(modelnrs[2])}{' ts: '}{policy_infos[2]['trueskill']['mu']:.1f}"""),
+                     (f"""{'p3 '+str(modelnrs[3])}{' ts: '}{policy_infos[3]['trueskill']['mu']:.1f}"""),
                      #(f"""{'Win prob p0 : ':>{10}}{win_prob:.3f}"""),
                      #(f"""{'rewards:':>{10}}{' '}{100*rewnp[env.viewer.env_idx_render]:.2f}"""   ),
                      #(f"""{'acc:':>{10}}{' '}{acc:.2f}"""),
@@ -111,14 +111,14 @@ def play():
                      #(f"""{'brake:':>{10}}{' '}{act[env.viewer.env_idx_render, env.vn['A_BRAKE']]:.2f}"""),
                      #(f"""{'om_mean:':>{10}}{' '}{om_mean:.2f}"""),
                      #(f"""{'collision:':>{10}}{' '}{env.is_collision[0,0].item():.2f}"""),
-                     (f"""{'prog 0 :':>{10}}{' '}{env.track_progress[env.viewer.env_idx_render, 0].item():.2f}"""),
-                     (f"""{'prog 1 :':>{10}}{' '}{env.track_progress[env.viewer.env_idx_render, 1].item():.2f}"""),
-                     (f"""{'prog 2 :':>{10}}{' '}{env.track_progress[env.viewer.env_idx_render, 2].item():.2f}"""),
-                     (f"""{'prog 3 :':>{10}}{' '}{env.track_progress[env.viewer.env_idx_render, 3].item():.2f}"""),
-                     (f"""{'rank ag 0 :':>{10}}{' '}{ranks[0]:.2f}"""),
-                     (f"""{'rank ag 1 :':>{10}}{' '}{ranks[1]:.2f}"""),
-                     (f"""{'rank ag 2 :':>{10}}{' '}{ranks[2]:.2f}"""),
-                     (f"""{'rank ag 3 :':>{10}}{' '}{ranks[3]:.2f}"""),
+                     #(f"""{'prog 0 :':>{10}}{' '}{env.track_progress[env.viewer.env_idx_render, 0].item():.2f}"""),
+                     #(f"""{'prog 1 :':>{10}}{' '}{env.track_progress[env.viewer.env_idx_render, 1].item():.2f}"""),
+                     #(f"""{'prog 2 :':>{10}}{' '}{env.track_progress[env.viewer.env_idx_render, 2].item():.2f}"""),
+                     #(f"""{'prog 3 :':>{10}}{' '}{env.track_progress[env.viewer.env_idx_render, 3].item():.2f}"""),
+                     (f"""{'rank :':>{10}}{' '}{ranks[ag]:.2f}"""),
+                     #(f"""{'rank ag 1 :':>{10}}{' '}{ranks[1]:.2f}"""),
+                     #(f"""{'rank ag 2 :':>{10}}{' '}{ranks[2]:.2f}"""),
+                     #(f"""{'rank ag 3 :':>{10}}{' '}{ranks[3]:.2f}"""),
                      #(f"""{'laps ag 0 :':>{10}}{' '}{env.lap_counter[env.viewer.env_idx_render, 0].item():.2f}"""),
                      #(f"""{'laps ag 1 :':>{10}}{' '}{env.lap_counter[env.viewer.env_idx_render, 1].item():.2f}"""),
                      #(f"""{'laps ag 2 :':>{10}}{' '}{env.lap_counter[env.viewer.env_idx_render, 2].item():.2f}"""),
@@ -182,15 +182,15 @@ if __name__ == "__main__":
 
     cfg, cfg_train, logdir = getcfg(path_cfg)
 
-    chkpts = [10000, 10000, 10000, 10000]
+    chkpts = [10000, 20000, 30000, -1]
     runs = [-1, -1, -1, -1]
-    cfg['sim']['numEnv'] = 1000
+    cfg['sim']['numEnv'] = 1
     cfg['sim']['numAgents'] = 4
     #cfg['learn']['timeout'] = 300
-    #cfg['learn']['offtrack_reset'] = 5.0
+    cfg['learn']['offtrack_reset'] = 5.0
     #cfg['learn']['reset_tile_rand'] = 20
     #cfg['sim']['test_mode'] = True
-    cfg['learn']['resetgrid'] = True
+    cfg['learn']['resetgrid'] = False
     cfg['viewer']['logEvery'] = -1
     cfg['track']['seed'] = 12
     cfg['track']['num_tracks'] = 20
