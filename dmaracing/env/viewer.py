@@ -315,9 +315,9 @@ class Viewer:
 
     def draw_marked_agents(self):
         if self.marked_env is not None:
-            pos = self.state[self.marked_env, 0, 0:2].view(1,-1).cpu().numpy()
+            pos = self.state[self.env_idx_render, self.marked_env, 0:2].view(1,-1).cpu().numpy()
             px = self.cords2px_np(pos)
-            cv.circle(self.img, (px[0,0],px[0,1]), 100, (250,150,0))
+            cv.circle(self.img, (px[0,0],px[0,1]), 50, (250,150,0))
     
     def draw_track(self,):
 
