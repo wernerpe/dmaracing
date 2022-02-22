@@ -157,7 +157,8 @@ class DmarEnv():
                     self.ado_idx_lookup[row, col] = row-1
                 elif row<col:
                     self.ado_idx_lookup[row, col] = row
-      
+
+        self.trained_agent_slot = 0
 
         self.total_step = 0
         self.viewer.center_cam(self.states)
@@ -291,8 +292,8 @@ class DmarEnv():
         if False and self.cfg['sim']['test_mode']:
             self.reset_buf = torch.max(1.0*(self.time_off_track[:, :] > self.offtrack_reset), dim = 1)[0].view(-1,1) > 0.0
         else:
-            #self.reset_buf = self.time_off_track[:, 0].view(-1,1) > self.offtrack_reset
-            self.reset_buf = torch.any(self.time_off_track[:, :] > self.offtrack_reset, dim = 1).view(-1,1)
+            self.reset_buf = self.time_off_track[:, self.trained_agent_slot].view(-1,1) > self.offtrack_reset
+            #self.reset_buf = torch.any(self.time_off_track[:, :] > self.offtrack_reset, dim = 1).view(-1,1)
         self.time_out_buf = self.episode_length_buf > self.max_episode_length
         self.reset_buf |= self.time_out_buf
 
@@ -491,6 +492,7 @@ class DmarEnv():
     def render(self,) -> None:
         #if log_video freq is set only redner in fixed intervals 
         if self.log_video_freq>=0:
+            self.viewer.mark_env(self.trained_agent_slot)
             if (self._global_step % self.log_video_freq == 0) and (self._global_step > 0):
                 self.viewer_events = self.viewer.render(self.states[:,:,[0,1,2,10]], self.slip, self.drag_reduced, self.wheel_locations_world)
         else:
@@ -562,6 +564,9 @@ class DmarEnv():
     def action_space(self):
         return self.act_space
     
+    def set_trained_agent_slot(self, slot):
+        self.trained_agent_slot = slot
+
 ### jit functions
 @torch.jit.script
 def compute_rewards_jit(track_progress : torch.Tensor,
