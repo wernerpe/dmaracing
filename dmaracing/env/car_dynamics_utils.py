@@ -2,6 +2,8 @@ import torch
 import numpy as np
 from typing import List, Tuple, Dict
 
+from torch import device
+
 def get_varnames()->Dict[str, int]:
     varnames = {}
     varnames['S_X'] = 0
@@ -289,10 +291,10 @@ def resolve_collsions(contact_wrenches : torch.Tensor,
 
     contact_wrenches[:,:,:] =0.0
     shove[:,:,:] = 0.0
-
+    switch = torch.rand(len(collision_pairs))>0.5
     if len(collision_pairs):
-        for colp in collision_pairs:
-
+        for id, colp in enumerate(collision_pairs):
+            colp = [colp[switch[id]*1], colp[~switch[id]*1]]
             idx_comp = torch.where(torch.norm(states[:, colp[0], 0:2] -  states[:, colp[1], 0:2], dim =1)<=2.3*lf)[0]
             
             if  len(idx_comp):
@@ -320,8 +322,8 @@ def resolve_collsions(contact_wrenches : torch.Tensor,
                 contact_wrenches[ idx_comp, colp[0], 2] += torque_A
                 contact_wrenches[ idx_comp, colp[1], 2] += torque_B
 
-                shove[idx_comp, colp[0], :2] = -2.0*force_B/stiffness
-                shove[idx_comp, colp[1], :2] = 2.0*force_B/stiffness
+                shove[idx_comp, colp[0], :2] = -0.6*force_B/stiffness
+                shove[idx_comp, colp[1], :2] = 0.6*force_B/stiffness
 
                 #flip and check other direction
                 states_A = states[idx_comp, colp[1], 0:3]
@@ -352,8 +354,14 @@ def resolve_collsions(contact_wrenches : torch.Tensor,
                 contact_wrenches[ idx_comp, colp[1], 2] += (torque_A.view(-1,1)*(1.0 * new_col + 0.5*already_col) + 0.5*already_col*contact_wrenches[ idx_comp, colp[1], 2].view(-1,1)).view(-1)
                 contact_wrenches[ idx_comp, colp[0], 2] += (torque_B.view(-1,1)*(1.0 * new_col + 0.5*already_col) + 0.5*already_col*contact_wrenches[ idx_comp, colp[0], 2].view(-1,1)).view(-1)
                 
-                shove[idx_comp, colp[1], :2] = -2.0*force_B/stiffness
-                shove[idx_comp, colp[0], :2] = 2.0*force_B/stiffness
+                #contact_wrenches[ idx_comp, colp[1], :2] += -force_B
+                #contact_wrenches[ idx_comp, colp[0], :2] += force_B 
+                #contact_wrenches[ idx_comp, colp[1], 2] += torque_A
+                #contact_wrenches[ idx_comp, colp[0], 2] += torque_B
+                
+
+                shove[idx_comp, colp[1], :2] += -0.6*force_B/stiffness
+                shove[idx_comp, colp[0], :2] += 0.6*force_B/stiffness
     
     return contact_wrenches, shove
 

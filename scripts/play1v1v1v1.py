@@ -44,11 +44,7 @@ def play():
     lastvel = 0
     all_results = []
     #while True:
-    perm = np.random.permutation(env.num_agents)    
-    inv_perm = np.argsort(perm)
-    env_perm = torch.tensor(perm, dtype=torch.long, device=env.device)
-    inv_env_perm = torch.tensor(inv_perm, dtype=torch.long, device=env.device)
-    for idx in range(10000):
+    for idx in range(20000):
         #if idx%500 == 0:
         #    perm = np.random.permutation(env.num_agents)    
         #    inv_perm = np.argsort(perm)
@@ -69,6 +65,10 @@ def play():
         if len(dones_idx):
             num_races += len(dones_idx)
             num_agent_0_wins +=len(torch.where(info['ranking'][:,0] == 0))
+
+        #if len(all_results)>200:
+        #    #print('del')
+        #    del all_results[0]
 
         if idx %100 ==0:
             if len(all_results):
@@ -93,7 +93,28 @@ def play():
         acc = vel - lastvel
         #lastvel = vel
         #print(states[env.viewer.env_idx_render,ag, env.vn['S_W0']:env.vn['S_W3'] +1 ])
-         
+
+        ##check ado observations
+        
+        ado_prog = []
+        ado_cont = []
+        #01 2 3 
+        self_centerline_pos = env.interpolated_centers[env.viewer.env_idx_render, ag, 0, :].cpu().numpy()
+        env.viewer.clear_markers()
+        env.viewer.add_point(self_centerline_pos.reshape(1,2), 2,(222,10,0), 2)
+        endpoints = np.array([self_centerline_pos.reshape(1,2), 
+                              env.states[env.viewer.env_idx_render, ag, 0:2].cpu().numpy().reshape(1,2)])
+        env.viewer.clear_lines()
+        env.viewer.add_lines(endpoints=endpoints.squeeze(), color = (0,0,255), thickness=2)
+        
+        #env.viewer.add_lines()
+        ado_pattern = [[1,2,3],[0,2,3],[0,1,3],[0,1,2]]
+        ado_obs_ag = obsnp[env.viewer.env_idx_render, 35:52]
+        ado_msg_prog = [(f"""{'ado prog ag' + str(ado_idx):>{10}}{' '}{ado_obs_ag[idx]:.2f}""") for idx, ado_idx in enumerate(ado_pattern[ag])]
+        ado_msg_cont = [(f"""{'ado cont ag' + str(ado_idx):>{10}}{' '}{ado_obs_ag[3+idx]:.2f}""") for idx, ado_idx in enumerate(ado_pattern[ag])]
+
+
+
         viewermsg = [#(f"""{'relative proggress a1-a0:':>{10}}{' '}{relprogress.item():.2f}"""),
                      #(f"""{'relative contouringerr a1-a0:':>{10}}{' '}{relcontouringerr.item():.2f}"""),
                      (f"""{'p0 '+str(modelnrs[0])}{' ts: '}{policy_infos[0]['trueskill']['mu']:.1f}"""), 
@@ -125,6 +146,7 @@ def play():
                      #(f"""{'laps ag 3 :':>{10}}{' '}{env.lap_counter[env.viewer.env_idx_render, 3].item():.2f}"""),
                      #(f"""{'time :':>{10}}{' '}{time_sim:.2f}""")
                      ]
+        viewermsg = viewermsg+ ado_msg_prog + ado_msg_cont
         if SOUND:
             diff =  rank-rank_old
             col = torch.any(env.is_collision[env.viewer.env_idx_render])
@@ -143,15 +165,19 @@ def play():
         #rank_old = rank
         #closest_point_marker = env.interpolated_centers[env.viewer.env_idx_render, 0, :, :].cpuy().numpy()
         #env.viewer.add_point(closest_point_marker, 2,(222,10,0), 2)
+        
+        
+        
         env.viewer.x_offset = int(-env.viewer.width/env.viewer.scale_x*env.states[env.viewer.env_idx_render, ag, 0])
         env.viewer.y_offset = int(env.viewer.height/env.viewer.scale_y*env.states[env.viewer.env_idx_render, ag, 1])
         env.viewer.draw_track()
         env.viewer.clear_string()
+        
         for msg in viewermsg:
             env.viewer.add_string(msg)
 
         evt = env.viewer_events
-        
+
         if evt == 105:
             ag = (ag + 1) % env.num_agents
         if evt == 117:
@@ -162,7 +188,8 @@ def play():
             env.episode_length_buf[env.viewer.env_idx_render] = 1e9
         if evt == 112:
             print('paused')
-       
+
+        
     print('done')
         #path = "/home/peter/git/dmaracing/logs/frames/4ag_fr_" + str(idx) + ".jpg" 
         #env.viewer.save_frame(path)
@@ -182,15 +209,15 @@ if __name__ == "__main__":
 
     cfg, cfg_train, logdir = getcfg(path_cfg)
 
-    chkpts = [10000, 20000, 30000, -1]
+    chkpts = [-1, -1, -1, -1]
     runs = [-1, -1, -1, -1]
-    cfg['sim']['numEnv'] = 1
+    cfg['sim']['numEnv'] = 2000
     cfg['sim']['numAgents'] = 4
     #cfg['learn']['timeout'] = 300
-    cfg['learn']['offtrack_reset'] = 5.0
+    #cfg['learn']['offtrack_reset'] = 5.0
     #cfg['learn']['reset_tile_rand'] = 20
     #cfg['sim']['test_mode'] = True
-    cfg['learn']['resetgrid'] = False
+    cfg['learn']['resetgrid'] = True
     cfg['viewer']['logEvery'] = -1
     cfg['track']['seed'] = 12
     cfg['track']['num_tracks'] = 20

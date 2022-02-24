@@ -74,7 +74,7 @@ class Viewer:
         self.state = []
         self.slip_markers = []
         self.drag_reduced_markers = []
-
+        self.lines = []
         self.draw_track()
         if not self._headless:
             cv.imshow('dmaracing', self.track_canvas)
@@ -114,6 +114,7 @@ class Viewer:
                 self.draw_singleagent_rep(state[:self.num_cars])
             cv.putText(self.img, "env:" + str(self.env_idx_render), (50, 50), self.font, 2, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
             self.draw_points()
+            self.draw_lines()
             self.draw_string()
             self.draw_marked_agents()
 
@@ -254,6 +255,19 @@ class Viewer:
             if len(self.slip_markers) > 140:
                 del self.slip_markers[0]
 
+    def add_lines(self, endpoints, color = (0,0,0), thickness = 1):
+        #endpoints shape should be (nlines*2points, 2 corrds)
+        self.lines.append([endpoints, color, thickness])
+
+    def clear_lines(self):
+        self.lines = []
+
+    def draw_lines(self,):
+        for endpoints, color, thickness in self.lines:
+            coords = self.cords2px_np(endpoints)
+            self.img  = cv.polylines(self.img, [coords.reshape(-1,1,2)], isClosed = False, color = color, thickness = thickness)
+                
+
     def cords2px(self, pts):
         pts = pts.cpu().numpy()
         pts[:, 0, :] = self.width/self.scale_x*pts[:, 0, :] + self.width/2.0 + self.x_offset
@@ -282,7 +296,7 @@ class Viewer:
     def draw_points(self,):
         for group in self.points: 
             for idx in range(len(group[0])):
-                cv.circle(self.img, (group[0][idx, 0], group[0][idx, 1]), group[1], group[2], group[3])
+                self.img = cv.circle(self.img, (group[0][idx, 0], group[0][idx, 1]), group[1], group[2], group[3])
 
     def reset_slip_markers(self,):
         self.slip_markers = []

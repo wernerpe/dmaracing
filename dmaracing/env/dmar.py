@@ -142,6 +142,7 @@ class DmarEnv():
         self.lookahead_scaler = 1/(4*(1+torch.arange(self.horizon, device = self.device , requires_grad=False, dtype=torch.float))*self.tile_len)
         self.lookahead_scaler = self.lookahead_scaler.unsqueeze(0).unsqueeze(0).unsqueeze(3)
         self.ranks = torch.zeros((self.num_envs, self.num_agents), requires_grad=False, device=self.device, dtype = torch.int)
+        #self.rank_proxy = torch.zeros((self.num_envs, self.num_agents), requires_grad=False, device=self.device, dtype = torch.int)
 
         self._global_step = 0
         if self.log_video_freq >= 0:
@@ -288,7 +289,7 @@ class DmarEnv():
 
     def check_termination(self) -> None:
         #dithering step
-        #self.reset_buf = torch.rand((self.num_envs, 1), device=self.device) < 0.03
+        #self.reset_buf = torch.rand((self.num_envs, 1), device=self.device) < 0.003
         if False and self.cfg['sim']['test_mode']:
             self.reset_buf = torch.max(1.0*(self.time_off_track[:, :] > self.offtrack_reset), dim = 1)[0].view(-1,1) > 0.0
         else:
@@ -366,6 +367,7 @@ class DmarEnv():
             self.info['time_outs'] = self.time_out_buf.view(-1,)
 
         self.info['ranking'] = self.ranks[env_ids]
+        #self.info['ranking'] = self.rank_proxy[env_ids]
         self.info['percentage_max_episode_length'] = self.episode_length_buf[env_ids]/self.max_episode_length
 
         self.lap_counter[env_ids, :] = 0
@@ -463,6 +465,9 @@ class DmarEnv():
         self.track_progress = self.track_progress + self.lap_counter*self.track_lengths[self.active_track_ids].view(-1,1)
         dist_sort, self.ranks = torch.sort(self.track_progress, dim = 1, descending = True)
         self.ranks = torch.sort(self.ranks, dim = 1)[1]
+
+        #_, self.rank_proxy  = torch.sort(self.lap_counter, dim = 1, descending = True)
+        #self.rank_proxy = torch.sort(self.rank_proxy, dim = 1)[1]
 
         self.contouring_err = torch.einsum('eac, eac-> ea', self.trackperp, self.tile_car_vec)
 
