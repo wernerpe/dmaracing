@@ -82,8 +82,6 @@ class Viewer:
     def center_cam(self, state):
         self.scale_x /= 0.7
         self.scale_y /= 0.7 
-        #self.x_offset = int(-self.width/self.scale_x*state[0,0,0])
-        #self.y_offset = int(self.height/self.scale_y*state[0,0,1])
         self.draw_track()
 
 
@@ -100,12 +98,9 @@ class Viewer:
         self.drag_reduced = drag_reduced.clone()
 
         if self.do_render:
-            #do drawing
-            #listen for keypressed events
             self.img = self.track_canvas.copy()
             self.car_img = self.img.copy()
-            #self.car_indicator_img = self.img.copy()
-
+           
             if self.draw_multiagent:
                 self.add_slip_markers()
                 self.draw_slip_markers()
@@ -119,6 +114,7 @@ class Viewer:
             self.draw_marked_agents()
 
         
+        #listen for keypressed events
         if not self._headless:
             key = self._render_interactive()
         else:
@@ -205,11 +201,8 @@ class Viewer:
                     cv.putText(self.img, str(idx)+' dr', (px_x_number+ self.x_offset, px_y_number + self.y_offset-10), self.font, 0.5, (int(self.colors[idx]),0,int(self.colors[idx])), 1, cv.LINE_AA)   
                 else:
                     cv.putText(self.img, str(idx), (px_x_number+ self.x_offset, px_y_number + self.y_offset-10), self.font, 0.5, (int(self.colors[idx]),0,int(self.colors[idx])), 1, cv.LINE_AA)   
-                #if self.drag_reduced[self.env_idx_render, idx]:
-                    #self.car_indicator_img = cv.circle(self.car_indicator_img, (px_car_cm_world[idx, 0], px_car_cm_world[idx, 1]),\
-                    #                         int(2000/(self.scale_x)), (0, 255, 0), -1)
-            self.img = cv.addWeighted(self.car_img, 0.5, self.img, 0.5, 0)
-            #self.img = cv.addWeighted(self.car_indicator_img, 0.2, self.img, 0.8, 0)
+                    self.img = cv.addWeighted(self.car_img, 0.5, self.img, 0.5, 0)
+            
 
     def draw_singleagent_rep(self, state):
             transl = state[:, 0, 0:2]
@@ -331,10 +324,9 @@ class Viewer:
         if self.marked_env is not None:
             pos = self.state[self.env_idx_render, self.marked_env, 0:2].view(1,-1).cpu().numpy()
             px = self.cords2px_np(pos)
-            cv.circle(self.img, (px[0,0],px[0,1]), 50, (250,150,0))
+            cv.circle(self.img, (px[0,0],px[0,1]), 30, (250,150,0))
     
     def draw_track(self,):
-
         self.track_canvas = draw_track(self.track_canvas,
                                        self.track_centerlines[self.active_track_ids[self.env_idx_render]].copy(),
                                        self.track_poly_verts[self.active_track_ids[self.env_idx_render]].copy(),
@@ -345,14 +337,7 @@ class Viewer:
                                        self.cfg['track']['draw_centerline'])
     def draw_track_reset(self,):
         self.reset_slip_markers()
-        self.track_canvas = draw_track(self.track_canvas,
-                                       self.track_centerlines[self.active_track_ids[self.env_idx_render]].copy(),
-                                       self.track_poly_verts[self.active_track_ids[self.env_idx_render]].copy(),
-                                       self.track_border_poly_verts[self.active_track_ids[self.env_idx_render]].copy(),
-                                       self.track_border_poly_cols[self.active_track_ids[self.env_idx_render]].copy(),
-                                       self.track_tile_counts[self.active_track_ids[self.env_idx_render]].copy(),
-                                       self.cords2px_np, 
-                                       self.cfg['track']['draw_centerline'])
+        self.draw_track()
 
     def save_frame(self, path):
         cv.imwrite(path, self.img)

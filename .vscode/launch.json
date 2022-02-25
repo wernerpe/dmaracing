@@ -66,10 +66,10 @@
             "justMyCode": false
         },
         {
-            "name": "play1v1v1v1",
+            "name": "playffa4",
             "type": "python",
             "request": "launch",
-            "program": "scripts/play1v1v1v1.py",
+            "program": "scripts/playffa4.py",
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",
             "justMyCode": false
@@ -84,10 +84,10 @@
             "justMyCode": false
         },
         {
-            "name": "train1v1v1v1",
+            "name": "trainffa4",
             "type": "python",
             "request": "launch",
-            "program": "scripts/train1v1v1v1.py",
+            "program": "scripts/trainffa4.py",
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",
             "justMyCode": false

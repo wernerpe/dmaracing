@@ -69,11 +69,9 @@ learn:
   distance_obs_cutoff: 200 #[m]
 
   progressRewardScale: 5.0
-  contouringRewardScale: 0.0
   offtrackRewardScale: -2.0
   actionRateRewardScale: 0.1 
   energyRewardScale: 0.00006
-  sidevelRewardScale: 0.0
   rankRewardScale: 5.0
   collisionRewardScale: -300.0
   horizon: 15

@@ -66,7 +66,6 @@ class DmarEnv():
         self.track_tile_counts = torch.tensor(self.track_tile_counts, device=self.device, requires_grad=False)
         self.active_track_tile_counts = self.track_tile_counts[self.active_track_ids]
 
-       
         #print("track loaded with ", self.track_num_tiles, " tiles")
         self.log_video_freq = cfg["viewer"]["logEvery"]
         self.viewer = Viewer(cfg,
@@ -97,10 +96,8 @@ class DmarEnv():
 
         self.reward_scales = {}
         self.reward_scales['offtrack'] = cfg['learn']['offtrackRewardScale']*self.dt
-        self.reward_scales['contouring'] = cfg['learn']['contouringRewardScale']*self.dt
         self.reward_scales['progress'] = cfg['learn']['progressRewardScale']*self.dt
         self.reward_scales['actionrate'] = cfg['learn']['actionRateRewardScale']*self.dt
-        self.reward_scales['sidevel'] = cfg['learn']['sidevelRewardScale']*self.dt
         self.reward_scales['energy'] = cfg['learn']['energyRewardScale']*self.dt
         self.reward_scales['rank'] = cfg['learn']['rankRewardScale']*self.dt
         self.reward_scales['collision'] = cfg['learn']['collisionRewardScale']*self.dt
@@ -128,10 +125,8 @@ class DmarEnv():
         self.old_active_track_tile = torch.zeros_like(self.active_track_tile)
         self.old_track_progress = torch.zeros_like(self.rew_buf)
         self.reward_terms = {'progress': torch_zeros((self.num_envs, self.num_agents)), 
-                             'contouring':torch_zeros((self.num_envs, self.num_agents)),
                              'offtrack': torch_zeros((self.num_envs, self.num_agents)),
                              'actionrate': torch_zeros((self.num_envs, self.num_agents)),
-                             'sidevel': torch_zeros((self.num_envs, self.num_agents)),
                              'energy': torch_zeros((self.num_envs, self.num_agents)),
                              'rank': torch_zeros((self.num_envs, self.num_agents)),
                              'collision': torch_zeros((self.num_envs, self.num_agents)),
@@ -142,8 +137,7 @@ class DmarEnv():
         self.lookahead_scaler = 1/(4*(1+torch.arange(self.horizon, device = self.device , requires_grad=False, dtype=torch.float))*self.tile_len)
         self.lookahead_scaler = self.lookahead_scaler.unsqueeze(0).unsqueeze(0).unsqueeze(3)
         self.ranks = torch.zeros((self.num_envs, self.num_agents), requires_grad=False, device=self.device, dtype = torch.int)
-        #self.rank_proxy = torch.zeros((self.num_envs, self.num_agents), requires_grad=False, device=self.device, dtype = torch.int)
-
+        
         self._global_step = 0
         if self.log_video_freq >= 0:
             self._logdir = cfg["logdir"]
@@ -169,9 +163,7 @@ class DmarEnv():
         if not self.headless:
             self.viewer.center_cam(self.states)
             self.render()
-        
-        
-               
+             
     def compute_observations(self,) -> None:
         steer =  self.states[:,:,self.vn['S_STEER']].unsqueeze(2)
         gas = self.states[:,:,self.vn['S_GAS']].unsqueeze(2)
@@ -271,7 +263,6 @@ class DmarEnv():
     def compute_rewards(self,) -> None:  
         self.rew_buf, self.reward_terms\
              = compute_rewards_jit(self.track_progress,
-                                   self.contouring_err,
                                    self.old_track_progress,
                                    self.is_on_track,
                                    self.reward_scales,
@@ -279,7 +270,6 @@ class DmarEnv():
                                    self.last_actions,
                                    self.vn,
                                    self.states,
-                                   self.vels_body,
                                    self.ranks,
                                    self.is_collision,
                                    self.reward_terms,
@@ -290,11 +280,8 @@ class DmarEnv():
     def check_termination(self) -> None:
         #dithering step
         #self.reset_buf = torch.rand((self.num_envs, 1), device=self.device) < 0.003
-        if False and self.cfg['sim']['test_mode']:
-            self.reset_buf = torch.max(1.0*(self.time_off_track[:, :] > self.offtrack_reset), dim = 1)[0].view(-1,1) > 0.0
-        else:
-            self.reset_buf = self.time_off_track[:, self.trained_agent_slot].view(-1,1) > self.offtrack_reset
-            #self.reset_buf = torch.any(self.time_off_track[:, :] > self.offtrack_reset, dim = 1).view(-1,1)
+        self.reset_buf = self.time_off_track[:, self.trained_agent_slot].view(-1,1) > self.offtrack_reset
+        #self.reset_buf = torch.any(self.time_off_track[:, :] > self.offtrack_reset, dim = 1).view(-1,1)
         self.time_out_buf = self.episode_length_buf > self.max_episode_length
         self.reset_buf |= self.time_out_buf
 
@@ -466,9 +453,6 @@ class DmarEnv():
         dist_sort, self.ranks = torch.sort(self.track_progress, dim = 1, descending = True)
         self.ranks = torch.sort(self.ranks, dim = 1)[1]
 
-        #_, self.rank_proxy  = torch.sort(self.lap_counter, dim = 1, descending = True)
-        #self.rank_proxy = torch.sort(self.rank_proxy, dim = 1)[1]
-
         self.contouring_err = torch.einsum('eac, eac-> ea', self.trackperp, self.tile_car_vec)
 
         self.active_obs_template[...] = 1.0
@@ -476,7 +460,6 @@ class DmarEnv():
         #remove ado observations of deactivated envs for active ones
         for ag in range(self.num_agents):
             self.active_obs_template[idx_1, ag, self.ado_idx_lookup[idx_2,  ag]] = 0
-
 
         self.compute_observations()
         self.compute_rewards()
@@ -575,7 +558,6 @@ class DmarEnv():
 ### jit functions
 @torch.jit.script
 def compute_rewards_jit(track_progress : torch.Tensor,
-                        contouring_err : torch.Tensor,
                         old_track_progress : torch.Tensor,
                         is_on_track : torch.Tensor,
                         reward_scales : Dict[str, float],
@@ -583,7 +565,6 @@ def compute_rewards_jit(track_progress : torch.Tensor,
                         last_actions : torch.Tensor,
                         vn : Dict[str, int],
                         states : torch.Tensor,
-                        vels_body : torch.Tensor,
                         ranks : torch.Tensor,
                         is_collision : torch.Tensor,
                         reward_terms : Dict[str, torch.Tensor],
@@ -592,23 +573,19 @@ def compute_rewards_jit(track_progress : torch.Tensor,
                         ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
 
             rew_progress = torch.clip(track_progress-old_track_progress, min = -10, max = 10) * reward_scales['progress']
-            rew_contouring = -torch.square(0.1*contouring_err) * reward_scales['contouring']
             rew_on_track = reward_scales['offtrack']*~is_on_track 
             rew_actionrate = -torch.sum(torch.square(actions-last_actions), dim = 2) *reward_scales['actionrate']
             rew_energy = -torch.sum(torch.square(states[:,:,vn['S_W0']:vn['S_W3']+1]), dim = 2)*reward_scales['energy']
-            rew_sidevel = -torch.square(vels_body[:,:,1])*reward_scales['sidevel']
             num_active_agents = torch.sum(1.0*active_agents, dim = 1)
             rew_rank = 1.0/num_agents*(num_active_agents.view(-1,1)/2.0-ranks)*reward_scales['rank']
             
             rew_collision = is_collision*reward_scales['collision']
-            rew_buf = torch.clip(rew_progress + rew_on_track + rew_contouring + rew_actionrate + rew_sidevel + rew_energy + rew_rank + rew_collision, min = 0, max = None)
+            rew_buf = torch.clip(rew_progress + rew_on_track + rew_actionrate + rew_energy + rew_rank + rew_collision, min = 0, max = None)
 
             reward_terms['progress'] += rew_progress
             reward_terms['offtrack'] += rew_on_track
-            reward_terms['contouring'] += rew_contouring
             reward_terms['actionrate'] += rew_actionrate
             reward_terms['energy'] += rew_energy
-            reward_terms['sidevel'] += rew_sidevel
             reward_terms['rank'] += rew_rank
             reward_terms['collision'] += rew_collision
             return rew_buf, reward_terms

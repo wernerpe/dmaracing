@@ -66,10 +66,6 @@ def play():
             num_races += len(dones_idx)
             num_agent_0_wins +=len(torch.where(info['ranking'][:,0] == 0))
 
-        #if len(all_results)>200:
-        #    #print('del')
-        #    del all_results[0]
-
         if idx %100 ==0:
             if len(all_results):
                 res = np.concatenate(tuple([r.cpu().numpy().reshape(-1,4) for r in all_results]), axis = 0)
@@ -98,15 +94,6 @@ def play():
         
         ado_prog = []
         ado_cont = []
-        #01 2 3 
-        self_centerline_pos = env.interpolated_centers[env.viewer.env_idx_render, ag, 0, :].cpu().numpy()
-        env.viewer.clear_markers()
-        env.viewer.add_point(self_centerline_pos.reshape(1,2), 2,(222,10,0), 2)
-        endpoints = np.array([self_centerline_pos.reshape(1,2), 
-                              env.states[env.viewer.env_idx_render, ag, 0:2].cpu().numpy().reshape(1,2)])
-        env.viewer.clear_lines()
-        env.viewer.add_lines(endpoints=endpoints.squeeze(), color = (0,0,255), thickness=2)
-        
         #env.viewer.add_lines()
         ado_pattern = [[1,2,3],[0,2,3],[0,1,3],[0,1,2]]
         ado_obs_ag = obsnp[env.viewer.env_idx_render, 35:52]
@@ -162,16 +149,19 @@ def play():
                 playedlasttime = False
             #idx += 1
         
-        #rank_old = rank
-        #closest_point_marker = env.interpolated_centers[env.viewer.env_idx_render, 0, :, :].cpuy().numpy()
-        #env.viewer.add_point(closest_point_marker, 2,(222,10,0), 2)
-        
-        
         
         env.viewer.x_offset = int(-env.viewer.width/env.viewer.scale_x*env.states[env.viewer.env_idx_render, ag, 0])
         env.viewer.y_offset = int(env.viewer.height/env.viewer.scale_y*env.states[env.viewer.env_idx_render, ag, 1])
         env.viewer.draw_track()
         env.viewer.clear_string()
+        env.viewer.clear_markers()
+        env.viewer.clear_lines()
+        
+        self_centerline_pos = env.interpolated_centers[env.viewer.env_idx_render, ag, 0, :].cpu().numpy()
+        env.viewer.add_point(self_centerline_pos.reshape(1,2), 2,(222,10,0), 2)
+        endpoints = np.array([self_centerline_pos.reshape(1,2), 
+                              env.states[env.viewer.env_idx_render, ag, 0:2].cpu().numpy().reshape(1,2)])
+        env.viewer.add_lines(endpoints=endpoints.squeeze(), color = (0,0,255), thickness=2)
         
         for msg in viewermsg:
             env.viewer.add_string(msg)
@@ -189,15 +179,6 @@ def play():
         if evt == 112:
             print('paused')
 
-        
-    print('done')
-        #path = "/home/peter/git/dmaracing/logs/frames/4ag_fr_" + str(idx) + ".jpg" 
-        #env.viewer.save_frame(path)
-        #print(idx)
-        #t2 = time.time()
-        #realtime = t2-t1-time_per_step
-        #if realtime < 0:
-        #     time.sleep(-realtime)
 
 if __name__ == "__main__":
     args = CmdLineArguments()
@@ -221,9 +202,6 @@ if __name__ == "__main__":
     cfg['viewer']['logEvery'] = -1
     cfg['track']['seed'] = 12
     cfg['track']['num_tracks'] = 20
-
-    #cfg['track']['CHECKPOINTS'] = 3
-    #cfg['track']['TRACK_RAD'] = 800
     cfg['viewer']['multiagent'] = True
 
     set_dependent_cfg_entries(cfg)
