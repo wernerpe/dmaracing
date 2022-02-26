@@ -291,10 +291,10 @@ def resolve_collsions(contact_wrenches : torch.Tensor,
 
     contact_wrenches[:,:,:] =0.0
     shove[:,:,:] = 0.0
-    switch = torch.rand(len(collision_pairs))>0.5
+    #switch = torch.rand(len(collision_pairs))>0.5
     if len(collision_pairs):
         for id, colp in enumerate(collision_pairs):
-            colp = [colp[switch[id]*1], colp[~switch[id]*1]]
+            #colp = [colp[switch[id]*1], colp[~switch[id]*1]]
             idx_comp = torch.where(torch.norm(states[:, colp[0], 0:2] -  states[:, colp[1], 0:2], dim =1)<=2.3*lf)[0]
             
             if  len(idx_comp):
