@@ -201,7 +201,7 @@ class Viewer:
                     cv.putText(self.img, str(idx)+' dr', (px_x_number+ self.x_offset, px_y_number + self.y_offset-10), self.font, 0.5, (int(self.colors[idx]),0,int(self.colors[idx])), 1, cv.LINE_AA)   
                 else:
                     cv.putText(self.img, str(idx), (px_x_number+ self.x_offset, px_y_number + self.y_offset-10), self.font, 0.5, (int(self.colors[idx]),0,int(self.colors[idx])), 1, cv.LINE_AA)   
-                    self.img = cv.addWeighted(self.car_img, 0.5, self.img, 0.5, 0)
+            self.img = cv.addWeighted(self.car_img, 0.5, self.img, 0.5, 0)
             
 
     def draw_singleagent_rep(self, state):

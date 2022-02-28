@@ -179,6 +179,9 @@ def play():
         if evt == 112:
             print('paused')
 
+        if idx%600 ==0:
+            env.episode_length_buf[:] = 1e9
+
 
 if __name__ == "__main__":
     args = CmdLineArguments()
@@ -198,10 +201,10 @@ if __name__ == "__main__":
     #cfg['learn']['offtrack_reset'] = 5.0
     #cfg['learn']['reset_tile_rand'] = 20
     #cfg['sim']['test_mode'] = True
-    cfg['learn']['resetgrid'] = True
+    cfg['learn']['resetgrid'] = False
     cfg['viewer']['logEvery'] = -1
     cfg['track']['seed'] = 12
-    cfg['track']['num_tracks'] = 20
+    cfg['track']['num_tracks'] = 200
     cfg['viewer']['multiagent'] = True
 
     set_dependent_cfg_entries(cfg)
