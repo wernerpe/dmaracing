@@ -93,7 +93,7 @@ def get_car_vert_mat(w, l, num_envs, device):
 def get_collision_pairs(num_agents):
     #naively check all collision pairs
     ls = np.arange(num_agents)
-    pairs = [[b, a] for idx, a in enumerate(ls) for b in ls[idx + 1:]]
+    pairs = [[a, b] for idx, a in enumerate(ls) for b in ls[idx + 1:]]
     return pairs
 
 
@@ -286,7 +286,8 @@ def resolve_collsions(contact_wrenches : torch.Tensor,
                       Repf_mat : torch.Tensor,
                       Ds : List[int],
                       zero_pad : torch.Tensor,
-                      stiffness : float
+                      stiffness : float,
+                      Iz : float
                       ) -> Tuple[torch.Tensor, torch.Tensor]:
 
     contact_wrenches[:,:,:] =0.0
@@ -355,6 +356,7 @@ def resolve_collsions(contact_wrenches : torch.Tensor,
                 
                 #shove[idx_comp, colp[0], :2] += 0.6*contact_wrenches[ idx_comp, colp[0], :2]/stiffness
                 #shove[idx_comp, colp[1], :2] += 0.6*contact_wrenches[ idx_comp, colp[1], :2]/stiffness
-    shove = 0.6*contact_wrenches[:,:,:2]/stiffness            
+    shove[:,:,:2] = 0.55*contact_wrenches[:,:,:2]/stiffness
+    shove[:,:,2]  = 1000.0*contact_wrenches[:,:,2]/(stiffness*Iz)          
     return contact_wrenches, shove
 

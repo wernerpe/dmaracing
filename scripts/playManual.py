@@ -6,11 +6,16 @@ import numpy as np
 
 def play():
     cfg['sim']['numEnv'] = 1
-    cfg['sim']['numAgents'] = 4
+    cfg['sim']['numAgents'] = 3
+    cfg['sim']['decimation'] = 1
+    
     cfg['track']['num_tracks'] = 3
+    #cfg['track']['num_tracks'] = 3
     cfg['viewer']['multiagent'] = True
     cfg['learn']['defaultactions'] = [0,0,0]
     cfg['learn']['actionscale'] = [1,1,1]
+    cfg['learn']['resetrand'] = [0.0]*7
+    
     cfg['learn']['offtrack_reset'] = 100
     cfg['learn']['timeout'] = 100
     cfg['model']['OFFTRACK_FRICTION_SCALE'] = 1
@@ -28,10 +33,17 @@ def play():
     brk_cmd = 0.0
     lastvel = 0
     ag = 0
+    env.states[:] = 0.0
+    for idx in range(env.num_agents):
+        env.states[0, idx, 0] = idx*10.0
+        env.states[0, idx, 5] = 10.0
+        
+    print('###########################')
     while True:
-        actions[0 , ag, 0] = steer_cmd 
-        actions[0 , ag, 1] = vel_cmd
-        actions[0 , ag, 2] = brk_cmd
+        
+        actions[0 , ag, 0] = 0#steer_cmd 
+        actions[0 , ag, 1] = 0#vel_cmd
+        actions[0 , ag, 2] = 0#brk_cmd
         
         obs, _, rew, dones, info = env.step(actions)
         obsnp = obs[:,0,:].cpu().numpy()

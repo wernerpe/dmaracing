@@ -6,9 +6,9 @@ import os
 import numpy as np
 import time
 positions = np.array([
-                      # [[0, 0, np.pi/3], [4, 0, 0], [4, 2.2, 0], [0, 2.2, 0]],
-                      # [[0, 0, np.pi/3], [2.45, 0.2, -np.pi/6], [7, 2.2, 0], [0, 2.2, -np.pi/6]],
-                      # [[0, 0, np.pi/2], [4, 0, 0], [4, 2.2, 0], [0, 2.2, -np.pi/6]],
+                       [[0, 0, np.pi/3], [4, 0, 0], [4, 2.2, 0], [0, 2.2, 0]],
+                       [[0, 0, np.pi/3], [2.45, 0.2, -np.pi/6], [7, 2.2, 0], [0, 2.2, -np.pi/6]],
+                       [[0, 0, np.pi/2], [4, 0, 0], [4, 2.2, 0], [0, 2.2, -np.pi/6]],
                        [[0, 0, np.pi/3], [2.5, 0.8, 0], [7, 2.2, 0], [0, 2.2, -np.pi/6]],
                      ])
 
@@ -54,8 +54,16 @@ def run():
             time.sleep(0.1)
             print(env.contact_wrenches)
             print(env.shove)
-            print(torch.sum(env.shove))
+            print(torch.sum(env.shove[:,:,0:2]))
             print(torch.sum(env.contact_wrenches[:,:,0:2]))
+            tau_sum = torch.sum(env.contact_wrenches[:,:,2])
+            ri_x = env.states[:,:,0]
+            ri_y = env.states[:,:,1]
+            fi_x = env.contact_wrenches[:,:,0]
+            fi_y = env.contact_wrenches[:,:,1]
+            ri_cross_fi_sum = torch.sum(ri_x*fi_y-ri_y*fi_x)
+            print('Change of Angular momentum')
+            print(ri_cross_fi_sum+tau_sum)
             env.render()
         
             evt = env.viewer_events

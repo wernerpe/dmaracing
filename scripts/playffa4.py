@@ -43,6 +43,10 @@ def play():
     playedlasttime = False
     lastvel = 0
     all_results = []
+    env_idx_ag0_win = []
+    env_perm = np.random.permutation(4)    
+    env_inv_perm = np.argsort(env_perm)
+    print(env_inv_perm)
     #while True:
     for idx in range(20000):
         #if idx%500 == 0:
@@ -53,13 +57,15 @@ def play():
     
         t1 = time.time()
         obs = obs#[:,env_perm,:]
-        actions = policy(obs)#[:,inv_env_perm,:]
+        actions = policy(obs)#[:,env_inv_perm,:]
         #actions[:,0,1] *=0.0
 
         obs, _, rew, dones, info = env.step(actions)
         if 'ranking' in info.keys():
             #avg = torch.mean(1.0*info['ranking'], dim = 0) 
-            all_results += [1.0*info['ranking']]
+            all_results += [1.0*info['ranking']]#[:, env_inv_perm]]
+            #idx_ag0_win = torch.where((1.0*info['ranking'])[:, 0] == 0)
+            #env_idx_ag0_win += [torch.where(dones)[0][idx_ag0_win]]
 
         dones_idx = torch.unique(torch.where(dones)[0])
         if len(dones_idx):
@@ -68,6 +74,8 @@ def play():
 
         if idx %100 ==0:
             if len(all_results):
+                #allidx_ag0win = np.concatenate(tuple([r.cpu().numpy().reshape(-1,) for r in env_idx_ag0_win]), axis = 0) 
+                #print('ag0 win idx: ', np.mean(allidx_ag0win))
                 res = np.concatenate(tuple([r.cpu().numpy().reshape(-1,4) for r in all_results]), axis = 0)
                 print(len(res), np.mean(res, axis = 0))
                 print('overall', np.mean(res))
@@ -179,8 +187,8 @@ def play():
         if evt == 112:
             print('paused')
 
-        if idx%600 ==0:
-            env.episode_length_buf[:] = 1e9
+        #if idx%2 ==0:
+        #    env.episode_length_buf[:] = 1e9
 
 
 if __name__ == "__main__":
@@ -188,23 +196,24 @@ if __name__ == "__main__":
     SOUND = False
     args.device = 'cuda:0'
     args.headless = False 
-    args.test = True
+    #args.test = True
     path_cfg = os.getcwd() + '/cfg'
 
     cfg, cfg_train, logdir = getcfg(path_cfg)
 
     chkpts = [-1, -1, -1, -1]
     runs = [-1, -1, -1, -1]
-    cfg['sim']['numEnv'] = 2000
+    cfg['sim']['numEnv'] = 500
     cfg['sim']['numAgents'] = 4
     #cfg['learn']['timeout'] = 300
     #cfg['learn']['offtrack_reset'] = 5.0
     #cfg['learn']['reset_tile_rand'] = 20
     #cfg['sim']['test_mode'] = True
-    cfg['learn']['resetgrid'] = False
+    cfg['learn']['resetgrid'] = True
+    #cfg['learn']['reset_tile_rand'] = 400
     cfg['viewer']['logEvery'] = -1
     cfg['track']['seed'] = 12
-    cfg['track']['num_tracks'] = 200
+    cfg['track']['num_tracks'] = 10
     cfg['viewer']['multiagent'] = True
 
     set_dependent_cfg_entries(cfg)

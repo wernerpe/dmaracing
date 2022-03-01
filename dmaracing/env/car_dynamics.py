@@ -4,7 +4,7 @@ import numpy as np
 
 from dmaracing.env.car_dynamics_utils import resolve_collsions
 
-@torch.jit.script
+#@torch.jit.script
 def step_cars(state : torch.Tensor, 
               actions : torch.Tensor,
               drag_reduced : torch.Tensor,
@@ -93,10 +93,10 @@ def step_cars(state : torch.Tensor,
     vr = state[:, :, vn['S_W0']:vn['S_W3']+1] * mod_par['WHEEL_R']
     omega_body  = torch.nn.functional.pad(state[:, :, vn['S_DTHETA']].unsqueeze(2), (2, 0))
     
-    wheel_vels_fl = state[:, :, vn['S_DX']:vn['S_DY']+1] - torch.cross(wheel_locations_bodycentric_world[:,:, 0, :],  omega_body)[:, :, 0:2]
-    wheel_vels_fr = state[:, :, vn['S_DX']:vn['S_DY']+1] - torch.cross(wheel_locations_bodycentric_world[:,:, 1, :],  omega_body)[:, :, 0:2]
-    wheel_vels_br = state[:, :, vn['S_DX']:vn['S_DY']+1] - torch.cross(wheel_locations_bodycentric_world[:,:, 2, :],  omega_body)[:, :, 0:2]
-    wheel_vels_bl = state[:, :, vn['S_DX']:vn['S_DY']+1] - torch.cross(wheel_locations_bodycentric_world[:,:, 3, :],  omega_body)[:, :, 0:2] 
+    wheel_vels_fl = state[:, :, vn['S_DX']:vn['S_DY']+1] - torch.cross(wheel_locations_bodycentric_world[:,:, 0, :],  omega_body, dim = 2)[:, :, 0:2]
+    wheel_vels_fr = state[:, :, vn['S_DX']:vn['S_DY']+1] - torch.cross(wheel_locations_bodycentric_world[:,:, 1, :],  omega_body, dim = 2)[:, :, 0:2]
+    wheel_vels_br = state[:, :, vn['S_DX']:vn['S_DY']+1] - torch.cross(wheel_locations_bodycentric_world[:,:, 2, :],  omega_body, dim = 2)[:, :, 0:2]
+    wheel_vels_bl = state[:, :, vn['S_DX']:vn['S_DY']+1] - torch.cross(wheel_locations_bodycentric_world[:,:, 3, :],  omega_body, dim = 2)[:, :, 0:2] 
     wheel_vels = torch.cat((wheel_vels_fl.unsqueeze(2),
                             wheel_vels_fr.unsqueeze(2),
                             wheel_vels_br.unsqueeze(2),
@@ -134,14 +134,15 @@ def step_cars(state : torch.Tensor,
     wheel_forces = f_force.unsqueeze(3)*wheel_dirs_forward + p_force.unsqueeze(3)*wheel_dirs_side
     net_force = torch.sum(wheel_forces, dim = 2)
     net_torque = torch.sum(torch.cross(wheel_locations_bodycentric_world, torch.nn.functional.pad(wheel_forces, (0,1)), dim = 3)[..., 2], dim = 2)
-
+    
     #net_torque
     ddx = 1/mod_par['M']*(net_force[:,:,0] + contact_wrenches[:,:,0])
     ddy = 1/mod_par['M']*(net_force[:,:,1] + contact_wrenches[:,:,1])
     ddtheta = 1/mod_par['I']*(net_torque + 4.5*contact_wrenches[:,:,2])
     acc = torch.cat((ddx.unsqueeze(2),ddy.unsqueeze(2),ddtheta.unsqueeze(2)), dim= 2)
     state[:, :, vn['S_X']:vn['S_THETA'] + 1] += sim_par['dt']*state[:,:,vn['S_DX']:vn['S_DTHETA']+1]
-    state[:, :, vn['S_X']:vn['S_Y'] + 1] += shove
+    state[:, :, vn['S_X']:vn['S_Y'] + 1] += shove[:,:,:2]
+    state[:, :, vn['S_THETA']] += shove[:,:,2]
     state[:, :, vn['S_DX']:vn['S_DTHETA'] + 1] += sim_par['dt']*acc
 
     if collide:
@@ -160,7 +161,8 @@ def step_cars(state : torch.Tensor,
                                                     Repf_mat,
                                                     Ds,
                                                     zero_pad,
-                                                    sim_par['collisionstiffness']
+                                                    sim_par['collisionstiffness'],
+                                                    mod_par['I']
                                                     )
 
     return state, contact_wrenches, shove, wheels_on_track_segments, slip, wheel_locations_world
