@@ -96,6 +96,11 @@ def get_collision_pairs(num_agents):
     pairs = [[a, b] for idx, a in enumerate(ls) for b in ls[idx + 1:]]
     return pairs
 
+def get_collision_pairs2(num_agents):
+    #naively check all collision pairs
+    ls = np.arange(num_agents)
+    pairs = [[b, a] for idx, a in enumerate(ls) for b in ls[idx + 1:]]
+    return pairs
 
 def build_col_poly_eqns(w,
                         l, 
@@ -349,10 +354,10 @@ def resolve_collsions(contact_wrenches : torch.Tensor,
                 force_B_1 = rotate_vec(force_B_1, states_A[:, 2], R[idx_comp,:,:])
                 new_col_active = (torch.abs(torque_B_1) > 0.01).view(-1,1)
 
-                contact_wrenches[ idx_comp, colp[1], :2] += -force_B_1 * (1.0 * new_col + 0.5*already_col) + (1.0*already_col-0.5*new_col_active)*force_B_0
-                contact_wrenches[ idx_comp, colp[0], :2] += force_B_1 * (1.0 * new_col + 0.5*already_col) - (1.0*already_col-0.5*new_col_active)*force_B_0
-                contact_wrenches[ idx_comp, colp[1], 2] += (torque_A_1.view(-1,1)*(1.0 * new_col + 0.5*already_col) + (1.0*already_col-0.5*new_col_active)*torque_B_0.view(-1,1)).view(-1)
-                contact_wrenches[ idx_comp, colp[0], 2] += (torque_B_1.view(-1,1)*(1.0 * new_col + 0.5*already_col) + (1.0*already_col-0.5*new_col_active)*torque_A_0.view(-1,1)).view(-1)
+                contact_wrenches[ idx_comp, colp[1], :2] += -force_B_1 * (1.0 * new_col + 0.5*already_col) + (-0.5*new_col_active)*force_B_0
+                contact_wrenches[ idx_comp, colp[0], :2] += force_B_1 * (1.0 * new_col + 0.5*already_col) - (-0.5*new_col_active)*force_B_0
+                contact_wrenches[ idx_comp, colp[1], 2] += (torque_A_1.view(-1,1)*(1.0 * new_col + 0.5*already_col) + (-0.5*new_col_active)*torque_B_0.view(-1,1)).view(-1)
+                contact_wrenches[ idx_comp, colp[0], 2] += (torque_B_1.view(-1,1)*(1.0 * new_col + 0.5*already_col) + (-0.5*new_col_active)*torque_A_0.view(-1,1)).view(-1)
                 
                 #shove[idx_comp, colp[0], :2] += 0.6*contact_wrenches[ idx_comp, colp[0], :2]/stiffness
                 #shove[idx_comp, colp[1], :2] += 0.6*contact_wrenches[ idx_comp, colp[1], :2]/stiffness

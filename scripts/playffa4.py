@@ -9,9 +9,14 @@ import os
 import time
 import playsound
 import threading
+import trueskill
+import matplotlib.pyplot as plt
 
 
 def play():
+    start = [0]*4
+    ratings = [(trueskill.Rating(mu = s, sigma=1.0),) for s in start]
+
     env = DmarEnv(cfg, args)
     obs = env.obs_buf
     model_paths = []
@@ -47,8 +52,11 @@ def play():
     env_perm = np.random.permutation(4)    
     env_inv_perm = np.argsort(env_perm)
     print(env_inv_perm)
+    mus = []
+    fig, ax = plt.subplots(nrows=1, ncols=1)
+
     #while True:
-    for idx in range(20000):
+    for idx in range(30000):
         #if idx%500 == 0:
         #    perm = np.random.permutation(env.num_agents)    
         #    inv_perm = np.argsort(perm)
@@ -62,10 +70,36 @@ def play():
 
         obs, _, rew, dones, info = env.step(actions)
         if 'ranking' in info.keys():
-            #avg = torch.mean(1.0*info['ranking'], dim = 0) 
+            avg = torch.mean(1.0*info['ranking'], dim = 0) 
             all_results += [1.0*info['ranking']]#[:, env_inv_perm]]
             #idx_ag0_win = torch.where((1.0*info['ranking'])[:, 0] == 0)
             #env_idx_ag0_win += [torch.where(dones)[0][idx_ag0_win]]
+            ranks = (1.0*info['ranking']).cpu().numpy()#torch.mean(1.0*info['ranking'], dim = 0).cpu().numpy()
+            #agent_of_rank = np.argsort(ranks)
+            dones_idx = torch.unique(torch.where(dones)[0])
+            ##for rnkidx in range(ranks):
+            #ranks_final = 0*agent_of_rank
+            #for it, envag in enumerate(agent_of_rank[1:]):
+            #    #avg(env (rank i))- avg(env (rank i-1))>eps 
+            #    if ranks[envag]- ranks[agent_of_rank[it]]  > 0.2:
+            #        ranks_final[envag] = ranks_final[agent_of_rank[it]] + 1 
+            #    else:
+            #        ranks_final[envag] = ranks_final[agent_of_rank[it]]
+            #ranks_final = (ranks_final).tolist()
+            
+            for rkidx in range(ranks.shape[0]):
+                rank = ranks[rkidx, :]
+                new_ratings = trueskill.rate(ratings, rank)
+                ratings = []
+                ratings = new_ratings
+                mus.append([r[0].mu for r in ratings])
+            #update_ratio = 1.0*len(dones_idx)/len(dones)
+            #new_ratings = trueskill.rate(ratings, ranks)
+            #
+            #for old, new, it in zip(ratings, new_ratings, range(len(ratings))):
+            #    mu = (1-update_ratio)*old[0].mu + update_ratio*new[0].mu
+            #    sigma = (1-update_ratio)*old[0].sigma + update_ratio*new[0].sigma
+            #    ratings[it] = (trueskill.Rating(mu, sigma),)
 
         dones_idx = torch.unique(torch.where(dones)[0])
         if len(dones_idx):
@@ -78,7 +112,17 @@ def play():
                 #print('ag0 win idx: ', np.mean(allidx_ag0win))
                 res = np.concatenate(tuple([r.cpu().numpy().reshape(-1,4) for r in all_results]), axis = 0)
                 print(len(res), np.mean(res, axis = 0))
-                print('overall', np.mean(res))
+                #print('overall', np.mean(res))
+            #mus.append([r[0].mu for r in ratings])
+            #sigs = [r[0].sigma for r in ratings]
+            #print('rating mus', mus[-1])
+            #print('rating sigma', sigs)
+            ax.clear()
+            ax.plot(np.array(mus), label = ['0', '1','2','3'])
+            ax.legend()
+            plt.draw()
+            #plt.show(block = False)
+
         #if idx %300 ==0:
         #    print("wins_0 / races: ", num_agent_0_wins, '/', num_races, '=', num_agent_0_wins*1.0/(num_races+0.001))
         obsnp = obs[:,ag,:].cpu().numpy()
@@ -116,31 +160,9 @@ def play():
                      (f"""{'p1 '+str(modelnrs[1])}{' ts: '}{policy_infos[1]['trueskill']['mu']:.1f}"""),
                      (f"""{'p2 '+str(modelnrs[2])}{' ts: '}{policy_infos[2]['trueskill']['mu']:.1f}"""),
                      (f"""{'p3 '+str(modelnrs[3])}{' ts: '}{policy_infos[3]['trueskill']['mu']:.1f}"""),
-                     #(f"""{'Win prob p0 : ':>{10}}{win_prob:.3f}"""),
-                     #(f"""{'rewards:':>{10}}{' '}{100*rewnp[env.viewer.env_idx_render]:.2f}"""   ),
-                     #(f"""{'acc:':>{10}}{' '}{acc:.2f}"""),
-                     #(f"""{'velocity y:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 1]:.2f}"""),
-                     #(f"""{'ang vel:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 2]:.2f}"""),
-                     #(f"""{'steer:':>{10}}{' '}{states[env.viewer.env_idx_render, 0, env.vn['S_STEER']]:.2f}"""),
-                     #(f"""{'gas state:':>{10}}{' '}{states[env.viewer.env_idx_render, ag, env.vn['S_GAS']]:.2f}"""),
-                     #(f"""{'gas:':>{10}}{' '}{act[env.viewer.env_idx_render, env.vn['A_GAS']]:.2f}"""),
-                     #(f"""{'brake:':>{10}}{' '}{act[env.viewer.env_idx_render, env.vn['A_BRAKE']]:.2f}"""),
-                     #(f"""{'om_mean:':>{10}}{' '}{om_mean:.2f}"""),
-                     #(f"""{'collision:':>{10}}{' '}{env.is_collision[0,0].item():.2f}"""),
-                     #(f"""{'prog 0 :':>{10}}{' '}{env.track_progress[env.viewer.env_idx_render, 0].item():.2f}"""),
-                     #(f"""{'prog 1 :':>{10}}{' '}{env.track_progress[env.viewer.env_idx_render, 1].item():.2f}"""),
-                     #(f"""{'prog 2 :':>{10}}{' '}{env.track_progress[env.viewer.env_idx_render, 2].item():.2f}"""),
-                     #(f"""{'prog 3 :':>{10}}{' '}{env.track_progress[env.viewer.env_idx_render, 3].item():.2f}"""),
-                     (f"""{'rank :':>{10}}{' '}{ranks[ag]:.2f}"""),
-                     #(f"""{'rank ag 1 :':>{10}}{' '}{ranks[1]:.2f}"""),
-                     #(f"""{'rank ag 2 :':>{10}}{' '}{ranks[2]:.2f}"""),
-                     #(f"""{'rank ag 3 :':>{10}}{' '}{ranks[3]:.2f}"""),
-                     #(f"""{'laps ag 0 :':>{10}}{' '}{env.lap_counter[env.viewer.env_idx_render, 0].item():.2f}"""),
-                     #(f"""{'laps ag 1 :':>{10}}{' '}{env.lap_counter[env.viewer.env_idx_render, 1].item():.2f}"""),
-                     #(f"""{'laps ag 2 :':>{10}}{' '}{env.lap_counter[env.viewer.env_idx_render, 2].item():.2f}"""),
-                     #(f"""{'laps ag 3 :':>{10}}{' '}{env.lap_counter[env.viewer.env_idx_render, 3].item():.2f}"""),
-                     #(f"""{'time :':>{10}}{' '}{time_sim:.2f}""")
+                     (f"""{'rank :':>{10}}{' '}{ranks[ag]:.2f}""")
                      ]
+
         viewermsg = viewermsg+ ado_msg_prog + ado_msg_cont
         if SOUND:
             diff =  rank-rank_old
@@ -185,11 +207,11 @@ def play():
             print("env ", env.viewer.env_idx_render, " reset")
             env.episode_length_buf[env.viewer.env_idx_render] = 1e9
         if evt == 112:
+            plt.show(block = False)
             print('paused')
-
-        #if idx%2 ==0:
+        #if idx%200 ==0:
         #    env.episode_length_buf[:] = 1e9
-
+        
 
 if __name__ == "__main__":
     args = CmdLineArguments()
@@ -201,8 +223,8 @@ if __name__ == "__main__":
 
     cfg, cfg_train, logdir = getcfg(path_cfg)
 
-    chkpts = [-1, -1, -1, -1]
-    runs = [-1, -1, -1, -1]
+    chkpts = [-1]*4
+    runs = [-2, -2, -2, -2]
     cfg['sim']['numEnv'] = 500
     cfg['sim']['numAgents'] = 4
     #cfg['learn']['timeout'] = 300
@@ -210,9 +232,9 @@ if __name__ == "__main__":
     #cfg['learn']['reset_tile_rand'] = 20
     #cfg['sim']['test_mode'] = True
     cfg['learn']['resetgrid'] = True
-    #cfg['learn']['reset_tile_rand'] = 400
+    cfg['learn']['reset_tile_rand'] = 40
     cfg['viewer']['logEvery'] = -1
-    cfg['track']['seed'] = 12
+    cfg['track']['seed'] = 11
     cfg['track']['num_tracks'] = 10
     cfg['viewer']['multiagent'] = True
 

@@ -16,20 +16,20 @@ import numpy as np
 import trueskill
 import matplotlib.pyplot as plt
 
-result1 = [0.3,0.3]
-result2 = [1,1]
-start = [5, 5]
+result1 = [1.4950194, 1.4950676, 1.5113806, 1.4985323]
+#result2 = [1,1]
+start = [0]*4
 N = 1000
 
-ratings = [(trueskill.Rating(mu = s),) for s in start]
+ratings = [(trueskill.Rating(mu = s, sigma = 6.0),) for s in start]
 
 mu = [start]
 for it in range(N):
-    #result = #np.random.permutation(4).tolist()
-    if it%2==0:
-        result = result1
-    else:
-        result = result2
+    result = np.random.permutation(4).tolist()
+    #if it%2==0:
+    #    result = result1
+    #else:
+    #    result = result1
     ratings = trueskill.rate(ratings, result)
     mu.append([ratings[idx][0].mu for idx in range(len(ratings))])
 
