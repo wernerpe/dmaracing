@@ -1,38 +1,49 @@
+# import numpy as np
+
+# #avgranking = np.array([0.5, 0.5])
+# #env_of_rank = np.argsort(avgranking)
+# #
+# #ranks_final = 0*env_of_rank
+# #for idx, env in enumerate(env_of_rank[1:]):
+# #    #avg(env (rank i))- avg(env (rank i-1))>eps 
+# #    if avgranking[env]- avgranking[env_of_rank[idx]]  > 0.2:
+# #        ranks_final[env] = ranks_final[env_of_rank[idx]] + 1 
+# #    else:
+# #        ranks_final[env] = ranks_final[env_of_rank[idx]]
+# #ranks_final = ranks_final.tolist()
+# #print('done')
+
+# import trueskill
+# import matplotlib.pyplot as plt
+
+# result1 = [1.4950194, 1.4950676, 1.5113806, 1.4985323]
+# #result2 = [1,1]
+# start = [0]*4
+# N = 1000
+
+# ratings = [(trueskill.Rating(mu = s, sigma = 6.0),) for s in start]
+
+# mu = [start]
+# for it in range(N):
+#     result = np.random.permutation(4).tolist()
+#     #if it%2==0:
+#     #    result = result1
+#     #else:
+#     #    result = result1
+#     ratings = trueskill.rate(ratings, result)
+#     mu.append([ratings[idx][0].mu for idx in range(len(ratings))])
+
+# plt.figure()
+# plt.plot(np.array(mu))
+# plt.show()
+
 import numpy as np
 
-#avgranking = np.array([0.5, 0.5])
-#env_of_rank = np.argsort(avgranking)
-#
-#ranks_final = 0*env_of_rank
-#for idx, env in enumerate(env_of_rank[1:]):
-#    #avg(env (rank i))- avg(env (rank i-1))>eps 
-#    if avgranking[env]- avgranking[env_of_rank[idx]]  > 0.2:
-#        ranks_final[env] = ranks_final[env_of_rank[idx]] + 1 
-#    else:
-#        ranks_final[env] = ranks_final[env_of_rank[idx]]
-#ranks_final = ranks_final.tolist()
-#print('done')
+p = 0.2
+q = 0.01
+Q = 0.04
 
-import trueskill
-import matplotlib.pyplot as plt
+Pji = np.array([[1-p-q, p, q], [p, 1-p-Q, Q], [0, 0, 1]])
 
-result1 = [1.4950194, 1.4950676, 1.5113806, 1.4985323]
-#result2 = [1,1]
-start = [0]*4
-N = 1000
-
-ratings = [(trueskill.Rating(mu = s, sigma = 6.0),) for s in start]
-
-mu = [start]
-for it in range(N):
-    result = np.random.permutation(4).tolist()
-    #if it%2==0:
-    #    result = result1
-    #else:
-    #    result = result1
-    ratings = trueskill.rate(ratings, result)
-    mu.append([ratings[idx][0].mu for idx in range(len(ratings))])
-
-plt.figure()
-plt.plot(np.array(mu))
-plt.show()
+s_0 = 1/3*np.array([1,1,1])
+print('done')

@@ -309,7 +309,7 @@ def resolve_collsions(contact_wrenches : torch.Tensor,
 
                 #get contact wrenches for collision pair candidate
                 rel_trans = states_B[:,:2] -states_A[:,:2]
-                verts_tf = transform_col_verts(rel_trans, states_A[:,2], states_B[:,2], collision_verts[idx_comp, :, :], R[idx_comp,:,:])
+                verts_tf = transform_col_verts(rel_trans, states_A[:,2], states_B[:,2], 0.99*collision_verts[idx_comp, :, :], R[idx_comp,:,:])
                 force_B_0, torque_A_0, torque_B_0 = get_contact_wrenches(P_tot, 
                                                                          D_tot, 
                                                                          S_mat, 
@@ -361,7 +361,7 @@ def resolve_collsions(contact_wrenches : torch.Tensor,
                 
                 #shove[idx_comp, colp[0], :2] += 0.6*contact_wrenches[ idx_comp, colp[0], :2]/stiffness
                 #shove[idx_comp, colp[1], :2] += 0.6*contact_wrenches[ idx_comp, colp[1], :2]/stiffness
-    shove[:,:,:2] = 0.55*contact_wrenches[:,:,:2]/stiffness
+    shove[:,:,:2] = 0.6*contact_wrenches[:,:,:2]/stiffness
     shove[:,:,2]  = 1000.0*contact_wrenches[:,:,2]/(stiffness*Iz)          
     return contact_wrenches, shove
 

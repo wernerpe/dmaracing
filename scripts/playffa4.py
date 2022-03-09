@@ -48,6 +48,7 @@ def play():
     playedlasttime = False
     lastvel = 0
     all_results = []
+    all_race_times = []
     env_idx_ag0_win = []
     env_perm = np.random.permutation(4)    
     env_inv_perm = np.argsort(env_perm)
@@ -69,14 +70,15 @@ def play():
         #actions[:,0,1] *=0.0
 
         obs, _, rew, dones, info = env.step(actions)
-        if 'ranking' in info.keys():
-            avg = torch.mean(1.0*info['ranking'], dim = 0) 
-            all_results += [1.0*info['ranking']]#[:, env_inv_perm]]
-            #idx_ag0_win = torch.where((1.0*info['ranking'])[:, 0] == 0)
-            #env_idx_ag0_win += [torch.where(dones)[0][idx_ag0_win]]
-            ranks = (1.0*info['ranking']).cpu().numpy()#torch.mean(1.0*info['ranking'], dim = 0).cpu().numpy()
-            #agent_of_rank = np.argsort(ranks)
-            dones_idx = torch.unique(torch.where(dones)[0])
+        #if 'ranking' in info.keys():
+            # avg = torch.mean(1.0*info['ranking'], dim = 0) 
+            # all_results += [1.0*info['ranking']]#[:, env_inv_perm]]
+            # all_race_times += [info['percentage_max_episode_length']]
+            # #idx_ag0_win = torch.where((1.0*info['ranking'])[:, 0] == 0)
+            # #env_idx_ag0_win += [torch.where(dones)[0][idx_ag0_win]]
+            # ranks = (1.0*info['ranking']).cpu().numpy()#torch.mean(1.0*info['ranking'], dim = 0).cpu().numpy()
+            # #agent_of_rank = np.argsort(ranks)
+            # dones_idx = torch.unique(torch.where(dones)[0])
             ##for rnkidx in range(ranks):
             #ranks_final = 0*agent_of_rank
             #for it, envag in enumerate(agent_of_rank[1:]):
@@ -87,12 +89,7 @@ def play():
             #        ranks_final[envag] = ranks_final[agent_of_rank[it]]
             #ranks_final = (ranks_final).tolist()
             
-            for rkidx in range(ranks.shape[0]):
-                rank = ranks[rkidx, :]
-                new_ratings = trueskill.rate(ratings, rank)
-                ratings = []
-                ratings = new_ratings
-                mus.append([r[0].mu for r in ratings])
+            
             #update_ratio = 1.0*len(dones_idx)/len(dones)
             #new_ratings = trueskill.rate(ratings, ranks)
             #
@@ -106,17 +103,25 @@ def play():
             num_races += len(dones_idx)
             num_agent_0_wins +=len(torch.where(info['ranking'][:,0] == 0))
 
-        if idx %100 ==0:
-            if len(all_results):
+        if idx %5 ==0:
+            ranks = torch.mean(1.0*env.ranks, dim= 0).cpu().numpy()
+            #for rkidx in range(ranks.shape[0]):
+            #rank = ranks[rkidx, :]
+            new_ratings = trueskill.rate(ratings, ranks)
+            ratings = []
+            ratings = new_ratings
+            mus.append([r[0].mu for r in ratings])
+            sigs = [r[0].sigma for r in ratings]
+            #if len(all_results):
                 #allidx_ag0win = np.concatenate(tuple([r.cpu().numpy().reshape(-1,) for r in env_idx_ag0_win]), axis = 0) 
                 #print('ag0 win idx: ', np.mean(allidx_ag0win))
-                res = np.concatenate(tuple([r.cpu().numpy().reshape(-1,4) for r in all_results]), axis = 0)
-                print(len(res), np.mean(res, axis = 0))
+                #res = np.concatenate(tuple([(r*perc.view(-1,1)).cpu().numpy().reshape(-1,4) for perc, r in zip(all_race_times, all_results)]), axis = 0)
+                #tot_time_percentage = 
+                #print(len(res), np.mean(res, axis = 0))
                 #print('overall', np.mean(res))
             #mus.append([r[0].mu for r in ratings])
-            #sigs = [r[0].sigma for r in ratings]
-            #print('rating mus', mus[-1])
-            #print('rating sigma', sigs)
+            print('rating mus', mus[-1])
+            print('rating sigma', sigs)
             ax.clear()
             ax.plot(np.array(mus), label = ['0', '1','2','3'])
             ax.legend()
@@ -187,11 +192,11 @@ def play():
         env.viewer.clear_markers()
         env.viewer.clear_lines()
         
-        self_centerline_pos = env.interpolated_centers[env.viewer.env_idx_render, ag, 0, :].cpu().numpy()
-        env.viewer.add_point(self_centerline_pos.reshape(1,2), 2,(222,10,0), 2)
-        endpoints = np.array([self_centerline_pos.reshape(1,2), 
-                              env.states[env.viewer.env_idx_render, ag, 0:2].cpu().numpy().reshape(1,2)])
-        env.viewer.add_lines(endpoints=endpoints.squeeze(), color = (0,0,255), thickness=2)
+        #self_centerline_pos = env.interpolated_centers[env.viewer.env_idx_render, ag, 0, :].cpu().numpy()
+        #env.viewer.add_point(self_centerline_pos.reshape(1,2), 2,(222,10,0), 2)
+        #endpoints = np.array([self_centerline_pos.reshape(1,2), 
+        #                      env.states[env.viewer.env_idx_render, ag, 0:2].cpu().numpy().reshape(1,2)])
+        #env.viewer.add_lines(endpoints=endpoints.squeeze(), color = (0,0,255), thickness=2)
         
         for msg in viewermsg:
             env.viewer.add_string(msg)
@@ -224,9 +229,11 @@ if __name__ == "__main__":
     cfg, cfg_train, logdir = getcfg(path_cfg)
 
     chkpts = [-1]*4
-    runs = [-2, -2, -2, -2]
+    runs = [-3, -3, -3, -3]
     cfg['sim']['numEnv'] = 500
     cfg['sim']['numAgents'] = 4
+    cfg['sim']['collide'] = 1
+    
     #cfg['learn']['timeout'] = 300
     #cfg['learn']['offtrack_reset'] = 5.0
     #cfg['learn']['reset_tile_rand'] = 20
@@ -234,8 +241,8 @@ if __name__ == "__main__":
     cfg['learn']['resetgrid'] = True
     cfg['learn']['reset_tile_rand'] = 40
     cfg['viewer']['logEvery'] = -1
-    cfg['track']['seed'] = 11
-    cfg['track']['num_tracks'] = 10
+    cfg['track']['seed'] = 13
+    cfg['track']['num_tracks'] = 30
     cfg['viewer']['multiagent'] = True
 
     set_dependent_cfg_entries(cfg)

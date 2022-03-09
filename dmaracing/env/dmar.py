@@ -279,9 +279,9 @@ class DmarEnv():
 
     def check_termination(self) -> None:
         #dithering step
-        self.reset_buf = torch.rand((self.num_envs, 1), device=self.device) < 0.00005
-        self.reset_buf |= self.time_off_track[:, self.trained_agent_slot].view(-1,1) > self.offtrack_reset
-        #self.reset_buf = torch.any(self.time_off_track[:, :] > self.offtrack_reset, dim = 1).view(-1,1)
+        #self.reset_buf = torch.rand((self.num_envs, 1), device=self.device) < 0.00005
+        #self.reset_buf = self.time_off_track[:, self.trained_agent_slot].view(-1,1) > self.offtrack_reset
+        self.reset_buf = torch.any(self.time_off_track[:, :] > self.offtrack_reset, dim = 1).view(-1,1)
         self.time_out_buf = self.episode_length_buf > self.max_episode_length
         self.reset_buf |= self.time_out_buf
 
@@ -353,9 +353,8 @@ class DmarEnv():
         if self.use_timeouts:
             self.info['time_outs'] = self.time_out_buf.view(-1,)
 
-        self.info['ranking'] = self.ranks[env_ids]
-        #self.info['ranking'] = self.rank_proxy[env_ids]
-        self.info['percentage_max_episode_length'] = 1.0*self.episode_length_buf[env_ids]/(self.max_episode_length)
+#        self.info['ranking'] = self.ranks[env_ids]
+#        self.info['percentage_max_episode_length'] = 1.0*self.episode_length_buf[env_ids]/(self.max_episode_length)
 
         self.lap_counter[env_ids, :] = 0
         self.episode_length_buf[env_ids] = 0.0
@@ -432,7 +431,8 @@ class DmarEnv():
         
         env_ids = torch.where(self.reset_buf)[0]
         self.info = {}
-        
+        self.info['ranking'] = torch.mean(1.0*self.ranks, dim = 0)
+
         if len(env_ids):
             self.reset_envs(env_ids)
         
