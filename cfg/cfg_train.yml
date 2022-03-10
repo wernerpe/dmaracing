@@ -22,7 +22,6 @@ runner:
   num_steps_per_env: 32 # per iteration
   max_iterations: 50000 # number of policy updates
   population_update_interval: 40 #number of iterations before the opponent policy is updated
-  rating_update_period: 20
   # logging
   save_interval: 100 # check for potential saves every this many iterations
   experiment_name: '4ag_drag'
