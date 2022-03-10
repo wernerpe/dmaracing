@@ -99,12 +99,12 @@ def play():
             #    ratings[it] = (trueskill.Rating(mu, sigma),)
 
         dones_idx = torch.unique(torch.where(dones)[0])
-        if len(dones_idx):
-            num_races += len(dones_idx)
-            num_agent_0_wins +=len(torch.where(info['ranking'][:,0] == 0))
+        #if len(dones_idx):
+        #    num_races += len(dones_idx)
+        #    num_agent_0_wins +=len(torch.where(info['ranking'][:,0] == 0))
 
-        if idx %5 ==0:
-            ranks = torch.mean(1.0*env.ranks, dim= 0).cpu().numpy()
+        if idx%100 ==0 and 'ranking' in info:
+            ranks = info['ranking'].cpu().numpy()#torch.mean(1.0*env.ranks, dim= 0).cpu().numpy()
             #for rkidx in range(ranks.shape[0]):
             #rank = ranks[rkidx, :]
             new_ratings = trueskill.rate(ratings, ranks)
@@ -216,7 +216,7 @@ def play():
             print('paused')
         #if idx%200 ==0:
         #    env.episode_length_buf[:] = 1e9
-        
+    plt.show()    
 
 if __name__ == "__main__":
     args = CmdLineArguments()
@@ -234,7 +234,7 @@ if __name__ == "__main__":
     cfg['sim']['numAgents'] = 4
     cfg['sim']['collide'] = 1
     
-    #cfg['learn']['timeout'] = 300
+    cfg['learn']['timeout'] = 10
     #cfg['learn']['offtrack_reset'] = 5.0
     #cfg['learn']['reset_tile_rand'] = 20
     #cfg['sim']['test_mode'] = True
