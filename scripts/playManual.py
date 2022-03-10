@@ -16,7 +16,7 @@ def play():
     cfg['learn']['actionscale'] = [1,1,1]
     cfg['learn']['resetrand'] = [0.0]*7
     
-    cfg['learn']['offtrack_reset'] = 100
+    cfg['learn']['offtrack_reset'] = 1
     cfg['learn']['timeout'] = 100
     cfg['model']['OFFTRACK_FRICTION_SCALE'] = 1
     cfg['model']['drag_reduction'] = 1.0
@@ -33,19 +33,21 @@ def play():
     brk_cmd = 0.0
     lastvel = 0
     ag = 0
-    env.states[:] = 0.0
-    for idx in range(env.num_agents):
-        env.states[0, idx, 0] = idx*10.0
-        env.states[0, idx, 5] = 10.0
+    #env.states[:] = 0.0
+    #for idx in range(env.num_agents):
+    #    env.states[0, idx, 0] = idx*10.0
+    #    env.states[0, idx, 5] = 10.0
         
     print('###########################')
     while True:
         
-        actions[0 , ag, 0] = 0#steer_cmd 
-        actions[0 , ag, 1] = 0#vel_cmd
-        actions[0 , ag, 2] = 0#brk_cmd
+        actions[0 , ag, 0] = steer_cmd 
+        actions[0 , ag, 1] = vel_cmd
+        actions[0 , ag, 2] = brk_cmd
         
         obs, _, rew, dones, info = env.step(actions)
+        if 'ranking' in info:
+            print('info', info['ranking'])
         obsnp = obs[:,0,:].cpu().numpy()
         rewnp = rew[:, 0].cpu().numpy()
         cont = env.contouring_err.cpu().numpy()
