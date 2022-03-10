@@ -7,7 +7,7 @@ import numpy as np
 def play():
     cfg['sim']['numEnv'] = 1
     cfg['sim']['numAgents'] = 3
-    cfg['sim']['decimation'] = 1
+    #cfg['sim']['decimation'] = 4
     
     cfg['track']['num_tracks'] = 3
     #cfg['track']['num_tracks'] = 3

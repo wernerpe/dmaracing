@@ -435,10 +435,10 @@ class DmarEnv():
         env_ids = torch.where(self.reset_buf)[0]
         self.info = {}
         all_agents_on_track = ~torch.any(self.time_off_track[:, :] > self.offtrack_reset, dim = 1).view(-1,1)
-        ids_report = torch.where(self.rank_reporting_active * all_agents_on_track)[0]
+        ids_report = torch.where(self.rank_reporting_active * (~all_agents_on_track|self.reset_buf))[0]
         self.rank_reporting_active *= all_agents_on_track
         if len(ids_report):
-            self.info['ranking'] = torch.mean(1.0*self.ranks[ids_report, :], dim = 0)
+            self.info['ranking'] = [torch.mean(1.0*self.ranks[ids_report, :], dim = 0), 1.0*len(ids_report)/(1.0*len(self.reset_buf))]
 
         if len(env_ids):
             self.reset_envs(env_ids)
