@@ -10,9 +10,12 @@ from typing import Tuple, Dict, Union
 import numpy as np
 from dmaracing.utils.trackgen import get_track_ensemble
 from torch.utils.tensorboard import SummaryWriter
+import random
 
 class DmarEnv():
     def __init__(self, cfg, args) -> None:
+        torch.manual_seed(cfg['track']['seed'])
+        random.seed(cfg['track']['seed'])
         self.device = args.device
         self.rl_device = args.device
         self.headless = args.headless

@@ -103,13 +103,18 @@ def play():
         #    num_races += len(dones_idx)
         #    num_agent_0_wins +=len(torch.where(info['ranking'][:,0] == 0))
 
-        if idx%100 ==0 and 'ranking' in info:
-            ranks = info['ranking'].cpu().numpy()#torch.mean(1.0*env.ranks, dim= 0).cpu().numpy()
+        if 'ranking' in info:
+            ranks = info['ranking'][0].cpu().numpy()#torch.mean(1.0*env.ranks, dim= 0).cpu().numpy()
+            update_ratio = info['ranking'][1]
             #for rkidx in range(ranks.shape[0]):
             #rank = ranks[rkidx, :]
             new_ratings = trueskill.rate(ratings, ranks)
-            ratings = []
-            ratings = new_ratings
+            for old, new, it in zip(ratings, new_ratings, range(len(ratings))):
+                mu = (1-update_ratio)*old[0].mu + update_ratio*new[0].mu
+                sigma = (1-update_ratio)*old[0].sigma + update_ratio*new[0].sigma
+                ratings[it] = (trueskill.Rating(mu, sigma),)
+            #ratings = []
+            #ratings = new_ratings
             mus.append([r[0].mu for r in ratings])
             sigs = [r[0].sigma for r in ratings]
             #if len(all_results):
@@ -214,7 +219,7 @@ def play():
         if evt == 112:
             plt.show(block = False)
             print('paused')
-        #if idx%200 ==0:
+        #if idx%100 ==0:
         #    env.episode_length_buf[:] = 1e9
     plt.show()    
 
@@ -229,19 +234,19 @@ if __name__ == "__main__":
     cfg, cfg_train, logdir = getcfg(path_cfg)
 
     chkpts = [-1]*4
-    runs = [-3, -3, -3, -3]
-    cfg['sim']['numEnv'] = 500
+    runs = [-1]*4#[-3, -3, -3, -3]
+    cfg['sim']['numEnv'] = 1 #500
     cfg['sim']['numAgents'] = 4
     cfg['sim']['collide'] = 1
     
-    cfg['learn']['timeout'] = 10
+    #cfg['learn']['timeout'] = 10
     #cfg['learn']['offtrack_reset'] = 5.0
     #cfg['learn']['reset_tile_rand'] = 20
     #cfg['sim']['test_mode'] = True
     cfg['learn']['resetgrid'] = True
     cfg['learn']['reset_tile_rand'] = 40
     cfg['viewer']['logEvery'] = -1
-    cfg['track']['seed'] = 13
+    cfg['track']['seed'] = 5
     cfg['track']['num_tracks'] = 30
     cfg['viewer']['multiagent'] = True
 
