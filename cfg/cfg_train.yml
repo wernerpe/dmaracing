@@ -24,7 +24,7 @@ runner:
   population_update_interval: 40 #number of iterations before the opponent policy is updated
   # logging
   save_interval: 100 # check for potential saves every this many iterations
-  experiment_name: '4ag_drag'
+  experiment_name: '4ag_new_rating'
   run_name: ''
   # load and resume
   resume: False
