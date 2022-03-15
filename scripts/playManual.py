@@ -5,7 +5,7 @@ import os
 import numpy as np
 
 def play():
-    cfg['sim']['numEnv'] = 1
+    cfg['sim']['numEnv'] = 3
     cfg['sim']['numAgents'] = 3
     #cfg['sim']['decimation'] = 4
     

@@ -357,7 +357,7 @@ class DmarEnv():
         if self.use_timeouts:
             self.info['time_outs'] = self.time_out_buf.view(-1,)
 
-        self.info['ranking'] = [torch.mean((1.0*self.ranks[env_ids, :]*~self.agent_left_track) + 1.0*self.num_agents*self.agent_left_track , dim = 0), 1.0*len(env_ids)/(1.0*len(self.reset_buf))]
+        self.info['ranking'] = [torch.mean((1.0*self.ranks[env_ids, :]*~self.agent_left_track[env_ids, :]) + 1.0*self.num_agents*self.agent_left_track[env_ids, :] , dim = 0), 1.0*len(env_ids)/(1.0*len(self.reset_buf))]
 #        self.info['ranking'] = self.ranks[env_ids]
 #        self.info['percentage_max_episode_length'] = 1.0*self.episode_length_buf[env_ids]/(self.max_episode_length)
 
