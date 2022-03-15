@@ -28,7 +28,7 @@ def allocate_car_dynamics_tensors(task):
     task.R = torch.zeros((task.num_envs, task.num_agents, 2, 2), dtype = torch.float, device = task.device, requires_grad=False)
     task.zero_pad = torch.zeros((task.num_envs,4,1), device =task.device, requires_grad=False) 
 
-    task.P_tot, task.D_tot, task.S_mat, task.Repf_mat, task.Ds = build_col_poly_eqns(task.modelParameters['W'], task.modelParameters['lr'] + task.modelParameters['lf'], task.device, task.num_envs)
+    task.P_tot, task.D_tot, task.S_mat, task.Repf_mat, task.Ds = build_col_poly_eqns(1.05*task.modelParameters['W'], 1.05*(task.modelParameters['lr'] + task.modelParameters['lf']), task.device, task.num_envs)
     task.collision_pairs = get_collision_pairs(task.num_agents)
     task.collision_verts = get_car_vert_mat(task.modelParameters['W'], 
                                             task.modelParameters['lr'] + task.modelParameters['lf'], 
@@ -309,7 +309,7 @@ def resolve_collsions(contact_wrenches : torch.Tensor,
 
                 #get contact wrenches for collision pair candidate
                 rel_trans = states_B[:,:2] -states_A[:,:2]
-                verts_tf = transform_col_verts(rel_trans, states_A[:,2], states_B[:,2], 0.99*collision_verts[idx_comp, :, :], R[idx_comp,:,:])
+                verts_tf = transform_col_verts(rel_trans, states_A[:,2], states_B[:,2], collision_verts[idx_comp, :, :], R[idx_comp,:,:])
                 force_B_0, torque_A_0, torque_B_0 = get_contact_wrenches(P_tot, 
                                                                          D_tot, 
                                                                          S_mat, 

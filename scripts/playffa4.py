@@ -233,7 +233,7 @@ if __name__ == "__main__":
 
     cfg, cfg_train, logdir = getcfg(path_cfg)
 
-    chkpts = [-1]*4
+    chkpts = [-1, 20000, 10000, 1000]
     runs = [-1]*4#[-3, -3, -3, -3]
     cfg['sim']['numEnv'] = 1 #500
     cfg['sim']['numAgents'] = 4

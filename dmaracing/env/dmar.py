@@ -93,7 +93,7 @@ class DmarEnv():
         self.rew_buf = torch_zeros((self.num_envs, self.num_agents,))
         self.time_out_buf = torch_zeros((self.num_envs, 1)) > 1
         self.reset_buf = torch_zeros((self.num_envs,1))>1
-        self.rank_reporting_active = torch_zeros((self.num_envs,1)) == 0
+        self.agent_left_track = torch_zeros((self.num_envs, self.num_agents)) > 1
         self.episode_length_buf = torch_zeros((self.num_envs,1))
         self.time_off_track = torch_zeros((self.num_envs, self.num_agents))
         self.dt = cfg['sim']['dt']
@@ -357,6 +357,7 @@ class DmarEnv():
         if self.use_timeouts:
             self.info['time_outs'] = self.time_out_buf.view(-1,)
 
+        self.info['ranking'] = [torch.mean((1.0*self.ranks[env_ids, :]*~self.agent_left_track) + 1.0*self.num_agents*self.agent_left_track , dim = 0), 1.0*len(env_ids)/(1.0*len(self.reset_buf))]
 #        self.info['ranking'] = self.ranks[env_ids]
 #        self.info['percentage_max_episode_length'] = 1.0*self.episode_length_buf[env_ids]/(self.max_episode_length)
 
@@ -367,7 +368,7 @@ class DmarEnv():
         self.time_off_track[env_ids, :] = 0.0
         self.last_actions[env_ids, : ,:] = 0.0
 
-        self.rank_reporting_active[env_ids, :] = True
+        self.agent_left_track[env_ids, :] = False
 
         if 0 in env_ids and self.log_video_freq >= 0:
           if len(self.viewer._frames):
@@ -437,11 +438,11 @@ class DmarEnv():
         
         env_ids = torch.where(self.reset_buf)[0]
         self.info = {}
-        all_agents_on_track = ~torch.any(self.time_off_track[:, :] > self.offtrack_reset, dim = 1).view(-1,1)
-        ids_report = torch.where(self.rank_reporting_active * (~all_agents_on_track|self.reset_buf))[0]
-        self.rank_reporting_active *= all_agents_on_track
-        if len(ids_report):
-            self.info['ranking'] = [torch.mean(1.0*self.ranks[ids_report, :], dim = 0), 1.0*len(ids_report)/(1.0*len(self.reset_buf))]
+        self.agent_left_track |= (self.time_off_track[:, :] > self.offtrack_reset)
+        #ids_report = torch.where(self.rank_reporting_active * (~all_agents_on_track|self.reset_buf))[0]
+        #self.rank_reporting_active *= all_agents_on_track
+        #if len(ids_report):
+        #    self.info['ranking'] = [torch.mean(1.0*self.ranks[ids_report, :], dim = 0), 1.0*len(ids_report)/(1.0*len(self.reset_buf))]
 
         if len(env_ids):
             self.reset_envs(env_ids)

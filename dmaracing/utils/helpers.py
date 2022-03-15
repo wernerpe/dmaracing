@@ -49,6 +49,23 @@ def  get_run(logdir, run, chkpt):
 
     return model_dir, modelnr
 
+def  get_all_chckpts_run(logdir, run):
+    
+    if type(run) == str:
+        model_dir = logdir + '/'+ run
+    else:
+        runs = os.listdir(logdir)
+        runs.sort()
+        runstr = runs[run]
+        model_dir = logdir+'/'+ runstr
+
+    models = os.listdir(model_dir)
+    models = [i for i in models if 'model' in i]
+    nrs = [int(model[6:-3]) for model in models]
+    nrs.sort()
+    
+    return model_dir, nrs
+
 def rand(min, max, shape, device):
     r = torch.rand(shape, device=device, dtype = torch.float, requires_grad=False)
     dist = max-min
