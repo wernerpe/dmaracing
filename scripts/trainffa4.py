@@ -30,7 +30,7 @@ def train():
 if __name__ == "__main__":
     args = CmdLineArguments()
     args.device = 'cuda:0'
-    args.headless = True 
+    args.headless = False 
     path_cfg = os.getcwd() + '/cfg'
     cfg, cfg_train, logdir_root = getcfg(path_cfg)
     cfg['sim']['numAgents'] = 4

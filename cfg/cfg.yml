@@ -65,7 +65,7 @@ learn:
   resetgrid: False
   defaultactions: [0., 0.2, 0.0]
   actionscale: [1.0, 0.5, 0.2]
-  agent_dropout_prob: 0.0
+  agent_dropout_prob: 0.2
   distance_obs_cutoff: 200 #[m]
 
   progressRewardScale: 5.0
