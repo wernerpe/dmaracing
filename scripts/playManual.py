@@ -15,8 +15,9 @@ def play():
     cfg['learn']['defaultactions'] = [0,0,0]
     cfg['learn']['actionscale'] = [1,1,1]
     cfg['learn']['resetrand'] = [0.0]*7
+    cfg['learn']['reset_tile_rand'] = 200
     
-    cfg['learn']['offtrack_reset'] = 1
+    cfg['learn']['offtrack_reset'] = 10
     cfg['learn']['timeout'] = 100
     cfg['model']['OFFTRACK_FRICTION_SCALE'] = 1
     cfg['model']['drag_reduction'] = 1.0
@@ -78,7 +79,7 @@ def play():
                      (f"""{'lap:':>{10}}{' '}{env.lap_counter[0, ag]:.2f}"""),
                      (f"""{'rank ag 0 :':>{10}}{' '}{1+env.ranks[env.viewer.env_idx_render, ag].item():.2f}"""),
                      ]
-        
+        print(env.progress_other[0,0,:])
         env.viewer.x_offset = int(-env.viewer.width/env.viewer.scale_x*env.states[env.viewer.env_idx_render, ag, 0])
         env.viewer.y_offset = int(env.viewer.height/env.viewer.scale_y*env.states[env.viewer.env_idx_render, ag, 1])
         env.viewer.draw_track()

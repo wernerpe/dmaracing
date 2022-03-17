@@ -121,6 +121,7 @@ class DmarEnv():
 
         self.lap_counter = torch.zeros((self.num_envs, self.num_agents), requires_grad=False, device=self.device, dtype=torch.int)
         self.track_progress = torch.zeros((self.num_envs, self.num_agents), requires_grad=False, device=self.device, dtype=torch.float)
+        self.track_progress_no_laps = torch.zeros((self.num_envs, self.num_agents), requires_grad=False, device=self.device, dtype=torch.float)
         
         allocate_car_dynamics_tensors(self)
 
@@ -210,8 +211,14 @@ class DmarEnv():
                 otherpos = torch.cat((self.states[:, :agent, 0:2], self.states[:, agent+1:, 0:2]), dim = 1)
                 otherpositions.append((otherpos - selfpos).view(-1, (self.num_agents-1), 2))    
                 
-                selftrackprogress = self.track_progress[:, agent].view(-1,1,1)
-                other_progress.append(torch.cat((self.track_progress[:, :agent], self.track_progress[:, agent+1:]), dim = 1).view(-1, 1, self.num_agents-1) - selftrackprogress)
+                selftrackprogress = self.track_progress_no_laps[:, agent].view(-1,1,1)
+                oth_prog = torch.cat((self.track_progress_no_laps[:, :agent], self.track_progress_no_laps[:, agent+1:]), dim = 1).view(-1, 1, self.num_agents-1) - selftrackprogress
+                oth_prog = oth_prog \
+                          + 1.0*(oth_prog<-0.51*self.track_lengths[self.active_track_ids].view(-1,1,1)) * self.track_lengths[self.active_track_ids].view(-1,1,1)\
+                          - 1.0*(oth_prog>0.51*self.track_lengths[self.active_track_ids].view(-1,1,1)) * self.track_lengths[self.active_track_ids].view(-1,1,1)
+                              
+
+                other_progress.append(oth_prog)
 
                 selfcontouringerr = self.contouring_err[:, agent]
                 other_contouringerr.append(torch.cat((self.contouring_err[:, :agent], self.contouring_err[:, agent+1:]), dim = 1).view(-1, 1, self.num_agents-1) - selfcontouringerr.view(-1,1,1))
@@ -237,7 +244,7 @@ class DmarEnv():
             rot_other = torch.cat(tuple([rot for rot in otherrotations]),dim =1 ) * self.active_obs_template * is_other_close
             angvel_other = torch.cat(tuple([angvel for angvel in otherangularvelocities]),dim =1 ) * self.active_obs_template * is_other_close
 
-            self.progress_other = torch.clip(torch.cat(tuple([prog for prog in other_progress]), dim =1 ), min = -50, max = 50) * self.active_obs_template * is_other_close
+            self.progress_other = torch.clip(0.5*torch.cat(tuple([prog for prog in other_progress]), dim =1 ), min = -50, max = 50) * self.active_obs_template
             self.contouring_err_other = torch.clip(torch.cat(tuple([err for err in other_contouringerr]), dim =1 ), min = -10, max = 10) * self.active_obs_template * is_other_close
 
         else:
@@ -252,14 +259,13 @@ class DmarEnv():
                                   gas, 
                                   lookahead_scaled[:,:,:,0], 
                                   lookahead_scaled[:,:,:,1], 
+                                  self.last_actions, 
                                   self.progress_other * 0.1, 
                                   self.contouring_err_other * 0.25, 
                                   rot_other,
                                   vel_other[..., 0] * 0.1,
                                   vel_other[..., 1] * 0.1,
                                   angvel_other * 0.1, 
-                                  self.last_actions, 
-                                  self.ranks.view(-1,self.num_agents,1) 
                                   ), 
                                   dim=2)
 
@@ -341,7 +347,7 @@ class DmarEnv():
         
         idx_inactive, idx2_inactive = torch.where(~self.active_agents[env_ids, :].view(len(env_ids), self.num_agents))
         if len(idx_inactive):
-            self.states[idx_inactive, idx2_inactive, self.vn['S_X']:self.vn['S_Y']+1] = 10000.0 + 1000*torch.rand((len(idx2_inactive),2), device=self.device, requires_grad=False)
+            self.states[env_ids[idx_inactive], idx2_inactive, self.vn['S_X']:self.vn['S_Y']+1] = 10000.0 + 1000*torch.rand((len(idx2_inactive),2), device=self.device, requires_grad=False)
         
         dists = torch.norm(self.states[env_ids,:, 0:2].unsqueeze(2)-self.active_centerlines[env_ids].unsqueeze(1), dim=3)
         self.old_active_track_tile[env_ids, :] = torch.sort(dists, dim = 2)[1][:,:, 0]
@@ -458,9 +464,14 @@ class DmarEnv():
         self.trackdir = torch.stack((torch.cos(angs), torch.sin(angs)), dim = 2) 
         self.trackperp = torch.stack((- torch.sin(angs), torch.cos(angs)), dim = 2) 
 
+        increment_idx = torch.where(self.active_track_tile - self.old_active_track_tile < -10)
+        decrement_idx = torch.where(self.active_track_tile - self.old_active_track_tile > 10)
+        self.lap_counter[increment_idx] += 1
+        self.lap_counter[decrement_idx] -= 1
+
         self.sub_tile_progress = torch.einsum('eac, eac-> ea', self.trackdir, self.tile_car_vec)
-        self.track_progress = self.active_track_tile*self.tile_len + self.sub_tile_progress
-        self.track_progress = self.track_progress + self.lap_counter*self.track_lengths[self.active_track_ids].view(-1,1)
+        self.track_progress_no_laps = self.active_track_tile*self.tile_len + self.sub_tile_progress
+        self.track_progress = self.track_progress_no_laps + self.lap_counter*self.track_lengths[self.active_track_ids].view(-1,1)
         dist_sort, self.ranks = torch.sort(self.track_progress, dim = 1, descending = True)
         self.ranks = torch.sort(self.ranks, dim = 1)[1]
 
@@ -475,11 +486,6 @@ class DmarEnv():
         self.compute_observations()
         self.compute_rewards()
 
-        increment_idx = torch.where(self.active_track_tile - self.old_active_track_tile < -10)
-        decrement_idx = torch.where(self.active_track_tile - self.old_active_track_tile > 10)
-        self.lap_counter[increment_idx] += 1
-        self.lap_counter[decrement_idx] -= 1
-        
         #render before resetting values
         # if not self.headless:
         self.render()

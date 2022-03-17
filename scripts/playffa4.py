@@ -30,13 +30,25 @@ def play():
     
     policy_infos = runner.load_multi_path(model_paths)
     policy = runner.get_inference_policy(device=env.device)
-    
+    attention_head = runner.alg.actor_critic.ac1.actor._encoder._network
+    num_ego_obs = runner.alg.actor_critic.ac1.actor._encoder.num_ego_obs
+    num_ado_obs = runner.alg.actor_critic.ac1.actor._encoder.num_ado_obs
+    num_agents = runner.alg.actor_critic.ac1.actor._encoder.num_agents
+    attention_tensor = torch.zeros((env.num_envs, env.num_agents-1))
+
+    def compute_linear_attention(obs, attention_tensor):
+        obs_ego = obs[..., :num_ego_obs]
+        obs_ado = obs[..., num_ego_obs:num_ego_obs+(num_agents-1)*num_ado_obs]
+
+        for ado_id in range(num_agents-1):
+            ado_ag_obs = obs_ado[..., ado_id::(num_agents-1)]
+            attention_tensor[:, ado_id]= attention_head(torch.cat((obs_ego, ado_ag_obs), dim=-1).detach())
+        return attention_tensor
+
     time_per_step = cfg['sim']['dt']*cfg['sim']['decimation']
     
     ag = 0
 
-    num_races = 0
-    num_agent_0_wins = 0
     skill_ag = [[p_infos['trueskill']['mu'], p_infos['trueskill']['sigma']] for p_infos in policy_infos]
     mu = [skill[0] for skill in skill_ag]
     sigma = [skill[1] for skill in skill_ag]
@@ -57,7 +69,7 @@ def play():
         obs = obs
         actions = policy(obs)
         obs, _, rew, dones, info = env.step(actions)
-     
+        attention_tensor = compute_linear_attention(obs[:,ag,:], attention_tensor)
         if 'ranking' in info:
             ranks = info['ranking'][0].cpu().numpy()#torch.mean(1.0*env.ranks, dim= 0).cpu().numpy()
             update_ratio = info['ranking'][1]
@@ -90,28 +102,29 @@ def play():
         acc = vel - lastvel
         #lastvel = vel
         
-        ##check ado observations
         
-        ado_prog = []
-        ado_cont = []
         #env.viewer.add_lines()
         ado_pattern = [[1,2,3],[0,2,3],[0,1,3],[0,1,2]]
-        ado_obs_ag = obsnp[env.viewer.env_idx_render, 35:52]
-        ado_msg_prog = [(f"""{'ado prog ag' + str(ado_idx):>{10}}{' '}{ado_obs_ag[idx]:.2f}""") for idx, ado_idx in enumerate(ado_pattern[ag])]
-        ado_msg_cont = [(f"""{'ado cont ag' + str(ado_idx):>{10}}{' '}{ado_obs_ag[3+idx]:.2f}""") for idx, ado_idx in enumerate(ado_pattern[ag])]
+        #ado_obs_ag = obsnp[env.viewer.env_idx_render, 35:52]
+        ado_msg_attention = [(f"""{'att ' + str(ado_idx):>{10}}{' '}{attention_tensor[env.viewer.env_idx_render, idx].item():.2f}""") for idx, ado_idx in enumerate(ado_pattern[ag])]
+        #ado_msg_cont = [(f"""{'ado cont ag' + str(ado_idx):>{10}}{' '}{ado_obs_ag[3+idx]:.2f}""") for idx, ado_idx in enumerate(ado_pattern[ag])]
 
 
 
         viewermsg = [#(f"""{'relative proggress a1-a0:':>{10}}{' '}{relprogress.item():.2f}"""),
                      #(f"""{'relative contouringerr a1-a0:':>{10}}{' '}{relcontouringerr.item():.2f}"""),
-                     (f"""{'p0 '+str(modelnrs[0])}{' ts: '}{policy_infos[0]['trueskill']['mu']:.1f}"""), 
-                     (f"""{'p1 '+str(modelnrs[1])}{' ts: '}{policy_infos[1]['trueskill']['mu']:.1f}"""),
-                     (f"""{'p2 '+str(modelnrs[2])}{' ts: '}{policy_infos[2]['trueskill']['mu']:.1f}"""),
-                     (f"""{'p3 '+str(modelnrs[3])}{' ts: '}{policy_infos[3]['trueskill']['mu']:.1f}"""),
+                     #(f"""{'p0 '+str(modelnrs[0])}{' ts: '}{policy_infos[0]['trueskill']['mu']:.1f}"""), 
+                     #(f"""{'p1 '+str(modelnrs[1])}{' ts: '}{policy_infos[1]['trueskill']['mu']:.1f}"""),
+                     #(f"""{'p2 '+str(modelnrs[2])}{' ts: '}{policy_infos[2]['trueskill']['mu']:.1f}"""),
+                     #(f"""{'p3 '+str(modelnrs[3])}{' ts: '}{policy_infos[3]['trueskill']['mu']:.1f}"""),
+                     (f"""{'att 0 '+str(modelnrs[3])}{' ts: '}{policy_infos[3]['trueskill']['mu']:.1f}"""),
+                     (f"""{'att 1 '+str(modelnrs[3])}{' ts: '}{policy_infos[3]['trueskill']['mu']:.1f}"""),
+                     (f"""{'att 2 '+str(modelnrs[3])}{' ts: '}{policy_infos[3]['trueskill']['mu']:.1f}"""),
+                     
                      (f"""{'rank :':>{10}}{' '}{ranks[ag]:.2f}""")
                      ]
 
-        viewermsg = viewermsg+ ado_msg_prog + ado_msg_cont
+        viewermsg = viewermsg + ado_msg_attention
         if SOUND:
             diff =  rank-rank_old
             col = torch.any(env.is_collision[env.viewer.env_idx_render])
@@ -177,7 +190,7 @@ if __name__ == "__main__":
     cfg['sim']['numAgents'] = 4
     cfg['sim']['collide'] = 1
     
-    #cfg['learn']['timeout'] = 10
+    cfg['learn']['timeout'] = 100
     cfg['learn']['offtrack_reset'] = 5.0
     #cfg['learn']['reset_tile_rand'] = 20
     #cfg['sim']['test_mode'] = True
