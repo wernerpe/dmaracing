@@ -10,6 +10,7 @@ import sys
 sys.path.insert(1, "/home/thomasbalch/tri_workspace/dynamics_model_learning/scripts")
 # Import Dynamics encoder from TRI dynamics library.
 from learn_dynamics import DynamicsEncoder
+import IPython
 
 # @torch.jit.script
 def step_cars(
@@ -65,6 +66,8 @@ def step_cars(
     new_state = torch.cat([new_state, torch.zeros(3, 3, 5, device=new_state.device)], dim=2)
 
     new_state = add_back_quaternion(state, vn, new_state)
+    # new_state[:, :, vn["S_STEER"]] = dyn_control[:, :, 0]
+    # new_state[:, :, vn["S_GAS"]] = dyn_control[:, :, 1]
 
     if collide:
         # resolve collisions using a combination of spring force and "shove" which pushes the vertex
@@ -146,9 +149,9 @@ def get_state_control_tensors(
     wheel_locations_bodycentric_world = torch.nn.functional.pad(wheel_locations_bodycentric_world, (0, 1))
 
     # set gas
-    # diff = actions[:, :, vn['A_GAS']] - state[:, :, vn['S_GAS']]
-    # state[:, :, vn['S_GAS']] += torch.clip(diff, min =-0.1, max=0.06)
-    # state[:, :, vn['S_GAS']] = torch.clamp(state[:, :, vn['S_GAS']], 0, 1)
+    # diff = actions[:, :, vn["A_GAS"]] - state[:, :, vn["S_GAS"]]
+    # state[:, :, vn["S_GAS"]] += torch.clip(diff, min=-0.1, max=0.06)
+    # state[:, :, vn["S_GAS"]] = torch.clamp(state[:, :, vn["S_GAS"]], 0, 1)
     state[:, :, vn["S_GAS"]] = torch.clip(actions[:, :, vn["A_GAS"]], 0, 1) * (
         1.0 * ~drag_reduced + mod_par["drag_reduction"] * drag_reduced
     )
@@ -288,10 +291,10 @@ def get_state_control_tensors(
     )  # x and y in world frame, dx and dy need to be rotated by theta to be in body frame
     dyn_control = torch.cat([state[:, :, vn["S_STEER"]].unsqueeze(2), state[:, :, vn["S_GAS"]].unsqueeze(2)], dim=2)
     # control = [-0.05, 0.8]  # steer, throttle
-    # dyn_control = torch.Tensor([control, control, control, control]).unsqueeze(1)
-    # import IPython
-
-    # IPython.embed()
+    # single_env = torch.Tensor([control, control, control])  # 3 agents per env
+    # dyn_control = torch.cat(
+    #     [single_env.unsqueeze(1), single_env.unsqueeze(1), single_env.unsqueeze(1)], dim=1
+    # )  # 3 environments with playManual.py
     return dyn_state, dyn_control, slip, wheel_locations_world
 
 
