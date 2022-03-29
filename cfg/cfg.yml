@@ -2,7 +2,7 @@ sim:
   numEnv: 4096
   #number of racing agents per env
   numAgents: 4
-  dt: 0.01 #[s]
+  dt: 0.02 #[s] # If using this with TRI dynamics model, this must be 0.02 to match the refresh frequency of the model
   numStates: 12
 
   #need to overwrite this everytime env gets initialized to the correct number
