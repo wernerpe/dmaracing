@@ -106,7 +106,7 @@ def play():
         #env.viewer.add_lines()
         ado_pattern = [[1,2,3],[0,2,3],[0,1,3],[0,1,2]]
         #ado_obs_ag = obsnp[env.viewer.env_idx_render, 35:52]
-        ado_msg_attention = [(f"""{'att ' + str(ado_idx):>{10}}{' '}{attention_tensor[env.viewer.env_idx_render, idx].item():.2f}""") for idx, ado_idx in enumerate(ado_pattern[ag])]
+        ado_msg_attention = [(f"""{'att ' + str(ado_idx):>{10}}{' '}{attention_tensor[env.viewer.env_idx_render, idx].item():.2f}""") if env.active_agents[env.viewer.env_idx_render, ado_idx] else (f"""{'att ' + str(ado_idx):>{10}}{' '}{'deactivated'}""") for idx, ado_idx in enumerate(ado_pattern[ag])]
         #ado_msg_cont = [(f"""{'ado cont ag' + str(ado_idx):>{10}}{' '}{ado_obs_ag[3+idx]:.2f}""") for idx, ado_idx in enumerate(ado_pattern[ag])]
 
 
@@ -150,10 +150,17 @@ def play():
         
         #self_centerline_pos = env.interpolated_centers[env.viewer.env_idx_render, ag, 0, :].cpu().numpy()
         #env.viewer.add_point(self_centerline_pos.reshape(1,2), 2,(222,10,0), 2)
-        #endpoints = np.array([self_centerline_pos.reshape(1,2), 
+        #endpoints = np.array([env.states[env.viewer].reshape(1,2), 
         #                      env.states[env.viewer.env_idx_render, ag, 0:2].cpu().numpy().reshape(1,2)])
         #env.viewer.add_lines(endpoints=endpoints.squeeze(), color = (0,0,255), thickness=2)
-        
+   
+        for ado_idx, ado_ag in enumerate(ado_pattern[ag]):
+            if ado_ag != ag:
+                endpoints = np.array([states[env.viewer.env_idx_render,ag,0:2],
+                                      states[env.viewer.env_idx_render,ado_ag,0:2]])
+                if attention_tensor[env.viewer.env_idx_render, ado_idx].item() >= 0.01 and env.active_agents[env.viewer.env_idx_render, ado_ag]:
+                    env.viewer.add_lines(endpoints=endpoints.squeeze(), color = (255,0,0), thickness= int(8*attention_tensor[env.viewer.env_idx_render, ado_idx].item()))
+            
         for msg in viewermsg:
             env.viewer.add_string(msg)
 

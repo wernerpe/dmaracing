@@ -109,7 +109,7 @@ class Viewer:
                 self.draw_singleagent_rep(state[:self.num_cars])
             cv.putText(self.img, "env:" + str(self.env_idx_render), (50, 50), self.font, 2, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
             self.draw_points()
-            self.draw_lines()
+            self.draw_lines(self.lines)
             self.draw_string()
             self.draw_marked_agents()
 
@@ -255,12 +255,11 @@ class Viewer:
     def clear_lines(self):
         self.lines = []
 
-    def draw_lines(self,):
-        for endpoints, color, thickness in self.lines:
+    def draw_lines(self, lines):
+        for endpoints, color, thickness in lines:
             coords = self.cords2px_np(endpoints)
             self.img  = cv.polylines(self.img, [coords.reshape(-1,1,2)], isClosed = False, color = color, thickness = thickness)
-                
-
+      
     def cords2px(self, pts):
         pts = pts.cpu().numpy()
         pts[:, 0, :] = self.width/self.scale_x*pts[:, 0, :] + self.width/2.0 + self.x_offset
@@ -306,6 +305,7 @@ class Viewer:
 
     def add_string(self, string):
         self.msg.append(string) 
+
 
     def clear_string(self,):
         self.msg = []
