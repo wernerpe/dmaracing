@@ -1,33 +1,45 @@
 sim:
-  numEnv: 4000
-  #nuber of racing agents per env
-  numAgents: 6
-  dt: 0.01 #[s]
+  numEnv: 4096
+  #number of racing agents per env
+  numAgents: 4
+  dt: 0.02 #[s] # If using this with TRI dynamics model, this must be 0.02 to match the refresh frequency of the model
   numStates: 12
-  numObservations: 38 
+
+  #need to overwrite this everytime env gets initialized to the correct number
+  #dependent on the lookaheadhorizon length and number of ado cars in an env
+  #this is done in get_cfg directly
+  numObservations: -1 
+  numConstantObservations: 8 #vels, steer, gas, last actions, rank 
   numActions: 3
   collide: 1
   decimation: 4
+  test_mode: False
+  collisionstiffness: 280000.0
   
 model:
   SIZE: 0.02 #[px/m]
-  BREAKFORCE: 45
-  ENGINE_POWER_SCALE: 20000000
-  WHEEL_MOMENT_OF_INERTIA_SCALE: 4000
-  FRICTION_LIMIT_SCALE: 5000000
+  BREAKFORCE: 100
+  ENGINE_POWER_SCALE: 150000000
+  WHEEL_MOMENT_OF_INERTIA_SCALE: 2000
+  FRICTION_LIMIT_SCALE: 10000000
   OFFTRACK_FRICTION_SCALE: 0.2
   WHEEL_R_SCALE: 27
   LENGTH_SCALE: 200
-  MASS_SCALE: 230
+  MASS_SCALE: 160
   MOMENT_OF_INERTIA_SCALE: 7.0
+  drag_reduction: 1.3
 
 viewer:
-  width: 1200
-  height: 1200
+  width: 1200  # 1200
+  height: 1200  # 1200
+  width_tb: 600  # 1200
+  height_tb: 600  # 1200
+  
   scale: 240.0 #[m/width*px] indicates how wide the window is in pixels
   linethickness: 1
-  multiagent: False
-  maxAgents: 100
+  multiagent: True
+  maxAgents: 400
+  logEvery: 10
 
 track:
   #https://github.com/openai/gym/blob/master/gym/envs/box2d/car_racing.py
@@ -48,18 +60,21 @@ track:
 learn:
   use_timeouts: True
   #[posx, posy, theta, vellong, vellat, dtheta, steer]
-  resetrand: [2.0, 2.0, 0.2, 3.0, 0.12,  0.1, 0.0]
-  
+  resetrand: [4.0, 4.0, 0.1, 0.1, 0.01,  0.1, 0.0]
+  reset_tile_rand: 40
+  resetgrid: False
   defaultactions: [0., 0.2, 0.0]
   actionscale: [1.0, 0.5, 0.2]
+  agent_dropout_prob: 0.2
+  distance_obs_cutoff: 100 #[m]
 
   progressRewardScale: 5.0
-  contouringRewardScale: 0.0
   offtrackRewardScale: -2.0
   actionRateRewardScale: 0.1 
-  energyRewardScale: 0.00001
-  sidevelRewardScale: 0.0
+  energyRewardScale: 0.00006
+  rankRewardScale: 5.0
+  collisionRewardScale: -300.0
   horizon: 15
   
-  timeout: 60.0 #[s]
+  timeout: 25.0 #[s]
   offtrack_reset: 1.0 #[s]

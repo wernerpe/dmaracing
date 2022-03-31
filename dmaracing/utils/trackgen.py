@@ -250,9 +250,17 @@ def draw_track(img,
     for idx in range(track_tile_count):
         verts = track_poly_verts[idx, :, :]
         vert_px = cords2px(verts)
-        cv.fillPoly(img, [vert_px], color = (178,178,178) if idx%2 ==0 else (168,168,168))
-        cv.polylines(overlay, [vert_px], isClosed = True,  color = (0,0,0), thickness = 1)
+        if idx == 0:
+            cv.fillPoly(img, [vert_px], color = (178,178,178))
+            cv.polylines(overlay, [vert_px], isClosed = True,  color = (0,0,0), thickness = 1)
+            cv.polylines(img, [vert_px[0:2,:]], isClosed = False,  color = (0,0,0), thickness = 3)
+        else:
+            cv.fillPoly(img, [vert_px], color = (178,178,178) if idx%2 ==0 else (168,168,168))
+            cv.polylines(overlay, [vert_px], isClosed = True,  color = (0,0,0), thickness = 1)
+
     
+    #cv.polylines(overlay, [vert_px], isClosed = True,  color = (0,0,0), thickness = 1)
+
     if cl:
         cl_px = cords2px(centerline[:track_tile_count,...])
         cv.polylines(img, [cl_px], isClosed = True, color = (0,0,0), thickness = 1)
@@ -267,7 +275,7 @@ def draw_track(img,
     
     img = cv.addWeighted(overlay, 0.1, img, 0.9, 0)
       
-    draw_cord_axs(img, cords2px)
+    #draw_cord_axs(img, cords2px)
     return img
     
 def draw_cord_axs(img, cords2px):

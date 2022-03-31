@@ -2,6 +2,8 @@ import torch
 import numpy as np
 from typing import List, Tuple, Dict
 
+from torch import device
+
 def get_varnames()->Dict[str, int]:
     varnames = {}
     varnames['S_X'] = 0
@@ -26,7 +28,7 @@ def allocate_car_dynamics_tensors(task):
     task.R = torch.zeros((task.num_envs, task.num_agents, 2, 2), dtype = torch.float, device = task.device, requires_grad=False)
     task.zero_pad = torch.zeros((task.num_envs,4,1), device =task.device, requires_grad=False) 
 
-    task.P_tot, task.D_tot, task.S_mat, task.Repf_mat, task.Ds = build_col_poly_eqns(task.modelParameters['W'], task.modelParameters['lr'] + task.modelParameters['lf'], task.device, task.num_envs)
+    task.P_tot, task.D_tot, task.S_mat, task.Repf_mat, task.Ds = build_col_poly_eqns(1.05*task.modelParameters['W'], 1.05*(task.modelParameters['lr'] + task.modelParameters['lf']), task.device, task.num_envs)
     task.collision_pairs = get_collision_pairs(task.num_agents)
     task.collision_verts = get_car_vert_mat(task.modelParameters['W'], 
                                             task.modelParameters['lr'] + task.modelParameters['lf'], 
@@ -45,6 +47,12 @@ def allocate_car_dynamics_tensors(task):
     task.wheel_locations[3, 1] = W/2.0 
 
     task.wheels_on_track_segments = torch.zeros((task.num_envs, task.num_agents, 4, task.max_track_num_tiles), requires_grad=False, device=task.device)>1
+    task.slip = torch.zeros((task.num_envs, task.num_agents, 4), requires_grad=False, device=task.device)>1
+    task.wheel_locations_world = torch.zeros((task.num_envs, task.num_agents, 4, 2), requires_grad=False, device=task.device)
+    task.drag_reduction_points = torch.zeros((task.num_envs, task.num_agents*30, 2), requires_grad=False, device=task.device)
+    task.drag_reduction_write_idx = 0
+    task.drag_reduced = torch.zeros((task.num_envs, task.num_agents), requires_grad=False, device=task.device) > 1.0
+    
 
 def set_dependent_params(mod_par):
     SIZE = mod_par['SIZE']
@@ -88,6 +96,11 @@ def get_collision_pairs(num_agents):
     pairs = [[a, b] for idx, a in enumerate(ls) for b in ls[idx + 1:]]
     return pairs
 
+def get_collision_pairs2(num_agents):
+    #naively check all collision pairs
+    ls = np.arange(num_agents)
+    pairs = [[b, a] for idx, a in enumerate(ls) for b in ls[idx + 1:]]
+    return pairs
 
 def build_col_poly_eqns(w,
                         l, 
@@ -234,7 +247,9 @@ def get_contact_wrenches(P_tot : torch.Tensor,
                          Depth_selector : List[int],
                          verts_tf : torch.Tensor,
                          num_envs : int,
-                         zero_pad : torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+                         zero_pad : torch.Tensor,
+                         stiffness : float) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+
     #evaluate polygon equations on vertices of collider in bodyframe of collidee
     vert_poly_dists = torch.einsum('ij, lkj->lki', P_tot, verts_tf) + torch.tile(D_tot.squeeze(), (num_envs, 4, 1)) 
     #check if in polygon
@@ -244,7 +259,7 @@ def get_contact_wrenches(P_tot : torch.Tensor,
     #inpoly (numenvs, num_verts, num_poly) #vert_poly_dists[:,:, Ds] (num_env, num_verts, num_polygons)
     #use fact that we precomputed all distances to polygon walls
     depths = torch.einsum('ijk, ijk -> ij', 1.0*in_poly, vert_poly_dists[:,:, Depth_selector])
-    magnitude = 9000*depths
+    magnitude = stiffness*depths
     forces = force_dir
     forces[:, :, 0] *= magnitude
     forces[:, :, 1] *= magnitude
@@ -264,6 +279,7 @@ def get_contact_wrenches(P_tot : torch.Tensor,
 
 @torch.jit.script
 def resolve_collsions(contact_wrenches : torch.Tensor,
+                      shove : torch.Tensor,
                       states : torch.Tensor,
                       collision_pairs : List[List[int]],
                       lf : float,
@@ -274,15 +290,17 @@ def resolve_collsions(contact_wrenches : torch.Tensor,
                       S_mat : torch.Tensor,
                       Repf_mat : torch.Tensor,
                       Ds : List[int],
-                      num_envs : int,
-                      zero_pad : torch.Tensor
-                      ) -> torch.Tensor:
+                      zero_pad : torch.Tensor,
+                      stiffness : float,
+                      Iz : float
+                      ) -> Tuple[torch.Tensor, torch.Tensor]:
 
     contact_wrenches[:,:,:] =0.0
-
+    shove[:,:,:] = 0.0
+    #switch = torch.rand(len(collision_pairs))>0.5
     if len(collision_pairs):
-        for colp in collision_pairs:
-
+        for id, colp in enumerate(collision_pairs):
+            #colp = [colp[switch[id]*1], colp[~switch[id]*1]]
             idx_comp = torch.where(torch.norm(states[:, colp[0], 0:2] -  states[:, colp[1], 0:2], dim =1)<=2.3*lf)[0]
             
             if  len(idx_comp):
@@ -292,22 +310,23 @@ def resolve_collsions(contact_wrenches : torch.Tensor,
                 #get contact wrenches for collision pair candidate
                 rel_trans = states_B[:,:2] -states_A[:,:2]
                 verts_tf = transform_col_verts(rel_trans, states_A[:,2], states_B[:,2], collision_verts[idx_comp, :, :], R[idx_comp,:,:])
-                force_B, torque_A, torque_B = get_contact_wrenches(P_tot, 
-                                                                   D_tot, 
-                                                                   S_mat, 
-                                                                   Repf_mat[idx_comp, ...],
-                                                                   Ds,
-                                                                   verts_tf,
-                                                                   len(idx_comp),
-                                                                   zero_pad[idx_comp, ...]
-                                                                   )
+                force_B_0, torque_A_0, torque_B_0 = get_contact_wrenches(P_tot, 
+                                                                         D_tot, 
+                                                                         S_mat, 
+                                                                         Repf_mat[idx_comp, ...],
+                                                                         Ds,
+                                                                         verts_tf,
+                                                                         len(idx_comp),
+                                                                         zero_pad[idx_comp, ...],
+                                                                         stiffness
+                                                                         )
 
                 #rotate forces into global frame from frame A
-                force_B = rotate_vec(force_B, states_A[:, 2], R[idx_comp,:,:])
-                contact_wrenches[ idx_comp, colp[0], :2] += -force_B
-                contact_wrenches[ idx_comp, colp[1], :2] += force_B
-                contact_wrenches[ idx_comp, colp[0], 2] += torque_A
-                contact_wrenches[ idx_comp, colp[1], 2] += torque_B
+                force_B_0 = rotate_vec(force_B_0, states_A[:, 2], R[idx_comp,:,:])
+                contact_wrenches[ idx_comp, colp[0], :2] += -force_B_0
+                contact_wrenches[ idx_comp, colp[1], :2] += force_B_0
+                contact_wrenches[ idx_comp, colp[0], 2] += torque_A_0
+                contact_wrenches[ idx_comp, colp[1], 2] += torque_B_0
 
                 #flip and check other direction
                 states_A = states[idx_comp, colp[1], 0:3]
@@ -317,21 +336,32 @@ def resolve_collsions(contact_wrenches : torch.Tensor,
                 rel_trans = states_B[:,:2] - states_A[:,:2]
                 verts_tf = transform_col_verts(rel_trans, states_A[:,2], states_B[:,2], collision_verts[idx_comp, :, :], R[idx_comp,:,:])
 
-                force_B, torque_A, torque_B = get_contact_wrenches(P_tot, 
-                                                                   D_tot, 
-                                                                   S_mat, 
-                                                                   Repf_mat[idx_comp, ...],
-                                                                   Ds,
-                                                                   verts_tf,
-                                                                   len(idx_comp),
-                                                                   zero_pad[idx_comp, ...]
-                                                                   )
+                force_B_1, torque_A_1, torque_B_1 = get_contact_wrenches(P_tot, 
+                                                                         D_tot, 
+                                                                         S_mat, 
+                                                                         Repf_mat[idx_comp, ...],
+                                                                         Ds,
+                                                                         verts_tf,
+                                                                         len(idx_comp),
+                                                                         zero_pad[idx_comp, ...],
+                                                                         stiffness
+                                                                         )
 
                 #rotate forces into global frame from frame A
-                force_B = rotate_vec(force_B, states_A[:, 2], R[idx_comp,:,:])
-                contact_wrenches[ idx_comp, colp[1], :2] += -force_B
-                contact_wrenches[ idx_comp, colp[0], :2] += force_B
-                contact_wrenches[ idx_comp, colp[1], 2] += torque_A
-                contact_wrenches[ idx_comp, colp[0], 2] += torque_B
-    return contact_wrenches
+                col_active = torch.abs(contact_wrenches[ idx_comp, colp[1], 2]) > 0.01
+                new_col = (1.0*~col_active).view(-1,1)
+                already_col = (col_active).view(-1,1)
+                force_B_1 = rotate_vec(force_B_1, states_A[:, 2], R[idx_comp,:,:])
+                new_col_active = (torch.abs(torque_B_1) > 0.01).view(-1,1)
+
+                contact_wrenches[ idx_comp, colp[1], :2] += -force_B_1 * (1.0 * new_col + 0.5*already_col) + (-0.5*new_col_active)*force_B_0
+                contact_wrenches[ idx_comp, colp[0], :2] += force_B_1 * (1.0 * new_col + 0.5*already_col) - (-0.5*new_col_active)*force_B_0
+                contact_wrenches[ idx_comp, colp[1], 2] += (torque_A_1.view(-1,1)*(1.0 * new_col + 0.5*already_col) + (-0.5*new_col_active)*torque_B_0.view(-1,1)).view(-1)
+                contact_wrenches[ idx_comp, colp[0], 2] += (torque_B_1.view(-1,1)*(1.0 * new_col + 0.5*already_col) + (-0.5*new_col_active)*torque_A_0.view(-1,1)).view(-1)
+                
+                #shove[idx_comp, colp[0], :2] += 0.6*contact_wrenches[ idx_comp, colp[0], :2]/stiffness
+                #shove[idx_comp, colp[1], :2] += 0.6*contact_wrenches[ idx_comp, colp[1], :2]/stiffness
+    shove[:,:,:2] = 0.6*contact_wrenches[:,:,:2]/stiffness
+    shove[:,:,2]  = 1000.0*contact_wrenches[:,:,2]/(stiffness*Iz)          
+    return contact_wrenches, shove
 

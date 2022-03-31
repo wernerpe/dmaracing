@@ -42,5 +42,6 @@ fi
 # install dmaracing package
 pip install -e .
 
-
+cd ../rsl_rl && pip install -e .
+cd ../dmaracing
 echo "SUCCESS"

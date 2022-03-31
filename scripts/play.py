@@ -9,20 +9,20 @@ import time
 
 def play():
     chkpt = -1
-    cfg['sim']['numEnv'] = 10
-    cfg['sim']['numAgents'] = 1
+    cfg['sim']['numEnv'] = 2
+    cfg['sim']['numAgents'] = 3
     cfg['learn']['timeout'] = 300
     cfg['learn']['offtrack_reset'] = 3.0
     cfg['track']['seed'] = 31
-    cfg['track']['num_tracks'] = 1
+    cfg['track']['num_tracks'] = 20
 
-    cfg['track']['CHECKPOINTS'] = 12
-    cfg['track']['TRACK_RAD'] = 700
-    cfg['viewer']['multiagent'] = False
+    #cfg['track']['CHECKPOINTS'] = 3
+    #cfg['track']['TRACK_RAD'] = 800
+    cfg['viewer']['multiagent'] = True
 
     env = DmarEnv(cfg, args)
     #env.viewer.mark_env(0)
-    obs = env.obs_buf[:,0,:]
+    obs = env.obs_buf
 
     dir, model = get_run(logdir, run = -1, chkpt=chkpt)
     chkpt = model
@@ -37,11 +37,12 @@ def play():
     while True:
         t1 = time.time()
         actions = policy(obs)
+        actions[:,1:,1] *=0.0
         obs,_, rew, dones, info = env.step(actions)
-        obsnp = obs.cpu().numpy()
-        rewnp = rew.cpu().numpy()
-        cont = env.conturing_err.cpu().numpy()
-        act = actions.cpu().detach().numpy()
+        obsnp = obs[:,0,:].cpu().numpy()
+        rewnp = rew[:,0].cpu().numpy()
+        cont = env.contuoring_err.cpu().numpy()
+        act = env.actions[:,0,:].cpu().detach().numpy()
         states = env.states.cpu().numpy()
         om_mean = np.mean(states[env.viewer.env_idx_render,0, env.vn['S_W0']:env.vn['S_W3'] +1 ])
 
