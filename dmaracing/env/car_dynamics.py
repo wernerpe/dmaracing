@@ -9,121 +9,6 @@ sys.path.insert(1, '/home/peter/git/dynamics_model_learning/scripts')
 # Import Dynamics encoder from TRI dynamics library.
 from learn_dynamics import DynamicsEncoder
 
-<<<<<<< HEAD
-# @torch.jit.script
-def step_cars(state : torch.Tensor, 
-              actions : torch.Tensor,
-              wheel_locations: torch.Tensor,
-              R: torch.Tensor, 
-              contact_wrenches : torch.Tensor, 
-              mod_par : Dict[str, float],  
-              sim_par : Dict[str, float], 
-              vn : Dict[str, int],
-              collision_pairs : List[List[int]],
-              collision_verts : torch.Tensor,
-              P_tot : torch.Tensor,
-              D_tot : torch.Tensor,
-              S_mat : torch.Tensor,
-              Repf_mat : torch.Tensor,
-              Ds : List[int],
-              num_envs : int,
-              zero_pad : torch.Tensor,
-              collide: int,
-              wheels_on_track_segments : torch.Tensor,
-              active_track_mask: torch.Tensor,
-              A_track: torch.Tensor,
-              b_track: torch.Tensor,
-              S_track: torch.Tensor, 
-              dyn_model: DynamicsEncoder
-              ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    
-    #set steering angle
-    #dir = torch.sign(actions[:, :, vn['A_STEER']] - state[:, :, vn['S_STEER']])
-    #val = torch.abs(actions[:, :, vn['A_STEER']] - state[:, :, vn['S_STEER']])
-
-    theta = state[:, :, vn['S_THETA']]
-    delta = state[:, :, vn['S_STEER']]
-
-    #state[:, :, vn['S_STEER']] += sim_par['dt']*dir * torch.min(50.0 * val, 3.0 +  0*val)
-    #state[:, :, vn['S_STEER']] = torch.clamp(state[:, :, vn['S_STEER']], -np.pi/4, np.pi/4)
-    state[:, :, vn['S_STEER']] = torch.clamp(actions[:, :, vn['A_STEER']], -np.pi/10, np.pi/10)
-    
-    #compute wheel forward and side directions, plus locations in the global frame
-    dir_fwd_ft = torch.cat((torch.cos(theta + delta).unsqueeze(2), torch.sin(theta + delta).unsqueeze(2)), dim = 2)
-    dir_fwd_bk = torch.cat((torch.cos(theta).unsqueeze(2), torch.sin(theta).unsqueeze(2)), dim = 2)
-
-    #(numenv, num_ag, 2)
-    wheel_dirs_forward = torch.cat((dir_fwd_ft.unsqueeze(2),
-                                    dir_fwd_ft.unsqueeze(2),
-                                    dir_fwd_bk.unsqueeze(2),
-                                    dir_fwd_bk.unsqueeze(2)), dim = 2)
-
-    dir_sid_ft = torch.cat((-torch.sin(theta + delta).unsqueeze(2), torch.cos(theta + delta).unsqueeze(2)), dim = 2)
-    dir_sid_bk = torch.cat((-torch.sin(theta).unsqueeze(2), torch.cos(theta).unsqueeze(2)), dim = 2)
-
-    wheel_dirs_side =  torch.cat((dir_sid_ft.unsqueeze(2),
-                                  dir_sid_ft.unsqueeze(2),
-                                  dir_sid_bk.unsqueeze(2),
-                                  dir_sid_bk.unsqueeze(2)), dim = 2)
-    
-
-    R[:, :, 0, 0 ] = torch.cos(theta)
-    R[:, :, 0, 1 ] = -torch.sin(theta)
-    R[:, :, 1, 0 ] = torch.sin(theta)
-    R[:, :, 1, 1 ] = torch.cos(theta)
-    #(num_envs, num_agents, 2, 2) x (num_envs, num_agents, num_wheels, 2)
-    wheel_locations_bodycentric_world = torch.einsum('klij, dj->kldi', R, wheel_locations)
-    wheel_locations_world = wheel_locations_bodycentric_world + torch.tile(state[:,:, vn['S_X']:vn['S_Y']+1].unsqueeze(2), (1,1,4,1))
-    wheel_locations_bodycentric_world = torch.nn.functional.pad(wheel_locations_bodycentric_world, (0,1))
-   
-    #set gas 
-    #diff = actions[:, :, vn['A_GAS']] - state[:, :, vn['S_GAS']] 
-    #state[:, :, vn['S_GAS']] += torch.clamp(diff, max=0.1)
-    state[:, :, vn['S_GAS']] = torch.clamp(actions[:, :, vn['A_GAS']], -1, 1)
-    
-    #set wheel speeds
-    num = sim_par['dt'] * mod_par['ENGINE_POWER']*state[:, :, vn['S_GAS']]
-    den = mod_par['WHEEL_MOMENT_OF_INERTIA']*(torch.abs(state[:, :, vn['S_W2']:vn['S_W3']+1]) + 5)
-    state[:, :, vn['S_W2']:vn['S_W3']+1] += torch.div( num.unsqueeze(2),den)
-
-    #set brake
-    #break >0.9 -> lock up wheels
-    dir =  -torch.sign(state[:, :, vn['S_W0']:vn['S_W3']+1])
-    val = mod_par['BREAKFORCE'] * actions[:, :, vn['A_BRAKE']].unsqueeze(2)
-    need_clip = torch.abs(val)>torch.abs(state[:, :, vn['S_W0']:vn['S_W3']+1])
-    val = need_clip * torch.abs(state[:, :, vn['S_W0']:vn['S_W3']+1]) + ~need_clip*val
-    state[:, :, vn['S_W0']:vn['S_W3']+1] += dir*val
-    state[:, :, vn['S_W0']:vn['S_W3']+1] = (0.9 >= actions[:, :, vn['A_BRAKE']]).unsqueeze(2) * state[:, :, vn['S_W0']:vn['S_W3']+1]
-    
-    vr = state[:, :, vn['S_W0']:vn['S_W3']+1] * mod_par['WHEEL_R']
-    omega_body  = torch.nn.functional.pad(state[:, :, vn['S_DTHETA']].unsqueeze(2), (2, 0))
-    
-    wheel_vels_fl = state[:, :, vn['S_DX']:vn['S_DY']+1] - torch.cross(wheel_locations_bodycentric_world[:,:, 0, :],  omega_body)[:, :, 0:2]
-    wheel_vels_fr = state[:, :, vn['S_DX']:vn['S_DY']+1] - torch.cross(wheel_locations_bodycentric_world[:,:, 1, :],  omega_body)[:, :, 0:2]
-    wheel_vels_br = state[:, :, vn['S_DX']:vn['S_DY']+1] - torch.cross(wheel_locations_bodycentric_world[:,:, 2, :],  omega_body)[:, :, 0:2]
-    wheel_vels_bl = state[:, :, vn['S_DX']:vn['S_DY']+1] - torch.cross(wheel_locations_bodycentric_world[:,:, 3, :],  omega_body)[:, :, 0:2] 
-    wheel_vels = torch.cat((wheel_vels_fl.unsqueeze(2),
-                            wheel_vels_fr.unsqueeze(2),
-                            wheel_vels_br.unsqueeze(2),
-                            wheel_vels_bl.unsqueeze(2)), dim = 2)
-    
-    #wheel vels (num_env, num_agnt, 4, 2) wheel_dir (num_env, num_agnt, 4, 2) -> wheel force proj (num_env, num_agnt, 4, )
-    #vf = torch.einsum('ijkl, ijkl -> ijk', wheel_vels, wheel_dirs_forward)                        
-    #vs = torch.einsum('ijkl, ijkl -> ijk', wheel_vels, wheel_dirs_side)                        
-    #f_force = -vf + vr
-    #p_force = -vs*15.0
-    #f_force *= 205000 *mod_par['SIZE']**2
-    #p_force *= 205000 *mod_par['SIZE']**2
-    
-=======
-# Add Dynamics directory to python path. Change this path to match that of your local system!
-import sys
-
-sys.path.insert(1, "/home/thomasbalch/tri_workspace/dynamics_model_learning/scripts")
-# Import Dynamics encoder from TRI dynamics library.
-from learn_dynamics import DynamicsEncoder
-import IPython
-
 # @torch.jit.script
 def step_cars(
     state: torch.Tensor,
@@ -322,7 +207,6 @@ def get_state_control_tensors(
     p_force = -vs * 10.0
     f_force *= 245000 * mod_par["SIZE"] ** 2
     p_force *= 205000 * mod_par["SIZE"] ** 2
->>>>>>> e311c374585e75caffa081d10e378287fb23095d
 
     # check which tires are on track
     # Multi track A_track [ntracks, polygon = 4*300, coords = 2]
@@ -337,17 +221,6 @@ def get_state_control_tensors(
     wheels_on_track_segments[:] = torch.einsum("jt, eawt -> eawj", S_track, wheels_on_track_segments_concat) >= 3.5
     wheel_on_track = torch.any(wheels_on_track_segments, dim=3)
 
-<<<<<<< HEAD
-    #f_tot = torch.sqrt(torch.square(f_force) +torch.square(p_force)) + 1e-9
-    #f_lim = ((1-mod_par['OFFTRACK_FRICTION_SCALE'])*mod_par['FRICTION_LIMIT'])*wheel_on_track + mod_par['OFFTRACK_FRICTION_SCALE']*mod_par['FRICTION_LIMIT']
-    #slip = f_tot > f_lim
-    #f_force = slip * (0.9*f_lim * torch.div(f_force, f_tot)) + ~slip * f_force
-    #p_force = slip * (0.9*f_lim * torch.div(p_force, f_tot)) + ~slip * p_force
-
-    #state[:, :, vn['S_W0']:vn['S_W3']+1] -= sim_par['dt']*mod_par['WHEEL_R']/mod_par['WHEEL_MOMENT_OF_INERTIA'] * f_force
-
-    #apply force to center
-=======
     f_tot = torch.sqrt(torch.square(f_force) + torch.square(p_force)) + 1e-9
     f_lim = ((1 - mod_par["OFFTRACK_FRICTION_SCALE"]) * mod_par["FRICTION_LIMIT"]) * wheel_on_track + mod_par[
         "OFFTRACK_FRICTION_SCALE"
@@ -362,69 +235,10 @@ def get_state_control_tensors(
     state[:, :, vn["S_W0"] : vn["S_W3"] + 1] *= 0.9
 
     # apply force to center
->>>>>>> e311c374585e75caffa081d10e378287fb23095d
     # wheel_forces = f_force.unsqueeze(3)*wheel_dirs_forward + p_force.unsqueeze(3)*wheel_dirs_side
     # net_force = torch.sum(wheel_forces, dim = 2)
     # net_torque = torch.sum(torch.cross(wheel_locations_bodycentric_world, torch.nn.functional.pad(wheel_forces, (0,1)), dim = 3)[..., 2], dim = 2)
 
-<<<<<<< HEAD
-    #net_torque
-    # ddx = 1/mod_par['M']*(net_force[:,:,0] + contact_wrenches[:,:,0])
-    # ddy = 1/mod_par['M']*(net_force[:,:,1] + contact_wrenches[:,:,1])
-    # ddtheta = 1/mod_par['I']*(net_torque + contact_wrenches[:,:,2])
-    # acc = torch.cat((ddx.unsqueeze(2),ddy.unsqueeze(2),ddtheta.unsqueeze(2)), dim= 2)
-    # state[:, :, vn['S_X']:vn['S_THETA'] + 1] += sim_par['dt']*state[:,:,vn['S_DX']:vn['S_DTHETA']+1]
-    # state[:, :, vn['S_DX']:vn['S_DTHETA'] + 1] += sim_par['dt']*acc
-    # model_->computeStateDeriv(current_state, current_control, xdot);
-    # model_->updateState(current_state, xdot, dt_);
-    q0 = state[:, :, vn['S_W0']]
-    q1 = state[:, :, vn['S_W1']]
-    q2 = state[:, :, vn['S_W2']]
-    q3 = state[:, :, vn['S_W3']]
-    yaw = state[:, :, vn['S_THETA']] # atan2(2 * q1 * q2 + 2 * q0 * q3, q1 * q1 + q0 * q0 - q3 * q3 - q2 * q2)
-    roll = torch.atan2(2 * q2 * q3 + 2 * q0 * q1, q3 * q3 - q2 * q2 - q1 * q1 + q0 * q0)
-    yaw_rate = state[:, :, vn['S_DTHETA']]
-    dyn_state = torch.cat([state[:, :, vn['S_X']:vn['S_Y']+1], yaw.unsqueeze(1), roll.unsqueeze(1), state[:, :, vn['S_DX']:vn['S_DY']+1], yaw_rate.unsqueeze(1)], dim=2) # x and y in world frame, dx and dy need to be rotated by theta to be in body frame
-    dyn_control = torch.cat([state[:, :, vn['S_STEER']].unsqueeze(1), state[:, :, vn['S_GAS']].unsqueeze(1)], dim=2)
-    # This state update assumes that these steps are occurring at 50 Hz.
-    new_state = dyn_model.predict_one_step(dyn_state.to(dyn_model.device), dyn_control.to(dyn_model.device))
-    
-    new_state = torch.cat([new_state, torch.zeros(4,1,5, device=new_state.device)], dim=2)
-    # Add back in quaternion and steer/gas values
-    psi = new_state[..., 2]  # yaw
-    phi = new_state[..., 3]  # roll
-    theta = torch.zeros(4, 1, device=new_state.device)  # pitch
-    q0 = torch.cos(phi / 2) * torch.cos(theta / 2) * torch.cos(psi / 2) + torch.sin(phi / 2) * torch.sin(theta / 2) * torch.sin(psi / 2)
-    q1 = -torch.cos(phi / 2) * torch.sin(theta / 2) * torch.sin(psi / 2) + torch.cos(theta / 2) * torch.cos(psi / 2) * torch.sin(phi / 2)
-    q2 = torch.cos(phi / 2) * torch.cos(psi / 2) * torch.sin(theta / 2) + torch.sin(phi / 2) * torch.cos(theta / 2) * torch.sin(psi / 2)
-    q3 = torch.cos(phi / 2) * torch.cos(theta / 2) * torch.sin(psi / 2) - torch.sin(phi / 2) * torch.cos(psi / 2) * torch.sin(theta / 2)
-    
-    new_state[..., vn['S_DX']:vn['S_DTHETA']+1] = new_state[..., vn['S_DX']+1:vn['S_DTHETA']+2]
-    new_state[..., vn['S_W0']] = q0
-    new_state[..., vn['S_W1']] = q1
-    new_state[..., vn['S_W2']] = q2
-    new_state[..., vn['S_W3']] = q3
-    new_state[..., vn['S_STEER']] = state[..., vn['S_STEER']]
-    new_state[..., vn['S_GAS']] = state[..., vn['S_GAS']]
-    new_state = new_state.detach().to(state.device)
-
-    if collide:
-        contact_wrenches = resolve_collsions(contact_wrenches,
-                                             new_state,
-                                             collision_pairs,
-                                             mod_par['lf'],
-                                             collision_verts,
-                                             R[:,0,:,:],
-                                             P_tot,
-                                             D_tot,
-                                             S_mat,
-                                             Repf_mat,
-                                             Ds,
-                                             num_envs,
-                                             zero_pad)
-
-    return new_state, contact_wrenches, wheels_on_track_segments
-=======
     # net_torque
     # ddx = 1/mod_par['M']*(net_force[:,:,0] + contact_wrenches[:,:,0])
     # ddy = 1/mod_par['M']*(net_force[:,:,1] + contact_wrenches[:,:,1])
@@ -512,4 +326,3 @@ def add_back_quaternion(
     new_state[..., vn["S_GAS"]] = state[..., vn["S_GAS"]]
     new_state = new_state.detach().to(state.device)
     return new_state
->>>>>>> e311c374585e75caffa081d10e378287fb23095d
