@@ -9,17 +9,7 @@ import time
 
 def play():
     chkpt = -1
-    cfg['sim']['numEnv'] = 2
-    cfg['sim']['numAgents'] = 3
-    cfg['learn']['timeout'] = 300
-    cfg['learn']['offtrack_reset'] = 3.0
-    cfg['track']['seed'] = 31
-    cfg['track']['num_tracks'] = 20
-
-    #cfg['track']['CHECKPOINTS'] = 3
-    #cfg['track']['TRACK_RAD'] = 800
-    cfg['viewer']['multiagent'] = True
-
+    
     env = DmarEnv(cfg, args)
     #env.viewer.mark_env(0)
     obs = env.obs_buf
@@ -37,12 +27,12 @@ def play():
     while True:
         t1 = time.time()
         actions = policy(obs)
-        actions[:,1:,1] *=0.0
+        #actions[:,1:,1] *=0.0
         obs,_, rew, dones, info = env.step(actions)
-        obsnp = obs[:,0,:].cpu().numpy()
-        rewnp = rew[:,0].cpu().numpy()
-        cont = env.contuoring_err.cpu().numpy()
-        act = env.actions[:,0,:].cpu().detach().numpy()
+        obsnp = obs.cpu().numpy()
+        rewnp = rew.cpu().numpy()
+        #cont = env.contuoring_err.cpu().numpy()
+        act = env.actions.cpu().detach().numpy()
         states = env.states.cpu().numpy()
         om_mean = np.mean(states[env.viewer.env_idx_render,0, env.vn['S_W0']:env.vn['S_W3'] +1 ])
 
@@ -53,8 +43,8 @@ def play():
                      (f"""{'ang vel:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 2]:.2f}"""),
                      (f"""{'steer:':>{10}}{' '}{states[env.viewer.env_idx_render, 0, env.vn['S_STEER']]:.2f}"""),
                      (f"""{'gas:':>{10}}{' '}{states[env.viewer.env_idx_render, 0, env.vn['S_GAS']]:.2f}"""),
-                     (f"""{'brake:':>{10}}{' '}{act[env.viewer.env_idx_render, env.vn['A_BRAKE']]:.2f}"""),
-                     (f"""{'cont err:':>{10}}{' '}{cont[env.viewer.env_idx_render, 0]:.2f}"""),
+                     (f"""{'brake:':>{10}}{' '}{act[env.viewer.env_idx_render, 0, env.vn['A_BRAKE']]:.2f}"""),
+                     #(f"""{'cont err:':>{10}}{' '}{cont[env.viewer.env_idx_render, 0]:.2f}"""),
                      (f"""{'omega mean:':>{10}}{' '}{om_mean:.2f}"""),
                      ]
         
@@ -63,8 +53,9 @@ def play():
             env.viewer.add_string(msg)
         t2 = time.time()
         realtime = t2-t1-time_per_step
-        #if realtime < 0:
-        #     time.sleep(-realtime)
+        
+        if realtime < 0:
+             time.sleep(-realtime)
 
 if __name__ == "__main__":
     args = CmdLineArguments()
@@ -73,4 +64,19 @@ if __name__ == "__main__":
     args.test = True
     path_cfg = os.getcwd() + '/cfg'
     cfg, cfg_train, logdir = getcfg(path_cfg)
+    cfg["logdir"] = logdir
+    cfg_train['runner']['policy_class_name'] = 'ActorCritic'
+    cfg_train['runner']['algorithm_class_name'] = 'PPO'
+    cfg['sim']['numAgents'] = 1
+    cfg['sim']['collide'] = 0
+    cfg['sim']['numEnv'] = 1
+    cfg['sim']['numAgents'] = 1
+    cfg['track']['num_tracks'] = 3
+    cfg['learn']['offtrack_reset'] = 10
+    cfg['learn']['timeout'] = 100
+    cfg['model']['OFFTRACK_FRICTION_SCALE'] = 1
+    cfg['model']['drag_reduction'] = 1.0
+    cfg["viewer"]["logEvery"] = -1
+    cfg['track']['num_tracks'] = 20
+    set_dependent_cfg_entries(cfg)
     play()    

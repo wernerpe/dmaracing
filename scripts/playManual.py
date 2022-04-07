@@ -98,7 +98,7 @@ if __name__ == "__main__":
     cfg["track"]['OFFTRACK_FRICTION_SCALE'] = 1.0
     cfg['sim']['numEnv'] = 1
     cfg['sim']['numAgents'] = 1
-    cfg['track']['num_tracks'] = 3
+    cfg['track']['num_tracks'] = 7
     #cfg['track']['num_tracks'] = 3
     cfg['viewer']['multiagent'] = True
     cfg['learn']['defaultactions'] = [0,0,0]

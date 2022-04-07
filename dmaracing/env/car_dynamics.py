@@ -58,11 +58,11 @@ def step_cars(
     
     #print('input to dynmod')
     #print(dyn_state[0,0,:])
-    #dyn_state[..., 3] = 0.0
+    dyn_state[..., 3] = 0.0
     new_state = dyn_model.dynamics_integrator.predict_and_integrate(
         dyn_state.to(dyn_model.device), dyn_control.to(dyn_model.device)
     )
-    print('roll', dyn_state[0,0,3])
+    #print('roll', dyn_state[0,0,3])
 
     new_state = torch.cat([new_state, torch.zeros(num_envs, state.shape[1], 5, device=new_state.device)], dim=2)
 

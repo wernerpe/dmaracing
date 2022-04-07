@@ -37,6 +37,7 @@ class DmarEnv:
 
         # Import TRI dynamics model and weights
         self.dyn_model = DynamicsEncoder.load_from_checkpoint(
+            #"/home/peter/git/dynamics_model_learning/sample_models/fixed_integration_current_v25.ckpt").to(self.device)
             "/home/peter/git/dynamics_model_learning/sample_models/higher_roll_loss.ckpt").to(self.device)
 
         # use bootstrapping on vf
@@ -399,6 +400,7 @@ class DmarEnv:
             self.reward_terms,
             self.num_agents,
             self.active_agents,
+            self.dt
         )
 
     def check_termination(self) -> None:
@@ -786,11 +788,14 @@ def compute_rewards_jit(
     reward_terms: Dict[str, torch.Tensor],
     num_agents: int,
     active_agents: torch.Tensor,
+    dt: float,
 ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
 
     rew_progress = torch.clip(track_progress - old_track_progress, min=-10, max=10) * reward_scales["progress"]
     rew_on_track = reward_scales["offtrack"] * ~is_on_track
-    rew_actionrate = -torch.sum(torch.square(actions - last_actions), dim=2) * reward_scales["actionrate"]
+    act_diff = torch.square(actions - last_actions)
+    act_diff[...,1] *= 20.0
+    rew_actionrate = -torch.sum(act_diff, dim=2) * reward_scales["actionrate"]
     rew_energy = -torch.sum(torch.square(states[:, :, vn["S_W0"] : vn["S_W3"] + 1]), dim=2) * reward_scales["energy"]
     num_active_agents = torch.sum(1.0 * active_agents, dim=1)
     if ranks is not None:
@@ -806,7 +811,7 @@ def compute_rewards_jit(
         rew_rank = 0*rew_on_track
         rew_collision = 0*rew_on_track
         rew_buf = torch.clip(
-            rew_progress + rew_on_track + rew_actionrate + rew_energy , min=0, max=None
+            rew_progress + rew_on_track + rew_actionrate + rew_energy + 0.1*dt , min=0, max=None
         )
 
     reward_terms["progress"] += rew_progress
