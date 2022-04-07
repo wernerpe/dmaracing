@@ -9,7 +9,7 @@ sys.path.insert(1, '/home/peter/git/dynamics_model_learning/scripts')
 # Import Dynamics encoder from TRI dynamics library.
 from learn_dynamics import DynamicsEncoder
 
-# @torch.jit.script
+#@torch.jit.script
 def step_cars(
     state: torch.Tensor,
     actions: torch.Tensor,
@@ -55,12 +55,15 @@ def step_cars(
         b_track,
         S_track,
     )
-
+    
+    #print('input to dynmod')
+    #print(dyn_state[0,0,:])
+    dyn_state[..., 3] = 0.0
     new_state = dyn_model.dynamics_integrator.predict_and_integrate(
         dyn_state.to(dyn_model.device), dyn_control.to(dyn_model.device)
     )
 
-    new_state = torch.cat([new_state, torch.zeros(3, 3, 5, device=new_state.device)], dim=2)
+    new_state = torch.cat([new_state, torch.zeros(num_envs, state.shape[1], 5, device=new_state.device)], dim=2)
 
     new_state = add_back_quaternion(state, vn, new_state)
     # new_state[:, :, vn["S_STEER"]] = dyn_control[:, :, 0]
@@ -116,7 +119,7 @@ def get_state_control_tensors(
 
     # state[:, :, vn['S_STEER']] += sim_par['dt']*dir * torch.min(50.0 * val, 3.0 +  0*val)
     # state[:, :, vn['S_STEER']] = torch.clamp(state[:, :, vn['S_STEER']], -np.pi/4, np.pi/4)
-    state[:, :, vn["S_STEER"]] = torch.clamp(actions[:, :, vn["A_STEER"]], -np.pi / 4, np.pi / 4)
+    state[:, :, vn["S_STEER"]] = torch.clamp(actions[:, :, vn["A_STEER"]], -0.35 , .35)
 
     # compute wheel forward and side directions, plus locations in the global frame
     dir_fwd_ft = torch.cat((torch.cos(theta + delta).unsqueeze(2), torch.sin(theta + delta).unsqueeze(2)), dim=2)
@@ -149,9 +152,11 @@ def get_state_control_tensors(
     # diff = actions[:, :, vn["A_GAS"]] - state[:, :, vn["S_GAS"]]
     # state[:, :, vn["S_GAS"]] += torch.clip(diff, min=-0.1, max=0.06)
     # state[:, :, vn["S_GAS"]] = torch.clamp(state[:, :, vn["S_GAS"]], 0, 1)
-    state[:, :, vn["S_GAS"]] = torch.clip(actions[:, :, vn["A_GAS"]], 0, 1) * (
-        1.0 * ~drag_reduced + mod_par["drag_reduction"] * drag_reduced
-    )
+    state[:, :, vn["S_GAS"]] = torch.clip(actions[:, :, vn["A_GAS"]], -1, 1) 
+    # drafting disabled
+    # * (
+        # 1.0 * ~drag_reduced + mod_par["drag_reduction"] * drag_reduced
+    # )
 
     # set wheel speeds
     num = sim_par["dt"] * mod_par["ENGINE_POWER"] * state[:, :, vn["S_GAS"]]

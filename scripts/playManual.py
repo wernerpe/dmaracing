@@ -3,10 +3,11 @@ from dmaracing.env.dmar import DmarEnv
 from dmaracing.utils.helpers import *
 import os
 import numpy as np
+import time
 
 def play():
-    cfg['sim']['numEnv'] = 3
-    cfg['sim']['numAgents'] = 3
+    cfg['sim']['numEnv'] = 1
+    cfg['sim']['numAgents'] = 2
     #cfg['sim']['decimation'] = 4
     
     cfg['track']['num_tracks'] = 3
@@ -38,14 +39,14 @@ def play():
         
     print('###########################')
     while True:
-        
+        t1 = time.time()
         actions[0 , ag, 0] = steer_cmd 
         actions[0 , ag, 1] = vel_cmd
-        actions[0 , ag, 2] = brk_cmd
+        actions[0 , ag, 2] = 0
         
         obs, _, rew, dones, info = env.step(actions)
-        if 'ranking' in info:
-            print('info', info['ranking'])
+        #if 'ranking' in info:
+        #    print('info', info['ranking'])
         obsnp = obs[:,0,:].cpu().numpy()
         rewnp = rew[:, 0].cpu().numpy()
         cont = env.contouring_err.cpu().numpy()
@@ -59,24 +60,25 @@ def play():
        
         #print(env.active_agents[env.viewer.env_idx_render])
         viewermsg = [
-                     (f"""{'rewards:':>{10}}{' '}{100*rewnp[env.viewer.env_idx_render]:.2f}"""   ),
+                     #(f"""{'rewards:':>{10}}{' '}{100*rewnp[env.viewer.env_idx_render]:.2f}"""   ),
                      #(f"""{'velocity x:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 0]:.2f}"""),
                      #(f"""{'velocity y:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 1]:.2f}"""),
                      #(f"""{'ang vel:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 2]:.2f}"""),
                      #(f"""{'steer:':>{10}}{' '}{states[env.viewer.env_idx_render, 0, env.vn['S_STEER']]:.2f}"""),
                      #(f"""{'gas:':>{10}}{' '}{states[env.viewer.env_idx_render, 0, env.vn['S_GAS']]:.2f}"""),
-                     (f"""{'gas state:':>{10}}{' '}{states[env.viewer.env_idx_render, ag, env.vn['S_GAS']]:.2f}"""),
+                     #(f"""{'gas state:':>{10}}{' '}{states[env.viewer.env_idx_render, ag, env.vn['S_GAS']]:.2f}"""),
                      (f"""{'gas act:':>{10}}{' '}{act[env.viewer.env_idx_render, env.vn['A_GAS']]:.2f}"""),
+                     (f"""{'steer act:':>{10}}{' '}{act[env.viewer.env_idx_render, env.vn['A_STEER']]:.2f}"""),
                      #(f"""{'brake:':>{10}}{' '}{act[env.viewer.env_idx_render, env.vn['A_BRAKE']]:.2f}"""),
                      #(f"""{'cont err:':>{10}}{' '}{cont[env.viewer.env_idx_render, 0]:.2f}"""),
-                     (f"""{'omega mean:':>{10}}{' '}{om_mean:.2f}"""),
+                     #(f"""{'omega mean:':>{10}}{' '}{om_mean:.2f}"""),
                      #(f"""{'omega mean:':>{10}}{' '}{om_mean:.2f}"""),
                      #(f"""{'velother x:':>{10}}{' '}{vel_other[0]:.2f}"""),
                      #(f"""{'velother y:':>{10}}{' '}{vel_other[1]:.2f}"""),                     
-                     (f"""{'lap:':>{10}}{' '}{env.lap_counter[0, ag]:.2f}"""),
-                     (f"""{'rank ag 0 :':>{10}}{' '}{1+env.ranks[env.viewer.env_idx_render, ag].item():.2f}"""),
+                     #(f"""{'lap:':>{10}}{' '}{env.lap_counter[0, ag]:.2f}"""),
+                     #(f"""{'rank ag 0 :':>{10}}{' '}{1+env.ranks[env.viewer.env_idx_render, ag].item():.2f}"""),
                      ]
-        print(env.progress_other[0,0,:])
+        #print(env.progress_other[0,0,:])
         env.viewer.x_offset = int(-env.viewer.width/env.viewer.scale_x*env.states[env.viewer.env_idx_render, ag, 0])
         env.viewer.y_offset = int(env.viewer.height/env.viewer.scale_y*env.states[env.viewer.env_idx_render, ag, 1])
         env.viewer.draw_track()
@@ -88,16 +90,14 @@ def play():
         evt = env.viewer_events
         if evt == 105:
             vel_cmd += 0.1
-            brk_cmd = 0
             print('vel_cmd', vel_cmd, env.states[0,0,env.vn['S_DX']])
         elif evt == 107:
-            vel_cmd = 0.0
-            #brk_cmd += 0.1
+            vel_cmd -= 0.1
             print('vel_cmd', vel_cmd, env.states[0,0,env.vn['S_DX']])
         elif evt == 106:
-            steer_cmd += 0.1 * (steer_cmd < 1)
+            steer_cmd += 0.02 * (steer_cmd < 1)
         elif evt == 108:
-            steer_cmd -= 0.4 * (steer_cmd> -1)
+            steer_cmd -= 0.02* (steer_cmd> -1)
         elif evt == 121:
             print("env ", env.viewer.env_idx_render, " reset")
             env.episode_length_buf[env.viewer.env_idx_render] = 1e9
@@ -105,7 +105,10 @@ def play():
             ag = (ag + 1) % env.num_agents
         if evt == 109:
             ag = (ag - 1) % env.num_agents
-        
+        t2 = time.time()
+
+        print('dt ', t2-t1)
+
 if __name__ == "__main__":
     args = CmdLineArguments()
     args.device = 'cuda:0'

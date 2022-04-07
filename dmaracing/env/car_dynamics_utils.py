@@ -60,7 +60,7 @@ def set_dependent_params(mod_par):
     mod_par['WHEEL_MOMENT_OF_INERTIA'] = mod_par['WHEEL_MOMENT_OF_INERTIA_SCALE']*SIZE**2
     mod_par['FRICTION_LIMIT'] = mod_par['FRICTION_LIMIT_SCALE'] * SIZE * SIZE
     mod_par['WHEEL_R'] = SIZE*mod_par['WHEEL_R_SCALE']
-    L = 160.0 *SIZE
+    L = 0.35
     W = L/2
     M = L*W *mod_par['MASS_SCALE']
     mod_par['M'] = M

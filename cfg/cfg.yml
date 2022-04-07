@@ -12,7 +12,7 @@ sim:
   numConstantObservations: 8 #vels, steer, gas, last actions, rank 
   numActions: 3
   collide: 1
-  decimation: 4
+  decimation: 1
   test_mode: False
   collisionstiffness: 280000.0
   
@@ -25,7 +25,7 @@ model:
   OFFTRACK_FRICTION_SCALE: 0.2
   WHEEL_R_SCALE: 27
   LENGTH_SCALE: 200
-  MASS_SCALE: 160
+  MASS_SCALE: 40
   MOMENT_OF_INERTIA_SCALE: 7.0
   drag_reduction: 1.3
 
@@ -35,7 +35,7 @@ viewer:
   width_tb: 600  # 1200
   height_tb: 600  # 1200
   
-  scale: 240.0 #[m/width*px] indicates how wide the window is in pixels
+  scale: 12.0 #[m/width*px] indicates how wide the window is in pixels
   linethickness: 1
   multiagent: True
   maxAgents: 400
@@ -43,12 +43,12 @@ viewer:
 
 track:
   #https://github.com/openai/gym/blob/master/gym/envs/box2d/car_racing.py
-  SCALE: 6.0  # Track scale
+  SCALE: 40.0  # Track scale
   TRACK_RAD: 700   # Track is heavily morphed circle with this radius
   CHECKPOINTS: 15
   TRACK_DETAIL_STEP: 25 
   TRACK_TURN_RATE: 0.51
-  TRACK_WIDTH: 40 
+  TRACK_WIDTH: 30 
   BORDER: 8 
   BORDER_MIN_COUNT: 3
   verbose: False
