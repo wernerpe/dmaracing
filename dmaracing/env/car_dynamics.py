@@ -62,6 +62,7 @@ def step_cars(
     new_state = dyn_model.dynamics_integrator.predict_and_integrate(
         dyn_state.to(dyn_model.device), dyn_control.to(dyn_model.device)
     )
+    print('roll', dyn_state[0,0,3])
 
     new_state = torch.cat([new_state, torch.zeros(num_envs, state.shape[1], 5, device=new_state.device)], dim=2)
 
@@ -152,7 +153,7 @@ def get_state_control_tensors(
     # diff = actions[:, :, vn["A_GAS"]] - state[:, :, vn["S_GAS"]]
     # state[:, :, vn["S_GAS"]] += torch.clip(diff, min=-0.1, max=0.06)
     # state[:, :, vn["S_GAS"]] = torch.clamp(state[:, :, vn["S_GAS"]], 0, 1)
-    state[:, :, vn["S_GAS"]] = torch.clip(actions[:, :, vn["A_GAS"]], -1, 1) 
+    state[:, :, vn["S_GAS"]] = torch.clip(actions[:, :, vn["A_GAS"]], -1, 0.2) 
     # drafting disabled
     # * (
         # 1.0 * ~drag_reduced + mod_par["drag_reduction"] * drag_reduced
@@ -322,7 +323,7 @@ def add_back_quaternion(
         psi / 2
     ) * torch.sin(theta / 2)
 
-    new_state[..., vn["S_DX"] : vn["S_DTHETA"] + 1] = new_state[..., vn["S_DX"] + 1 : vn["S_DTHETA"] + 2]
+    new_state[..., vn["S_DX"] : vn["S_DTHETA"] + 1] = new_state[..., vn["S_DX"] + 1 : vn["S_DTHETA"] + 2].clone()
     new_state[..., vn["S_W0"]] = q0
     new_state[..., vn["S_W1"]] = q1
     new_state[..., vn["S_W2"]] = q2

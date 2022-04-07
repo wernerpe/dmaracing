@@ -172,10 +172,11 @@ class DmarEnv:
             "progress": torch_zeros((self.num_envs, self.num_agents)),
             "offtrack": torch_zeros((self.num_envs, self.num_agents)),
             "actionrate": torch_zeros((self.num_envs, self.num_agents)),
-            "energy": torch_zeros((self.num_envs, self.num_agents)),
-            "rank": torch_zeros((self.num_envs, self.num_agents)),
-            "collision": torch_zeros((self.num_envs, self.num_agents)),
+            "energy": torch_zeros((self.num_envs, self.num_agents))
         }
+        if self.num_agents>1:
+            self.reward_terms["rank"] = torch_zeros((self.num_envs, self.num_agents))
+            self.reward_terms["collision"] = torch_zeros((self.num_envs, self.num_agents))
 
         self.is_collision = torch.zeros(
             (self.num_envs, self.num_agents), requires_grad=False, device=self.device, dtype=torch.float
@@ -253,6 +254,9 @@ class DmarEnv:
 
         self.lookahead_body = torch.einsum("eaij, eatj->eati", self.R, self.lookahead)
         lookahead_scaled = self.lookahead_scaler * self.lookahead_body
+
+        self.vels_body = vels
+        self.vels_body[..., :-1] = torch.einsum("eaij, eaj -> eai", self.R, vels[..., :-1])
 
         otherpositions = []
         otherrotations = []
@@ -350,14 +354,26 @@ class DmarEnv:
                 * self.active_obs_template
                 * is_other_close
             )
-
+            
+            self.obs_buf = torch.cat(
+                (
+                    self.vels_body * 0.1,
+                    steer,
+                    gas,
+                    lookahead_scaled[:, :, :, 0],
+                    lookahead_scaled[:, :, :, 1],
+                    self.last_actions,
+                    self.progress_other * 0.1,
+                    self.contouring_err_other * 0.25,
+                    rot_other,
+                    vel_other[..., 0] * 0.1,
+                    vel_other[..., 1] * 0.1,
+                    angvel_other * 0.1,
+                ),
+                dim=2,
+            )
         else:
-            raise NotImplementedError
-
-        self.vels_body = vels
-        self.vels_body[..., :-1] = torch.einsum("eaij, eaj -> eai", self.R, vels[..., :-1])
-
-        self.obs_buf = torch.cat(
+            self.obs_buf = torch.cat(
             (
                 self.vels_body * 0.1,
                 steer,
@@ -365,16 +381,11 @@ class DmarEnv:
                 lookahead_scaled[:, :, :, 0],
                 lookahead_scaled[:, :, :, 1],
                 self.last_actions,
-                self.progress_other * 0.1,
-                self.contouring_err_other * 0.25,
-                rot_other,
-                vel_other[..., 0] * 0.1,
-                vel_other[..., 1] * 0.1,
-                angvel_other * 0.1,
             ),
             dim=2,
         )
 
+        
     def compute_rewards(
         self,
     ) -> None:
@@ -387,7 +398,7 @@ class DmarEnv:
             self.last_actions,
             self.vn,
             self.states,
-            self.ranks,
+            self.ranks if self.num_agents>1 else None,
             self.is_collision,
             self.reward_terms,
             self.num_agents,
@@ -513,15 +524,15 @@ class DmarEnv:
             self.info["time_outs"] = self.time_out_buf.view(
                 -1,
             )
-
-        self.info["ranking"] = [
-            torch.mean(
-                (1.0 * self.ranks[env_ids, :] * ~self.agent_left_track[env_ids, :])
-                + 1.0 * self.num_agents * self.agent_left_track[env_ids, :],
-                dim=0,
-            ),
-            1.0 * len(env_ids) / (1.0 * len(self.reset_buf)),
-        ]
+        if self.num_agents>1:
+            self.info["ranking"] = [
+                torch.mean(
+                    (1.0 * self.ranks[env_ids, :] * ~self.agent_left_track[env_ids, :])
+                    + 1.0 * self.num_agents * self.agent_left_track[env_ids, :],
+                    dim=0,
+                ),
+                1.0 * len(env_ids) / (1.0 * len(self.reset_buf)),
+            ]
         #        self.info['ranking'] = self.ranks[env_ids]
         #        self.info['percentage_max_episode_length'] = 1.0*self.episode_length_buf[env_ids]/(self.max_episode_length)
 
@@ -567,9 +578,11 @@ class DmarEnv:
             self.is_collision |= torch.norm(self.contact_wrenches, dim=2) > 0
 
         self.post_physics_step()
-
-        return self.obs_buf.clone(), self.privileged_obs, self.rew_buf.clone(), self.reset_buf.clone(), self.info
-
+        if self.num_agents>1:
+            return self.obs_buf.clone(), self.privileged_obs, self.rew_buf.clone(), self.reset_buf.clone(), self.info
+        else:
+            return self.obs_buf[:,0,:].clone(), self.privileged_obs, self.rew_buf[:,0].clone(), self.reset_buf[:,0].clone(), self.info
+            
     def post_physics_step(self) -> None:
         self.total_step += 1
         self.episode_length_buf += 1
@@ -772,7 +785,7 @@ def compute_rewards_jit(
     last_actions: torch.Tensor,
     vn: Dict[str, int],
     states: torch.Tensor,
-    ranks: torch.Tensor,
+    ranks: Union[torch.Tensor,None],
     is_collision: torch.Tensor,
     reward_terms: Dict[str, torch.Tensor],
     num_agents: int,
@@ -784,17 +797,27 @@ def compute_rewards_jit(
     rew_actionrate = -torch.sum(torch.square(actions - last_actions), dim=2) * reward_scales["actionrate"]
     rew_energy = -torch.sum(torch.square(states[:, :, vn["S_W0"] : vn["S_W3"] + 1]), dim=2) * reward_scales["energy"]
     num_active_agents = torch.sum(1.0 * active_agents, dim=1)
-    rew_rank = 1.0 / num_agents * (num_active_agents.view(-1, 1) / 2.0 - ranks) * reward_scales["rank"]
+    if ranks is not None:
+        rew_rank = 1.0 / num_agents * (num_active_agents.view(-1, 1) / 2.0 - ranks) * reward_scales["rank"]
 
-    rew_collision = is_collision * reward_scales["collision"]
-    rew_buf = torch.clip(
-        rew_progress + rew_on_track + rew_actionrate + rew_energy + rew_rank + rew_collision, min=0, max=None
-    )
+        rew_collision = is_collision * reward_scales["collision"]
+    
+        rew_buf = torch.clip(
+            rew_progress + rew_on_track + rew_actionrate + rew_energy + rew_rank + rew_collision, min=0, max=None
+        )
+    else:
+        #needs to be a tensor
+        rew_rank = 0*rew_on_track
+        rew_collision = 0*rew_on_track
+        rew_buf = torch.clip(
+            rew_progress + rew_on_track + rew_actionrate + rew_energy , min=0, max=None
+        )
 
     reward_terms["progress"] += rew_progress
     reward_terms["offtrack"] += rew_on_track
     reward_terms["actionrate"] += rew_actionrate
     reward_terms["energy"] += rew_energy
-    reward_terms["rank"] += rew_rank
-    reward_terms["collision"] += rew_collision
+    if ranks is not None:
+        reward_terms["rank"] += rew_rank
+        reward_terms["collision"] += rew_collision
     return rew_buf, reward_terms

@@ -7,7 +7,7 @@ import time
 
 def play():
     cfg['sim']['numEnv'] = 1
-    cfg['sim']['numAgents'] = 2
+    cfg['sim']['numAgents'] = 1
     #cfg['sim']['decimation'] = 4
     
     cfg['track']['num_tracks'] = 3
@@ -45,17 +45,11 @@ def play():
         actions[0 , ag, 2] = 0
         
         obs, _, rew, dones, info = env.step(actions)
-        #if 'ranking' in info:
-        #    print('info', info['ranking'])
-        obsnp = obs[:,0,:].cpu().numpy()
-        rewnp = rew[:, 0].cpu().numpy()
-        cont = env.contouring_err.cpu().numpy()
-        act = actions[:,ag,:].cpu().detach().numpy()
-        states = env.states.cpu().numpy()
-        om_mean = np.mean(states[env.viewer.env_idx_render,ag, env.vn['S_W0']:env.vn['S_W3'] +1 ])
+        if env.num_agents>1:
+            act = actions[env.viewer.env_idx_render, ag]
+        else:
+            act = actions[env.viewer.env_idx_render]
 
-        idx_veloth = 39
-        vel_other = obsnp[env.viewer.env_idx_render, idx_veloth:idx_veloth+2]
         #print(states[env.viewer.env_idx_render,0, env.vn['S_W0']:env.vn['S_W3'] +1 ])
        
         #print(env.active_agents[env.viewer.env_idx_render])
@@ -107,7 +101,7 @@ def play():
             ag = (ag - 1) % env.num_agents
         t2 = time.time()
 
-        print('dt ', t2-t1)
+        #print('dt ', t2-t1)
 
 if __name__ == "__main__":
     args = CmdLineArguments()
