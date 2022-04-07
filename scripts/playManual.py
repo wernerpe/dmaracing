@@ -6,24 +6,8 @@ import numpy as np
 import time
 
 def play():
-    cfg['sim']['numEnv'] = 1
-    cfg['sim']['numAgents'] = 1
-    #cfg['sim']['decimation'] = 4
     
-    cfg['track']['num_tracks'] = 3
-    #cfg['track']['num_tracks'] = 3
-    cfg['viewer']['multiagent'] = True
-    cfg['learn']['defaultactions'] = [0,0,0]
-    cfg['learn']['actionscale'] = [1,1,1]
-    cfg['learn']['resetrand'] = [0.0]*7
-    cfg['learn']['reset_tile_rand'] = 200
     
-    cfg['learn']['offtrack_reset'] = 10
-    cfg['learn']['timeout'] = 100
-    cfg['model']['OFFTRACK_FRICTION_SCALE'] = 1
-    cfg['model']['drag_reduction'] = 1.0
-    
-    set_dependent_cfg_entries(cfg)
     
     env = DmarEnv(cfg, args)
     obs = env.obs_buf
@@ -63,7 +47,7 @@ def play():
                      #(f"""{'gas state:':>{10}}{' '}{states[env.viewer.env_idx_render, ag, env.vn['S_GAS']]:.2f}"""),
                      (f"""{'gas act:':>{10}}{' '}{act[env.viewer.env_idx_render, env.vn['A_GAS']]:.2f}"""),
                      (f"""{'steer act:':>{10}}{' '}{act[env.viewer.env_idx_render, env.vn['A_STEER']]:.2f}"""),
-                     #(f"""{'brake:':>{10}}{' '}{act[env.viewer.env_idx_render, env.vn['A_BRAKE']]:.2f}"""),
+                     (f"""{'gas:':>{10}}{' '}{env.states[env.viewer.env_idx_render,0, env.vn['S_GAS']].item():.2f}"""),
                      #(f"""{'cont err:':>{10}}{' '}{cont[env.viewer.env_idx_render, 0]:.2f}"""),
                      #(f"""{'omega mean:':>{10}}{' '}{om_mean:.2f}"""),
                      #(f"""{'omega mean:':>{10}}{' '}{om_mean:.2f}"""),
@@ -83,10 +67,10 @@ def play():
 
         evt = env.viewer_events
         if evt == 105:
-            vel_cmd += 0.1
+            vel_cmd += 0.03
             print('vel_cmd', vel_cmd, env.states[0,0,env.vn['S_DX']])
         elif evt == 107:
-            vel_cmd -= 0.1
+            vel_cmd -= 0.03
             print('vel_cmd', vel_cmd, env.states[0,0,env.vn['S_DX']])
         elif evt == 106:
             steer_cmd += 0.02 * (steer_cmd < 1)
@@ -107,8 +91,25 @@ if __name__ == "__main__":
     args = CmdLineArguments()
     args.device = 'cuda:0'
     args.headless = False 
+    
     path_cfg = os.getcwd() + '/cfg'
     cfg, cfg_train, logdir = getcfg(path_cfg)
     cfg["viewer"]["logEvery"] = -1
     cfg["track"]['OFFTRACK_FRICTION_SCALE'] = 1.0
+    cfg['sim']['numEnv'] = 1
+    cfg['sim']['numAgents'] = 1
+    cfg['track']['num_tracks'] = 3
+    #cfg['track']['num_tracks'] = 3
+    cfg['viewer']['multiagent'] = True
+    cfg['learn']['defaultactions'] = [0,0,0]
+    cfg['learn']['actionscale'] = [1,1,1]
+    cfg['learn']['resetrand'] = [0.0]*7
+    cfg['learn']['reset_tile_rand'] = 200
+    
+    cfg['learn']['offtrack_reset'] = 10
+    cfg['learn']['timeout'] = 100
+    cfg['model']['OFFTRACK_FRICTION_SCALE'] = 1
+    cfg['model']['drag_reduction'] = 1.0
+    
+    set_dependent_cfg_entries(cfg)
     play()    

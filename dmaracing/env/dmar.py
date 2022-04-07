@@ -37,7 +37,7 @@ class DmarEnv:
 
         # Import TRI dynamics model and weights
         self.dyn_model = DynamicsEncoder.load_from_checkpoint(
-            "/home/peter/git/dynamics_model_learning/sample_models/fixed_integration_current_v25.ckpt").to(self.device)
+            "/home/peter/git/dynamics_model_learning/sample_models/higher_roll_loss.ckpt").to(self.device)
 
         # use bootstrapping on vf
         self.use_timeouts = cfg["learn"]["use_timeouts"]
@@ -358,8 +358,6 @@ class DmarEnv:
             self.obs_buf = torch.cat(
                 (
                     self.vels_body * 0.1,
-                    steer,
-                    gas,
                     lookahead_scaled[:, :, :, 0],
                     lookahead_scaled[:, :, :, 1],
                     self.last_actions,
@@ -376,8 +374,6 @@ class DmarEnv:
             self.obs_buf = torch.cat(
             (
                 self.vels_body * 0.1,
-                steer,
-                gas,
                 lookahead_scaled[:, :, :, 0],
                 lookahead_scaled[:, :, :, 1],
                 self.last_actions,

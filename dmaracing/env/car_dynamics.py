@@ -58,7 +58,7 @@ def step_cars(
     
     #print('input to dynmod')
     #print(dyn_state[0,0,:])
-    dyn_state[..., 3] = 0.0
+    #dyn_state[..., 3] = 0.0
     new_state = dyn_model.dynamics_integrator.predict_and_integrate(
         dyn_state.to(dyn_model.device), dyn_control.to(dyn_model.device)
     )
@@ -153,29 +153,29 @@ def get_state_control_tensors(
     # diff = actions[:, :, vn["A_GAS"]] - state[:, :, vn["S_GAS"]]
     # state[:, :, vn["S_GAS"]] += torch.clip(diff, min=-0.1, max=0.06)
     # state[:, :, vn["S_GAS"]] = torch.clamp(state[:, :, vn["S_GAS"]], 0, 1)
-    state[:, :, vn["S_GAS"]] = torch.clip(actions[:, :, vn["A_GAS"]], -1, 0.2) 
+    state[:, :, vn["S_GAS"]] = torch.clip(actions[:, :, vn["A_GAS"]], -1, 0.15) 
     # drafting disabled
     # * (
         # 1.0 * ~drag_reduced + mod_par["drag_reduction"] * drag_reduced
     # )
 
     # set wheel speeds
-    num = sim_par["dt"] * mod_par["ENGINE_POWER"] * state[:, :, vn["S_GAS"]]
-    den = mod_par["WHEEL_MOMENT_OF_INERTIA"] * (torch.abs(state[:, :, vn["S_W2"] : vn["S_W3"] + 1]) + 5)
-    state[:, :, vn["S_W2"] : vn["S_W3"] + 1] += torch.div(num.unsqueeze(2), den)
+    #num = sim_par["dt"] * mod_par["ENGINE_POWER"] * state[:, :, vn["S_GAS"]]
+    #den = mod_par["WHEEL_MOMENT_OF_INERTIA"] * (torch.abs(state[:, :, vn["S_W2"] : vn["S_W3"] + 1]) + 5)
+    #state[:, :, vn["S_W2"] : vn["S_W3"] + 1] += torch.div(num.unsqueeze(2), den)
 
     # set brake
     # break >0.9 -> lock up wheels
-    dir = -torch.sign(state[:, :, vn["S_W0"] : vn["S_W3"] + 1])
-    val = torch.clip(mod_par["BREAKFORCE"] * actions[:, :, vn["A_BRAKE"]].unsqueeze(2), min=0.0)
-    need_clip = torch.abs(val) > torch.abs(state[:, :, vn["S_W0"] : vn["S_W3"] + 1])
-    val = need_clip * torch.abs(state[:, :, vn["S_W0"] : vn["S_W3"] + 1]) + ~need_clip * val
-    state[:, :, vn["S_W0"] : vn["S_W3"] + 1] += dir * val
-    state[:, :, vn["S_W0"] : vn["S_W3"] + 1] = (
-        1.0 * (0.9 >= actions[:, :, vn["A_BRAKE"]]).unsqueeze(2) * state[:, :, vn["S_W0"] : vn["S_W3"] + 1]
-    )
-    state[:, :, vn["S_W0"] : vn["S_W3"] + 1] = torch.clip(state[:, :, vn["S_W0"] : vn["S_W3"] + 1], min=-100, max=100)
-    vr = state[:, :, vn["S_W0"] : vn["S_W3"] + 1] * mod_par["WHEEL_R"]
+    #dir = -torch.sign(state[:, :, vn["S_W0"] : vn["S_W3"] + 1])
+    #val = torch.clip(mod_par["BREAKFORCE"] * actions[:, :, vn["A_BRAKE"]].unsqueeze(2), min=0.0)
+    #need_clip = torch.abs(val) > torch.abs(state[:, :, vn["S_W0"] : vn["S_W3"] + 1])
+    #val = need_clip * torch.abs(state[:, :, vn["S_W0"] : vn["S_W3"] + 1]) + ~need_clip * val
+    #state[:, :, vn["S_W0"] : vn["S_W3"] + 1] += dir * val
+    #state[:, :, vn["S_W0"] : vn["S_W3"] + 1] = (
+    #    1.0 * (0.9 >= actions[:, :, vn["A_BRAKE"]]).unsqueeze(2) * state[:, :, vn["S_W0"] : vn["S_W3"] + 1]
+    #)
+    #state[:, :, vn["S_W0"] : vn["S_W3"] + 1] = torch.clip(state[:, :, vn["S_W0"] : vn["S_W3"] + 1], min=-100, max=100)
+    vr = 0#state[:, :, vn["S_W0"] : vn["S_W3"] + 1] * mod_par["WHEEL_R"]
     omega_body = torch.nn.functional.pad(state[:, :, vn["S_DTHETA"]].unsqueeze(2), (2, 0))
 
     wheel_vels_fl = (
@@ -235,10 +235,10 @@ def get_state_control_tensors(
     f_force = slip * (0.9 * f_lim * torch.div(f_force, f_tot)) + ~slip * f_force
     p_force = slip * (0.9 * f_lim * torch.div(p_force, f_tot)) + ~slip * p_force
 
-    state[:, :, vn["S_W0"] : vn["S_W3"] + 1] -= (
-        sim_par["dt"] * mod_par["WHEEL_R"] / mod_par["WHEEL_MOMENT_OF_INERTIA"] * f_force
-    )
-    state[:, :, vn["S_W0"] : vn["S_W3"] + 1] *= 0.9
+    #state[:, :, vn["S_W0"] : vn["S_W3"] + 1] -= (
+    #    sim_par["dt"] * mod_par["WHEEL_R"] / mod_par["WHEEL_MOMENT_OF_INERTIA"] * f_force
+    #)
+    #state[:, :, vn["S_W0"] : vn["S_W3"] + 1] *= 0.9
 
     # apply force to center
     # wheel_forces = f_force.unsqueeze(3)*wheel_dirs_forward + p_force.unsqueeze(3)*wheel_dirs_side
