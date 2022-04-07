@@ -34,10 +34,7 @@ def play():
     brk_cmd = 0.0
     lastvel = 0
     ag = 0
-    #env.states[:] = 0.0
-    #for idx in range(env.num_agents):
-    #    env.states[0, idx, 0] = idx*10.0
-    #    env.states[0, idx, 5] = 10.0
+  
         
     print('###########################')
     while True:
