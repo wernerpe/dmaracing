@@ -46,8 +46,8 @@ track:
   SCALE: 40.0  # Track scale
   TRACK_RAD: 420   # Track is heavily morphed circle with this radius
   CHECKPOINTS: 18
-  TRACK_DETAIL_STEP: 6 
-  TRACK_TURN_RATE: 0.51
+  TRACK_DETAIL_STEP: 12 
+  TRACK_TURN_RATE: 0.81
   TRACK_WIDTH: 18 
   BORDER: 4 
   BORDER_MIN_COUNT: 3
