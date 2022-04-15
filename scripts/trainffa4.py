@@ -30,14 +30,15 @@ def train():
 if __name__ == "__main__":
     args = CmdLineArguments()
     args.device = 'cuda:0'
-    args.headless = True 
+    args.headless = False 
     path_cfg = os.getcwd() + '/cfg'
     cfg, cfg_train, logdir_root = getcfg(path_cfg)
     cfg['sim']['numAgents'] = 4
     cfg['sim']['collide'] = 1
-    #cfg['sim']['numEnv'] = 16
     
+    #cfg['sim']['numEnv'] = 16
     #cfg['track']['num_tracks'] = 2
+    
     set_dependent_cfg_entries(cfg)
     now = datetime.now()
     timestamp = now.strftime("%y_%m_%d_%H_%M_%S")

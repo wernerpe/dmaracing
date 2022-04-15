@@ -1,1 +1,0 @@
-tensorboard --logdir logs/1v1_sc --bind_all

@@ -5,15 +5,22 @@ import os
 import numpy as np
 
 def play():
-    cfg['sim']['numEnv'] = 2
-    cfg['sim']['numAgents'] = 2
+    cfg['sim']['numEnv'] = 3
+    cfg['sim']['numAgents'] = 3
+    #cfg['sim']['decimation'] = 4
+    
     cfg['track']['num_tracks'] = 3
+    #cfg['track']['num_tracks'] = 3
     cfg['viewer']['multiagent'] = True
     cfg['learn']['defaultactions'] = [0,0,0]
     cfg['learn']['actionscale'] = [1,1,1]
-    cfg['learn']['offtrack_reset'] = 100
+    cfg['learn']['resetrand'] = [0.0]*7
+    
+    cfg['learn']['offtrack_reset'] = 1
     cfg['learn']['timeout'] = 100
     cfg['model']['OFFTRACK_FRICTION_SCALE'] = 1
+    cfg['model']['drag_reduction'] = 1.0
+    
     set_dependent_cfg_entries(cfg)
     
     env = DmarEnv(cfg, args)
@@ -24,23 +31,35 @@ def play():
     vel_cmd = 0.0
     steer_cmd = 0.0
     brk_cmd = 0.0
-      
+    lastvel = 0
+    ag = 0
+    #env.states[:] = 0.0
+    #for idx in range(env.num_agents):
+    #    env.states[0, idx, 0] = idx*10.0
+    #    env.states[0, idx, 5] = 10.0
+        
+    print('###########################')
     while True:
-        actions[0 , 0, 0] = steer_cmd 
-        actions[0 , 0, 1] = vel_cmd
-        actions[0 , 0, 2] = brk_cmd
+        
+        actions[0 , ag, 0] = steer_cmd 
+        actions[0 , ag, 1] = vel_cmd
+        actions[0 , ag, 2] = brk_cmd
         
         obs, _, rew, dones, info = env.step(actions)
+        if 'ranking' in info:
+            print('info', info['ranking'])
         obsnp = obs[:,0,:].cpu().numpy()
         rewnp = rew[:, 0].cpu().numpy()
         cont = env.contouring_err.cpu().numpy()
-        act = actions[:,0,:].cpu().detach().numpy()
+        act = actions[:,ag,:].cpu().detach().numpy()
         states = env.states.cpu().numpy()
-        om_mean = np.mean(states[env.viewer.env_idx_render,0, env.vn['S_W0']:env.vn['S_W3'] +1 ])
+        om_mean = np.mean(states[env.viewer.env_idx_render,ag, env.vn['S_W0']:env.vn['S_W3'] +1 ])
 
         idx_veloth = 39
         vel_other = obsnp[env.viewer.env_idx_render, idx_veloth:idx_veloth+2]
-        print(obsnp)
+        #print(states[env.viewer.env_idx_render,0, env.vn['S_W0']:env.vn['S_W3'] +1 ])
+       
+        #print(env.active_agents[env.viewer.env_idx_render])
         viewermsg = [
                      (f"""{'rewards:':>{10}}{' '}{100*rewnp[env.viewer.env_idx_render]:.2f}"""   ),
                      #(f"""{'velocity x:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 0]:.2f}"""),
@@ -48,7 +67,7 @@ def play():
                      #(f"""{'ang vel:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 2]:.2f}"""),
                      #(f"""{'steer:':>{10}}{' '}{states[env.viewer.env_idx_render, 0, env.vn['S_STEER']]:.2f}"""),
                      #(f"""{'gas:':>{10}}{' '}{states[env.viewer.env_idx_render, 0, env.vn['S_GAS']]:.2f}"""),
-                     (f"""{'gas state:':>{10}}{' '}{states[env.viewer.env_idx_render, 0, env.vn['S_GAS']]:.2f}"""),
+                     (f"""{'gas state:':>{10}}{' '}{states[env.viewer.env_idx_render, ag, env.vn['S_GAS']]:.2f}"""),
                      (f"""{'gas act:':>{10}}{' '}{act[env.viewer.env_idx_render, env.vn['A_GAS']]:.2f}"""),
                      #(f"""{'brake:':>{10}}{' '}{act[env.viewer.env_idx_render, env.vn['A_BRAKE']]:.2f}"""),
                      #(f"""{'cont err:':>{10}}{' '}{cont[env.viewer.env_idx_render, 0]:.2f}"""),
@@ -56,12 +75,12 @@ def play():
                      #(f"""{'omega mean:':>{10}}{' '}{om_mean:.2f}"""),
                      #(f"""{'velother x:':>{10}}{' '}{vel_other[0]:.2f}"""),
                      #(f"""{'velother y:':>{10}}{' '}{vel_other[1]:.2f}"""),                     
-                     (f"""{'lap:':>{10}}{' '}{env.lap_counter[0, 0]:.2f}"""),
-                     (f"""{'rank ag 0 :':>{10}}{' '}{1+env.ranks[env.viewer.env_idx_render, 0].item():.2f}"""),
+                     (f"""{'lap:':>{10}}{' '}{env.lap_counter[0, ag]:.2f}"""),
+                     (f"""{'rank ag 0 :':>{10}}{' '}{1+env.ranks[env.viewer.env_idx_render, ag].item():.2f}"""),
                      ]
         
-        env.viewer.x_offset = int(-env.viewer.width/env.viewer.scale_x*env.states[env.viewer.env_idx_render, 0, 0])
-        env.viewer.y_offset = int(env.viewer.height/env.viewer.scale_y*env.states[env.viewer.env_idx_render, 0, 1])
+        env.viewer.x_offset = int(-env.viewer.width/env.viewer.scale_x*env.states[env.viewer.env_idx_render, ag, 0])
+        env.viewer.y_offset = int(env.viewer.height/env.viewer.scale_y*env.states[env.viewer.env_idx_render, ag, 1])
         env.viewer.draw_track()
        
         env.viewer.clear_string()
@@ -75,7 +94,7 @@ def play():
             print('vel_cmd', vel_cmd, env.states[0,0,env.vn['S_DX']])
         elif evt == 107:
             vel_cmd = 0.0
-            brk_cmd += 0.1
+            #brk_cmd += 0.1
             print('vel_cmd', vel_cmd, env.states[0,0,env.vn['S_DX']])
         elif evt == 106:
             steer_cmd += 0.4 * (steer_cmd < 1)
@@ -84,7 +103,11 @@ def play():
         elif evt == 121:
             print("env ", env.viewer.env_idx_render, " reset")
             env.episode_length_buf[env.viewer.env_idx_render] = 1e9
-
+        if evt == 110:
+            ag = (ag + 1) % env.num_agents
+        if evt == 109:
+            ag = (ag - 1) % env.num_agents
+        
 if __name__ == "__main__":
     args = CmdLineArguments()
     args.device = 'cuda:0'

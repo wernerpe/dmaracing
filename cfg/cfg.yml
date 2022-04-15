@@ -19,14 +19,15 @@ sim:
 model:
   SIZE: 0.02 #[px/m]
   BREAKFORCE: 100
-  ENGINE_POWER_SCALE: 50000000
-  WHEEL_MOMENT_OF_INERTIA_SCALE: 4000
+  ENGINE_POWER_SCALE: 150000000
+  WHEEL_MOMENT_OF_INERTIA_SCALE: 2000
   FRICTION_LIMIT_SCALE: 10000000
   OFFTRACK_FRICTION_SCALE: 0.2
   WHEEL_R_SCALE: 27
   LENGTH_SCALE: 200
   MASS_SCALE: 160
   MOMENT_OF_INERTIA_SCALE: 7.0
+  drag_reduction: 1.3
 
 viewer:
   width: 1200  # 1200
@@ -61,19 +62,19 @@ learn:
   #[posx, posy, theta, vellong, vellat, dtheta, steer]
   resetrand: [4.0, 4.0, 0.1, 0.1, 0.01,  0.1, 0.0]
   reset_tile_rand: 40
-  resetgrid: True
+  resetgrid: False
   defaultactions: [0., 0.2, 0.0]
   actionscale: [1.0, 0.5, 0.2]
+  agent_dropout_prob: 0.2
+  distance_obs_cutoff: 200 #[m]
 
   progressRewardScale: 5.0
-  contouringRewardScale: 0.0
   offtrackRewardScale: -2.0
   actionRateRewardScale: 0.1 
   energyRewardScale: 0.00006
-  sidevelRewardScale: 0.0
   rankRewardScale: 5.0
   collisionRewardScale: -300.0
   horizon: 15
   
-  timeout: 120.0 #[s]
+  timeout: 25.0 #[s]
   offtrack_reset: 1.0 #[s]

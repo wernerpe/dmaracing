@@ -22,10 +22,9 @@ runner:
   num_steps_per_env: 32 # per iteration
   max_iterations: 50000 # number of policy updates
   population_update_interval: 40 #number of iterations before the opponent policy is updated
-
   # logging
   save_interval: 100 # check for potential saves every this many iterations
-  experiment_name: '4ag_grid_sc'
+  experiment_name: '4ag_attention'
   run_name: ''
   # load and resume
   resume: False
@@ -36,6 +35,9 @@ runner:
 policy: 
   actor_hidden_dims: [512, 256, 32]
   critic_hidden_dims: [512, 256, 32]
+  encoder_hidden_dims: [256, 256]
   activation: elu # can be elu, relu, selu, crelu, lrelu, tanh, sigmoid
   init_noise_std: 1.0
+  attentive: True
+  encoder_type: attention2  # attention{1, 2}
   
