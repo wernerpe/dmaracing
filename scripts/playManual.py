@@ -6,7 +6,7 @@ import numpy as np
 
 def play():
     cfg['sim']['numEnv'] = 3
-    cfg['sim']['numAgents'] = 3
+    cfg['sim']['numAgents'] = 4
     #cfg['sim']['decimation'] = 4
     
     cfg['track']['num_tracks'] = 3
@@ -16,6 +16,7 @@ def play():
     cfg['learn']['actionscale'] = [1,1,1]
     cfg['learn']['resetrand'] = [0.0]*7
     cfg['learn']['reset_tile_rand'] = 200
+    cfg['learn']['resetgrid'] = True
     
     cfg['learn']['offtrack_reset'] = 10
     cfg['learn']['timeout'] = 100
@@ -78,8 +79,9 @@ def play():
                      #(f"""{'velother y:':>{10}}{' '}{vel_other[1]:.2f}"""),                     
                      (f"""{'lap:':>{10}}{' '}{env.lap_counter[0, ag]:.2f}"""),
                      (f"""{'rank ag 0 :':>{10}}{' '}{1+env.ranks[env.viewer.env_idx_render, ag].item():.2f}"""),
+                     (f"""{'trank ag 0 :':>{10}}{' '}{1+env.teamranks[env.viewer.env_idx_render, ag].item():.2f}"""),
                      ]
-        print(env.progress_other[0,0,:])
+        #print(env.progress_other[0,0,:])
         env.viewer.x_offset = int(-env.viewer.width/env.viewer.scale_x*env.states[env.viewer.env_idx_render, ag, 0])
         env.viewer.y_offset = int(env.viewer.height/env.viewer.scale_y*env.states[env.viewer.env_idx_render, ag, 1])
         env.viewer.draw_track()

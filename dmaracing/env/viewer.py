@@ -15,6 +15,7 @@ class Viewer:
                  track_border_poly_cols,
                  track_tile_counts,
                  active_track_ids,
+                 teams,
                  headless=True):
 
         self.device = 'cuda:0'
@@ -40,7 +41,13 @@ class Viewer:
         self.max_agents = self.cfg['viewer']['maxAgents']
         self.num_agents = self.cfg['sim']['numAgents']
         self.num_envs = self.cfg['sim']['numEnv']
-        
+        self.teams = teams
+        cols = [(255,0,0), (0,0,255), (0,255,0),(0,125,125), (125,125,0), (125,0,125)] 
+        self.teamcolors = []
+        for teamidx, team in enumerate(self.teams):
+            for _ in range(len(team)):
+                self.teamcolors.append(cols[teamidx])
+
         if self.draw_multiagent:
             self.num_cars = self.num_agents
         else:
@@ -59,7 +66,7 @@ class Viewer:
         self.R = torch.zeros((2, 2, self.num_cars), device=self.device, dtype = torch.float)
         self.img = 255*np.ones((self.height, self.width, 3), np.uint8)
         self.track_canvas = self.img.copy()
-        self.colors = 255.0/self.num_cars*np.arange(self.num_cars) 
+        #self.colors = 255.0/self.num_cars*np.arange(self.num_cars) 
         self.font = cv.FONT_HERSHEY_SIMPLEX
 
         self.do_render = True
@@ -107,7 +114,7 @@ class Viewer:
                 self.draw_multiagent_rep(state)
             else:
                 self.draw_singleagent_rep(state[:self.num_cars])
-            cv.putText(self.img, "env:" + str(self.env_idx_render), (50, 50), self.font, 2, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
+            cv.putText(self.img, "env:" + str(self.env_idx_render), (50, 50), self.font, 2, (0,0,0), 1, cv.LINE_AA)
             self.draw_points()
             self.draw_lines(self.lines)
             self.draw_string()
@@ -194,13 +201,13 @@ class Viewer:
                 px_y_number = (-self.height/self.scale_y*transl[idx, 1] + self.height/2.0).cpu().numpy().astype(np.int32).item()
                 px_pts_car = px_car_box_world[..., idx].reshape(-1,1,2)
                 px_pts_heading = px_car_heading_world[..., idx].reshape(-1,1,2)
-                cv.polylines(self.img, [px_pts_car], isClosed = True, color = (255-int(self.colors[idx]),0,int(self.colors[idx])), thickness = self.thickness)
-                cv.fillPoly(self.car_img, [px_pts_car], color = (255-int(self.colors[idx]),0,int(self.colors[idx]), 0.9))
+                cv.polylines(self.img, [px_pts_car], isClosed = True, color = self.teamcolors[idx], thickness = self.thickness)
+                cv.fillPoly(self.car_img, [px_pts_car], color = self.teamcolors[idx])#)(255-int(self.colors[idx]),0,int(self.colors[idx]), 0.9))
                 cv.polylines(self.img, [px_pts_heading], isClosed = True, color = (0, 0, 255), thickness = 2)
                 if self.drag_reduced[self.env_idx_render, idx]:
-                    cv.putText(self.img, str(idx)+' dr', (px_x_number+ self.x_offset, px_y_number + self.y_offset-10), self.font, 0.5, (int(self.colors[idx]),0,int(self.colors[idx])), 1, cv.LINE_AA)   
+                    cv.putText(self.img, str(idx)+' dr', (px_x_number+ self.x_offset, px_y_number + self.y_offset-10), self.font, 0.5, (0,0,0), 1, cv.LINE_AA)   
                 else:
-                    cv.putText(self.img, str(idx), (px_x_number+ self.x_offset, px_y_number + self.y_offset-10), self.font, 0.5, (int(self.colors[idx]),0,int(self.colors[idx])), 1, cv.LINE_AA)   
+                    cv.putText(self.img, str(idx), (px_x_number+ self.x_offset, px_y_number + self.y_offset-10), self.font, 0.5, (0,0,0), 1, cv.LINE_AA)   
             self.img = cv.addWeighted(self.car_img, 0.5, self.img, 0.5, 0)
             
 

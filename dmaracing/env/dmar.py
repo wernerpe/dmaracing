@@ -38,9 +38,13 @@ class DmarEnv():
         self.num_actions = self.simParameters['numActions']
         self.num_obs = self.simParameters['numObservations']       
         self.num_agents = self.simParameters['numAgents']
+        if self.num_agents != 4:
+            raise NotImplementedError
         self.num_envs = self.simParameters['numEnv']
         self.collide = self.simParameters['collide']
         self.decimation = self.simParameters['decimation']
+
+        self.teams_list = [[0,1], [2,3]]
 
         #gym stuff
         self.obs_space = spaces.Box(np.ones(self.num_obs)*-np.Inf, np.ones(self.num_obs)*np.Inf)
@@ -78,6 +82,7 @@ class DmarEnv():
                               self.track_border_poly_cols,
                               self.track_tile_counts,
                               self.active_track_ids,
+                              self.teams_list,
                               self.headless)
         self.info = {}
         
@@ -103,7 +108,7 @@ class DmarEnv():
         self.reward_scales['progress'] = cfg['learn']['progressRewardScale']*self.dt
         self.reward_scales['actionrate'] = cfg['learn']['actionRateRewardScale']*self.dt
         self.reward_scales['energy'] = cfg['learn']['energyRewardScale']*self.dt
-        self.reward_scales['rank'] = cfg['learn']['rankRewardScale']*self.dt
+        self.reward_scales['teamrank'] = cfg['learn']['rankRewardScale']*self.dt
         self.reward_scales['collision'] = cfg['learn']['collisionRewardScale']*self.dt
         
 
@@ -133,7 +138,7 @@ class DmarEnv():
                              'offtrack': torch_zeros((self.num_envs, self.num_agents)),
                              'actionrate': torch_zeros((self.num_envs, self.num_agents)),
                              'energy': torch_zeros((self.num_envs, self.num_agents)),
-                             'rank': torch_zeros((self.num_envs, self.num_agents)),
+                             'teamrank': torch_zeros((self.num_envs, self.num_agents)),
                              'collision': torch_zeros((self.num_envs, self.num_agents)),
                              }
         
@@ -142,7 +147,9 @@ class DmarEnv():
         self.lookahead_scaler = 1/(4*(1+torch.arange(self.horizon, device = self.device , requires_grad=False, dtype=torch.float))*self.tile_len)
         self.lookahead_scaler = self.lookahead_scaler.unsqueeze(0).unsqueeze(0).unsqueeze(3)
         self.ranks = torch.zeros((self.num_envs, self.num_agents), requires_grad=False, device=self.device, dtype = torch.int)
-        
+        self.teamranks = torch.zeros((self.num_envs, self.num_agents), requires_grad=False, device=self.device, dtype = torch.int)
+        self.teams = [torch.tensor(team, dtype=torch.long, device = self.device) for team in self.teams_list]
+
         self._global_step = 0
         if self.log_video_freq >= 0:
             self._logdir = cfg["logdir"]
@@ -259,7 +266,9 @@ class DmarEnv():
                                   gas, 
                                   lookahead_scaled[:,:,:,0], 
                                   lookahead_scaled[:,:,:,1], 
-                                  self.last_actions, 
+                                  self.last_actions,
+                                  self.ranks.view(-1, self.num_agents, 1),
+                                  self.teamranks.view(-1, self.num_agents, 1), 
                                   self.progress_other * 0.1, 
                                   self.contouring_err_other * 0.25, 
                                   rot_other,
@@ -280,7 +289,7 @@ class DmarEnv():
                                    self.last_actions,
                                    self.vn,
                                    self.states,
-                                   self.ranks,
+                                   self.teamranks,
                                    self.is_collision,
                                    self.reward_terms,
                                    self.num_agents,
@@ -474,6 +483,9 @@ class DmarEnv():
         self.track_progress = self.track_progress_no_laps + self.lap_counter*self.track_lengths[self.active_track_ids].view(-1,1)
         dist_sort, self.ranks = torch.sort(self.track_progress, dim = 1, descending = True)
         self.ranks = torch.sort(self.ranks, dim = 1)[1]
+        
+        for team in self.teams:
+            self.teamranks[:, team] = torch.min(self.ranks[:, team], dim = 1)[0].reshape(-1,1).type(torch.int)
 
         self.contouring_err = torch.einsum('eac, eac-> ea', self.trackperp, self.tile_car_vec)
 
@@ -582,7 +594,7 @@ def compute_rewards_jit(track_progress : torch.Tensor,
                         last_actions : torch.Tensor,
                         vn : Dict[str, int],
                         states : torch.Tensor,
-                        ranks : torch.Tensor,
+                        teamranks : torch.Tensor,
                         is_collision : torch.Tensor,
                         reward_terms : Dict[str, torch.Tensor],
                         num_agents : int,
@@ -594,15 +606,15 @@ def compute_rewards_jit(track_progress : torch.Tensor,
             rew_actionrate = -torch.sum(torch.square(actions-last_actions), dim = 2) *reward_scales['actionrate']
             rew_energy = -torch.sum(torch.square(states[:,:,vn['S_W0']:vn['S_W3']+1]), dim = 2)*reward_scales['energy']
             num_active_agents = torch.sum(1.0*active_agents, dim = 1)
-            rew_rank = 1.0/num_agents*(num_active_agents.view(-1,1)/2.0-ranks)*reward_scales['rank']
+            rew_teamrank = 1.0/num_agents*(num_active_agents.view(-1,1)/2.0-teamranks)*reward_scales['teamrank']
             
             rew_collision = is_collision*reward_scales['collision']
-            rew_buf = torch.clip(rew_progress + rew_on_track + rew_actionrate + rew_energy + rew_rank + rew_collision, min = 0, max = None)
+            rew_buf = torch.clip(rew_progress + rew_on_track + rew_actionrate + rew_energy + rew_teamrank + rew_collision, min = 0, max = None)
 
             reward_terms['progress'] += rew_progress
             reward_terms['offtrack'] += rew_on_track
             reward_terms['actionrate'] += rew_actionrate
             reward_terms['energy'] += rew_energy
-            reward_terms['rank'] += rew_rank
+            reward_terms['teamrank'] += rew_teamrank
             reward_terms['collision'] += rew_collision
             return rew_buf, reward_terms
