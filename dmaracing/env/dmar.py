@@ -295,6 +295,9 @@ class DmarEnv():
                                    self.num_agents,
                                    self.active_agents
                                    )        
+        #team rewards
+        # for team in self.teams:
+        #   self.rew_buf[:, team] =  torch.sum(self.rew_buf[:, team], dim = 1).view(-1,1)
 
     def check_termination(self) -> None:
         #dithering step
