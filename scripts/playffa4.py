@@ -70,27 +70,27 @@ def play():
         actions = policy(obs)
         obs, _, rew, dones, info = env.step(actions)
         attention_tensor = compute_linear_attention(obs[:,ag,:], attention_tensor)
-        if 'ranking' in info:
-            ranks = info['ranking'][0].cpu().numpy()#torch.mean(1.0*env.ranks, dim= 0).cpu().numpy()
-            update_ratio = info['ranking'][1]
-            #for rkidx in range(ranks.shape[0]):
-            #rank = ranks[rkidx, :]
-            new_ratings = trueskill.rate(ratings, ranks)
-            for old, new, it in zip(ratings, new_ratings, range(len(ratings))):
-                mu = (1-update_ratio)*old[0].mu + update_ratio*new[0].mu
-                sigma = (1-update_ratio)*old[0].sigma + update_ratio*new[0].sigma
-                ratings[it] = (trueskill.Rating(mu, sigma),)
-            #ratings = []
-            #ratings = new_ratings
-            mus.append([r[0].mu for r in ratings])
-            sigs = [r[0].sigma for r in ratings]
-            print('rating mus', mus[-1])
-            print('rating sigma', sigs)
-            ax.clear()
-            ax.plot(np.array(mus), label = ['0', '1','2','3'])
-            ax.legend()
-            plt.draw()
-            #plt.show(block = False)
+        # if 'ranking' in info:
+        #     ranks = info['ranking'][0].cpu().numpy()#torch.mean(1.0*env.ranks, dim= 0).cpu().numpy()
+        #     update_ratio = info['ranking'][1]
+        #     #for rkidx in range(ranks.shape[0]):
+        #     #rank = ranks[rkidx, :]
+        #     new_ratings = trueskill.rate(ratings, ranks)
+        #     for old, new, it in zip(ratings, new_ratings, range(len(ratings))):
+        #         mu = (1-update_ratio)*old[0].mu + update_ratio*new[0].mu
+        #         sigma = (1-update_ratio)*old[0].sigma + update_ratio*new[0].sigma
+        #         ratings[it] = (trueskill.Rating(mu, sigma),)
+        #     #ratings = []
+        #     #ratings = new_ratings
+        #     mus.append([r[0].mu for r in ratings])
+        #     sigs = [r[0].sigma for r in ratings]
+        #     print('rating mus', mus[-1])
+        #     print('rating sigma', sigs)
+        #     ax.clear()
+        #     ax.plot(np.array(mus), label = ['0', '1','2','3'])
+        #     ax.legend()
+        #     plt.draw()
+        #     #plt.show(block = False)
 
         obsnp = obs[:,ag,:].cpu().numpy()
         act = actions[:,ag,:].cpu().detach().numpy()
