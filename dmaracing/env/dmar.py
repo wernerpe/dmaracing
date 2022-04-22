@@ -95,7 +95,7 @@ class DmarEnv():
         self.actions_means = torch_zeros((self.num_envs, self.num_agents, self.num_actions))
         self.last_actions = torch_zeros((self.num_envs, self.num_agents, self.num_actions))
         self.obs_buf = torch_zeros((self.num_envs, self.num_agents, self.num_obs))
-        self.rew_buf = torch_zeros((self.num_envs, self.num_agents,))
+        self.rew_buf = torch_zeros((self.num_envs, self.num_agents, 2))
         self.time_out_buf = torch_zeros((self.num_envs, 1)) > 1
         self.reset_buf = torch_zeros((self.num_envs,1))>1
         self.agent_left_track = torch_zeros((self.num_envs, self.num_agents)) > 1
@@ -133,7 +133,7 @@ class DmarEnv():
         #other tensor
         self.active_track_tile = torch.zeros((self.num_envs, self.num_agents), dtype = torch.long, device=self.device, requires_grad=False)
         self.old_active_track_tile = torch.zeros_like(self.active_track_tile)
-        self.old_track_progress = torch.zeros_like(self.rew_buf)
+        self.old_track_progress = torch.zeros((self.num_envs, self.num_agents), dtype = torch.float, device=self.device, requires_grad=False)
         self.reward_terms = {'progress': torch_zeros((self.num_envs, self.num_agents)), 
                              'offtrack': torch_zeros((self.num_envs, self.num_agents)),
                              'actionrate': torch_zeros((self.num_envs, self.num_agents)),
@@ -293,7 +293,8 @@ class DmarEnv():
                                    self.is_collision,
                                    self.reward_terms,
                                    self.num_agents,
-                                   self.active_agents
+                                   self.active_agents,
+                                   self.rew_buf
                                    )        
         #team rewards
         # for team in self.teams:
@@ -601,7 +602,8 @@ def compute_rewards_jit(track_progress : torch.Tensor,
                         is_collision : torch.Tensor,
                         reward_terms : Dict[str, torch.Tensor],
                         num_agents : int,
-                        active_agents : torch.Tensor
+                        active_agents : torch.Tensor,
+                        rew_buf : torch.Tensor
                         ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
 
             rew_progress = torch.clip(track_progress-old_track_progress, min = -10, max = 10) * reward_scales['progress']
@@ -612,7 +614,8 @@ def compute_rewards_jit(track_progress : torch.Tensor,
             rew_teamrank = 1.0/num_agents*(num_active_agents.view(-1,1)/2.0-teamranks)*reward_scales['teamrank']
             
             rew_collision = is_collision*reward_scales['collision']
-            rew_buf = torch.clip(rew_progress + rew_on_track + rew_actionrate + rew_energy + rew_teamrank + rew_collision, min = 0, max = None)
+            rew_buf[:,:, 0] = rew_progress + rew_collision+rew_on_track + rew_actionrate + rew_energy 
+            rew_buf[:,:, 1] = rew_teamrank 
 
             reward_terms['progress'] += rew_progress
             reward_terms['offtrack'] += rew_on_track

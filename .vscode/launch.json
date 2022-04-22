@@ -101,5 +101,14 @@
             "cwd": "${workspaceFolder}",
             "justMyCode": false
         },
+        {
+            "name": "train2v2",
+            "type": "python",
+            "request": "launch",
+            "program": "scripts/train2v2.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": false
+        },
     ]
 }
