@@ -614,8 +614,8 @@ def compute_rewards_jit(track_progress : torch.Tensor,
             rew_teamrank = 1.0/num_agents*(num_active_agents.view(-1,1)/2.0-teamranks)*reward_scales['teamrank']
             
             rew_collision = is_collision*reward_scales['collision']
-            rew_buf[:,:, 0] = rew_progress + rew_collision+rew_on_track + rew_actionrate + rew_energy 
-            rew_buf[:,:, 1] = rew_teamrank 
+            rew_buf[:,:, 0] = torch.clip(rew_progress + rew_collision+rew_on_track + rew_actionrate + rew_energy, min = 0, max= None) 
+            rew_buf[:,:, 1] = torch.clip(rew_teamrank, min = 0, max= None) 
 
             reward_terms['progress'] += rew_progress
             reward_terms['offtrack'] += rew_on_track
