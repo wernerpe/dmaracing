@@ -39,7 +39,9 @@ if __name__ == "__main__":
     cfg['viewer']['logEvery'] = -1
     #cfg['sim']['numEnv'] = 16
     cfg['track']['num_tracks'] = 2
-    
+    cfg_train['policy']['teamsize'] = 2
+    cfg_train['policy']['numteams'] = 2
+
     set_dependent_cfg_entries(cfg)
     now = datetime.now()
     timestamp = now.strftime("%y_%m_%d_%H_%M_%S")
