@@ -37,7 +37,7 @@ if __name__ == "__main__":
     cfg['sim']['numAgents'] = 4
     cfg['sim']['collide'] = 1
     cfg['viewer']['logEvery'] = -1
-    #cfg['sim']['numEnv'] = 16
+    cfg['sim']['numEnv'] = 16
     cfg['track']['num_tracks'] = 2
     cfg_train['policy']['teamsize'] = 2
     cfg_train['policy']['numteams'] = 2
