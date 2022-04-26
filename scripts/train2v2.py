@@ -38,7 +38,7 @@ if __name__ == "__main__":
     cfg['sim']['collide'] = 1
     #cfg['viewer']['logEvery'] = -1
     #cfg['sim']['numEnv'] = 16
-    cfg['track']['num_tracks'] = 2
+    #cfg['track']['num_tracks'] = 2
     cfg_train['policy']['teamsize'] = 2
     cfg_train['policy']['numteams'] = 2
     cfg_train['runner']['policy_class_name'] = 'MultiTeamCMAAC' #MAActorCritic 
@@ -47,7 +47,7 @@ if __name__ == "__main__":
     set_dependent_cfg_entries(cfg)
     now = datetime.now()
     timestamp = now.strftime("%y_%m_%d_%H_%M_%S")
-    logdir = logdir_root +'/'+timestamp
+    logdir = logdir_root +'/'+ cfg_train['runner']['algorithm_class_name'] + '_' + timestamp
     cfg["logdir"] = logdir
     INIT_FROM_CHKPT = False
     #active policies

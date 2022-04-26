@@ -14,4 +14,4 @@ conda init bash
 conda activate /home/gridsan/pwerner/.conda/envs/dmaracing
 conda env list
 # Run the script
-xvfb-run -a python $HOME/projects/dmaracing/scripts/trainffa4.py
+xvfb-run -a python $HOME/projects/dmaracing/scripts/train2v2.py
