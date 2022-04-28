@@ -110,5 +110,23 @@
             "cwd": "${workspaceFolder}",
             "justMyCode": false
         },
+        {
+            "name": "test_dataloader",
+            "type": "python",
+            "request": "launch",
+            "program": "parameter_estimation/scripts/scale_car_dataloader.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": false
+        },
+        {
+            "name": "run_estimation",
+            "type": "python",
+            "request": "launch",
+            "program": "parameter_estimation/scripts/run_parameter_estimation.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": false
+        },
     ]
 }
