@@ -12,17 +12,30 @@ def get_varnames()->Dict[str, int]:
     varnames['S_DX'] = 3
     varnames['S_DY'] = 4
     varnames['S_DTHETA'] = 5
-    varnames['S_W0'] = 6
-    varnames['S_W1'] = 7
-    varnames['S_W2'] = 8
-    varnames['S_W3'] = 9
-    varnames['S_STEER'] = 10
-    varnames['S_GAS'] = 11
-    
-    varnames['A_STEER'] = 0
-    varnames['A_GAS'] = 1
-    varnames['A_BRAKE'] = 2
+    varnames['S_STEER'] = 6
+    varnames['A_GAS'] = 0
+    varnames['A_STEER'] = 1
     return varnames
+
+# def get_varnames()->Dict[str, int]:
+#     varnames = {}
+#     varnames['S_X'] = 0
+#     varnames['S_Y'] = 1
+#     varnames['S_THETA'] = 2
+#     varnames['S_DX'] = 3
+#     varnames['S_DY'] = 4
+#     varnames['S_DTHETA'] = 5
+#     varnames['S_W0'] = 6
+#     varnames['S_W1'] = 7
+#     varnames['S_W2'] = 8
+#     varnames['S_W3'] = 9
+#     varnames['S_STEER'] = 10
+#     varnames['S_GAS'] = 11
+    
+#     varnames['A_STEER'] = 0
+#     varnames['A_GAS'] = 1
+#     varnames['A_BRAKE'] = 2
+#     return varnames
 
 def allocate_car_dynamics_tensors(task):
     task.R = torch.zeros((task.num_envs, task.num_agents, 2, 2), dtype = torch.float, device = task.device, requires_grad=False)
@@ -55,20 +68,16 @@ def allocate_car_dynamics_tensors(task):
     
 
 def set_dependent_params(mod_par):
-    SIZE = mod_par['SIZE']
-    mod_par['ENGINE_POWER'] = mod_par['ENGINE_POWER_SCALE']*SIZE**2
-    mod_par['WHEEL_MOMENT_OF_INERTIA'] = mod_par['WHEEL_MOMENT_OF_INERTIA_SCALE']*SIZE**2
-    mod_par['FRICTION_LIMIT'] = mod_par['FRICTION_LIMIT_SCALE'] * SIZE * SIZE
-    mod_par['WHEEL_R'] = SIZE*mod_par['WHEEL_R_SCALE']
-    L = 0.35
-    W = L/2
-    M = L*W *mod_par['MASS_SCALE']
-    mod_par['M'] = M
-    mod_par['L'] = L
-    mod_par['W'] = W 
-    mod_par['I'] = mod_par['MOMENT_OF_INERTIA_SCALE']*M*(L**2 + W**2 )/12.0
-    mod_par['lf'] = L/2
-    mod_par['lr'] = L/2
+    #SIZE = mod_par['SIZE']
+    #mod_par['ENGINE_POWER'] = mod_par['ENGINE_POWER_SCALE']*SIZE**2
+    #mod_par['WHEEL_MOMENT_OF_INERTIA'] = mod_par['WHEEL_MOMENT_OF_INERTIA_SCALE']*SIZE**2
+    #mod_par['FRICTION_LIMIT'] = mod_par['FRICTION_LIMIT_SCALE'] * SIZE * SIZE
+    #mod_par['WHEEL_R'] = SIZE*mod_par['WHEEL_R_SCALE']
+    #L = 0.35
+    #W = L/2
+    #M = L*W *mod_par['MASS_SCALE']
+    #mod_par['M'] = M
+    mod_par['L'] = mod_par['lf'] + mod_par['lr'] 
     
 #only used for collsion checking, only one car per env needed for pairwise checking
 def get_car_vert_mat(w, l, num_envs, device):

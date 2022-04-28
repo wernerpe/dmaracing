@@ -3,31 +3,46 @@ sim:
   #number of racing agents per env
   numAgents: 4
   dt: 0.02 #[s] # If using this with TRI dynamics model, this must be 0.02 to match the refresh frequency of the model
-  numStates: 12
+  numStates: 7
 
   #need to overwrite this everytime env gets initialized to the correct number
   #dependent on the lookaheadhorizon length and number of ado cars in an env
   #this is done in get_cfg directly
   numObservations: -1 
   numConstantObservations: 6 #vels, steer, gas, last actions, rank 
-  numActions: 3
+  numActions: 2
   collide: 1
-  decimation: 4
+  decimation: 2
   test_mode: False
   collisionstiffness: 280000.0
   
 model:
-  SIZE: 0.02 #[px/m]
-  BREAKFORCE: 100
-  ENGINE_POWER_SCALE: 150000000
-  WHEEL_MOMENT_OF_INERTIA_SCALE: 2000
-  FRICTION_LIMIT_SCALE: 10000000
-  OFFTRACK_FRICTION_SCALE: 0.2
-  WHEEL_R_SCALE: 27
-  LENGTH_SCALE: 200
-  MASS_SCALE: 40
-  MOMENT_OF_INERTIA_SCALE: 7.0
-  drag_reduction: 1.3
+  # SIZE: 0.02 #[px/m]
+  # BREAKFORCE: 100
+  # ENGINE_POWER_SCALE: 150000000
+  # WHEEL_MOMENT_OF_INERTIA_SCALE: 2000
+  # FRICTION_LIMIT_SCALE: 10000000
+  # OFFTRACK_FRICTION_SCALE: 0.2
+  # WHEEL_R_SCALE: 27
+  # LENGTH_SCALE: 200
+  # MASS_SCALE: 40
+  # MOMENT_OF_INERTIA_SCALE: 7.0
+  # drag_reduction: 1.3
+  M: 3.3 #[kg]
+  lf: 0.19 #[m]
+  lr: 0.14 #[m]
+  Iz:  0.03 #[kg*m^3]
+  W: 0.296
+
+  #pajecka coef
+  Bf: 0.711
+  Br: 1.414
+  Cf: 1.414
+  Cr: 1.343
+  Df: 0.892
+  Dr: 0.892
+  ACCFORCE: 40 # [N/1]
+  MAXVEL: 3
 
 viewer:
   width: 1200  # 1200

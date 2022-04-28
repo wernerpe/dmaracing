@@ -24,9 +24,9 @@ def play():
     print('###########################')
     while True:
         t1 = time.time()
-        actions[0 , ag, 0] = steer_cmd 
-        actions[0 , ag, 1] = vel_cmd
-        actions[0 , ag, 2] = 0
+        actions[0 , ag, 1] = steer_cmd 
+        actions[0 , ag, 0] = vel_cmd
+        #actions[0 , ag, 2] = 0
         
         obs, _, rew, dones, info = env.step(actions)
         if env.num_agents>1:
@@ -47,7 +47,7 @@ def play():
                      #(f"""{'gas state:':>{10}}{' '}{states[env.viewer.env_idx_render, ag, env.vn['S_GAS']]:.2f}"""),
                      (f"""{'gas act:':>{10}}{' '}{act[env.viewer.env_idx_render, env.vn['A_GAS']]:.2f}"""),
                      (f"""{'steer act:':>{10}}{' '}{act[env.viewer.env_idx_render, env.vn['A_STEER']]:.2f}"""),
-                     (f"""{'gas:':>{10}}{' '}{env.states[env.viewer.env_idx_render,0, env.vn['S_GAS']].item():.2f}"""),
+                     #(f"""{'gas:':>{10}}{' '}{env.states[env.viewer.env_idx_render,0, env.vn['S_GAS']].item():.2f}"""),
                      #(f"""{'cont err:':>{10}}{' '}{cont[env.viewer.env_idx_render, 0]:.2f}"""),
                      #(f"""{'omega mean:':>{10}}{' '}{om_mean:.2f}"""),
                      #(f"""{'omega mean:':>{10}}{' '}{om_mean:.2f}"""),
@@ -84,7 +84,8 @@ def play():
         if evt == 109:
             ag = (ag - 1) % env.num_agents
         t2 = time.time()
-
+        if t2-t1 < 0.02* cfg['sim']['decimation']:
+            time.sleep(0.02 * cfg['sim']['decimation'] - t2+t1)
         #print('dt ', t2-t1)
 
 if __name__ == "__main__":
@@ -96,7 +97,7 @@ if __name__ == "__main__":
     cfg, cfg_train, logdir = getcfg(path_cfg)
     cfg["viewer"]["logEvery"] = -1
     cfg["track"]['OFFTRACK_FRICTION_SCALE'] = 1.0
-    cfg['sim']['numEnv'] = 1
+    cfg['sim']['numEnv'] = 11
     cfg['sim']['numAgents'] = 1
     cfg['track']['num_tracks'] = 7
     #cfg['track']['num_tracks'] = 3

@@ -17,7 +17,7 @@ import sys
 
 #sys.path.insert(1, "/home/thomasbalch/tri_workspace/dynamics_model_learning/scripts")
 # Import Dynamics encoder from TRI dynamics library.
-from learn_dynamics import DynamicsEncoder
+#from learn_dynamics import DynamicsEncoder
 
 
 class DmarEnv:
@@ -34,11 +34,6 @@ class DmarEnv:
         self.modelParameters = cfg["model"]
         set_dependent_params(self.modelParameters)
         self.simParameters = cfg["sim"]
-
-        # Import TRI dynamics model and weights
-        self.dyn_model = DynamicsEncoder.load_from_checkpoint(
-            #"/home/peter/git/dynamics_model_learning/sample_models/fixed_integration_current_v25.ckpt").to(self.device)
-            "/home/peter/git/dynamics_model_learning/sample_models/higher_roll_loss.ckpt").to(self.device)
 
         # use bootstrapping on vf
         self.use_timeouts = cfg["learn"]["use_timeouts"]
@@ -226,9 +221,6 @@ class DmarEnv:
     def compute_observations(
         self,
     ) -> None:
-        steer = self.states[:, :, self.vn["S_STEER"]].unsqueeze(2)
-        gas = self.states[:, :, self.vn["S_GAS"]].unsqueeze(2)
-
         theta = self.states[:, :, 2]
         vels = self.states[:, :, 3:6].clone()
         tile_idx_unwrapped = self.active_track_tile.unsqueeze(2) + (
@@ -490,12 +482,12 @@ class DmarEnv:
                 -self.reset_randomization[5], self.reset_randomization[5], (len(env_ids),), device=self.device
             )
             self.states[env_ids, agent, self.vn["S_DTHETA"] + 1 :] = 0.0
-            self.states[env_ids, agent, self.vn["S_STEER"]] = rand(
-                -self.reset_randomization[6], self.reset_randomization[6], (len(env_ids),), device=self.device
-            )
-            self.states[env_ids, agent, self.vn["S_W0"] : self.vn["S_W3"] + 1] = (
-                vels_long / self.modelParameters["WHEEL_R"]
-            ).unsqueeze(1)
+            # self.states[env_ids, agent, self.vn["S_STEER"]] = rand(
+            #     -self.reset_randomization[6], self.reset_randomization[6], (len(env_ids),), device=self.device
+            # )
+            # self.states[env_ids, agent, self.vn["S_W0"] : self.vn["S_W3"] + 1] = (
+            #     vels_long / self.modelParameters["WHEEL_R"]
+            # ).unsqueeze(1)
 
         idx_inactive, idx2_inactive = torch.where(~self.active_agents[env_ids, :].view(len(env_ids), self.num_agents))
         if len(idx_inactive):
@@ -562,11 +554,11 @@ class DmarEnv:
         if len(actions.shape) == 2:
             self.actions[:, 0, 0] = self.action_scales[0] * actions[..., 0] + self.default_actions[0]
             self.actions[:, 0, 1] = self.action_scales[1] * actions[..., 1] + self.default_actions[1]
-            self.actions[:, 0, 2] = self.action_scales[2] * actions[..., 2] + self.default_actions[2]
+        #   self.actions[:, 0, 2] = self.action_scales[2] * actions[..., 2] + self.default_actions[2]
         else:
             self.actions[:, :, 0] = self.action_scales[0] * actions[..., 0] + self.default_actions[0]
             self.actions[:, :, 1] = self.action_scales[1] * actions[..., 1] + self.default_actions[1]
-            self.actions[:, :, 2] = self.action_scales[2] * actions[..., 2] + self.default_actions[2]
+        #   self.actions[:, :, 2] = self.action_scales[2] * actions[..., 2] + self.default_actions[2]
 
         # reset collision detection
         self.is_collision = self.is_collision < 0
@@ -687,7 +679,7 @@ class DmarEnv:
                 )
         else:
             self.viewer_events = self.viewer.render(
-                self.states[:, :, [0, 1, 2, 10]], self.slip, self.drag_reduced, self.wheel_locations_world
+                self.states[:, :, [0, 1, 2, 6]], self.slip, self.drag_reduced, self.wheel_locations_world
             )
 
     def simulate(self) -> None:
@@ -725,7 +717,6 @@ class DmarEnv:
             self.track_A,  # Ax<=b
             self.track_b,
             self.track_S,  # how to sum
-            self.dyn_model,
         )
 
     def resample_track(self, env_ids) -> None:
@@ -796,7 +787,7 @@ def compute_rewards_jit(
     act_diff = torch.square(actions - last_actions)
     act_diff[...,1] *= 20.0
     rew_actionrate = -torch.sum(act_diff, dim=2) * reward_scales["actionrate"]
-    rew_energy = -torch.sum(torch.square(states[:, :, vn["S_W0"] : vn["S_W3"] + 1]), dim=2) * reward_scales["energy"]
+    rew_energy = 0 #-torch.sum(torch.square(states[:, :, vn["S_W0"] : vn["S_W3"] + 1]), dim=2) * reward_scales["energy"]
     num_active_agents = torch.sum(1.0 * active_agents, dim=1)
     if ranks is not None:
         rew_rank = 1.0 / num_agents * (num_active_agents.view(-1, 1) / 2.0 - ranks) * reward_scales["rank"]
