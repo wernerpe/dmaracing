@@ -64,232 +64,6 @@ def generate_polygons(normal_vecs, decimated_pts, half_track_width):
     return np.array(polygons)
 
 
-def get_track(cfg, device, ccw=True):
-    SCALE = cfg['track']['SCALE']  # Track scale
-    TRACK_RAD = cfg['track']['TRACK_RAD'] / SCALE  # Track is heavily morphed circle with this radius
-    CHECKPOINTS = cfg['track']['CHECKPOINTS']
-    TRACK_DETAIL_STEP = cfg['track']['TRACK_DETAIL_STEP'] / SCALE
-    TRACK_TURN_RATE = cfg['track']['TRACK_TURN_RATE']
-    TRACK_WIDTH = cfg['track']['TRACK_WIDTH'] / SCALE
-    BORDER = cfg['track']['BORDER'] / SCALE
-    BORDER_MIN_COUNT = cfg['track']['BORDER_MIN_COUNT']
-    verbose = cfg['track']['verbose']
-    seed = cfg['track']['seed']
-    width = cfg['viewer']['width']
-    height = cfg['viewer']['height']
-
-    np.random.seed(seed)
-    # Create checkpoints
-    checkpoints = []
-    for c in range(CHECKPOINTS):
-        noise = np.random.uniform(0, 2 * math.pi * 1 / CHECKPOINTS)
-        alpha = 2 * math.pi * c / CHECKPOINTS + noise
-        rad = np.random.uniform(TRACK_RAD / 3, TRACK_RAD)
-
-        if c == 0:
-            alpha = 0
-            rad = 1.5 * TRACK_RAD
-        if c == CHECKPOINTS - 1:
-            alpha = 2 * math.pi * c / CHECKPOINTS
-            start_alpha = 2 * math.pi * (-0.5) / CHECKPOINTS
-            rad = 1.5 * TRACK_RAD
-
-        checkpoints.append((alpha, rad * math.cos(alpha), rad * math.sin(alpha)))
-    road = []
-
-    # Go from one checkpoint to another to create track
-    x, y, beta = 1.5 * TRACK_RAD, 0, 0
-    dest_i = 0
-    laps = 0
-    track = []
-    no_freeze = 2500
-    visited_other_side = False
-    while True:
-        alpha = math.atan2(y, x)
-        if visited_other_side and alpha > 0:
-            laps += 1
-            visited_other_side = False
-        if alpha < 0:
-            visited_other_side = True
-            alpha += 2 * math.pi
-
-        while True:  # Find destination from checkpoints
-            failed = True
-
-            while True:
-                dest_alpha, dest_x, dest_y = checkpoints[dest_i % len(checkpoints)]
-                if alpha <= dest_alpha:
-                    failed = False
-                    break
-                dest_i += 1
-                if dest_i % len(checkpoints) == 0:
-                    break
-
-            if not failed:
-                break
-
-            alpha -= 2 * math.pi
-            continue
-
-        r1x = math.cos(beta)
-        r1y = math.sin(beta)
-        p1x = -r1y
-        p1y = r1x
-        dest_dx = dest_x - x  # vector towards destination
-        dest_dy = dest_y - y
-        # destination vector projected on rad:
-        proj = r1x * dest_dx + r1y * dest_dy
-        while beta - alpha > 1.5 * math.pi:
-            beta -= 2 * math.pi
-        while beta - alpha < -1.5 * math.pi:
-            beta += 2 * math.pi
-        prev_beta = beta
-        proj *= SCALE
-        if proj > 0.3:
-            beta -= min(TRACK_TURN_RATE, abs(0.001 * proj))
-        if proj < -0.3:
-            beta += min(TRACK_TURN_RATE, abs(0.001 * proj))
-        x += p1x * TRACK_DETAIL_STEP
-        y += p1y * TRACK_DETAIL_STEP
-        track.append((alpha, prev_beta * 0.5 + beta * 0.5, x, y))
-        if laps > 4:
-            break
-        no_freeze -= 1
-        if no_freeze == 0:
-            break
-
-    # Find closed loop range i1..i2, first loop should be ignored, second is OK
-    i1, i2 = -1, -1
-    i = len(track)
-    while True:
-        i -= 1
-        if i == 0:
-            return False  # Failed
-        pass_through_start = (
-            track[i][0] > start_alpha and track[i - 1][0] <= start_alpha
-        )
-        if pass_through_start and i2 == -1:
-            i2 = i
-        elif pass_through_start and i1 == -1:
-            i1 = i
-            break
-    if verbose == 1:
-        print("Track generation: %i..%i -> %i-tiles track" % (i1, i2, i2 - i1))
-    assert i1 != -1
-    assert i2 != -1
-
-    track = track[i1: i2 - 1]
-
-    first_beta = track[0][1]
-    first_perp_x = math.cos(first_beta)
-    first_perp_y = math.sin(first_beta)
-    # Length of perpendicular jump to put together head and tail
-    well_glued_together = np.sqrt(
-        np.square(first_perp_x * (track[0][2] - track[-1][2]))
-        + np.square(first_perp_y * (track[0][3] - track[-1][3]))
-    )
-    if well_glued_together > TRACK_DETAIL_STEP:
-        return False
-
-    # Red-white border on hard turns
-    border = [False] * len(track)
-    centerline = np.zeros((len(track), 2))
-    alphas = []
-
-    track_poly_verts = []
-    border_poly_verts = []
-    border_poly_col = []
-
-    for i in range(len(track)):
-        good = True
-        oneside = 0
-        for neg in range(BORDER_MIN_COUNT):
-            beta1 = track[i - neg - 0][1]
-            beta2 = track[i - neg - 1][1]
-            good &= abs(beta1 - beta2) > TRACK_TURN_RATE * 0.2
-            oneside += np.sign(beta1 - beta2)
-        good &= abs(oneside) == BORDER_MIN_COUNT
-        border[i] = good
-    for i in range(len(track)):
-        for neg in range(BORDER_MIN_COUNT):
-            border[i - neg] |= border[i]
-
-    # Create tiles
-    for i in range(len(track)):
-        alpha1, beta1, x1, y1 = track[i]
-        alpha2, beta2, x2, y2 = track[i - 1]
-        road1_l = (
-            x1 - TRACK_WIDTH * math.cos(beta1),
-            y1 - TRACK_WIDTH * math.sin(beta1),
-        )
-        road1_r = (
-            x1 + TRACK_WIDTH * math.cos(beta1),
-            y1 + TRACK_WIDTH * math.sin(beta1),
-        )
-        road2_l = (
-            x2 - TRACK_WIDTH * math.cos(beta2),
-            y2 - TRACK_WIDTH * math.sin(beta2),
-        )
-        road2_r = (
-            x2 + TRACK_WIDTH * math.cos(beta2),
-            y2 + TRACK_WIDTH * math.sin(beta2),
-        )
-        vert = np.zeros((4, 2))
-        vert[0, :] = road1_l
-        vert[1, :] = road1_r
-        vert[2, :] = road2_r
-        vert[3, :] = road2_l
-        track_poly_verts.append(vert)
-        centerline[i, 0] = track[i][2]
-        centerline[i, 1] = track[i][3]
-        alphas.append(track[i][1])
-
-        if border[i]:
-            side = np.sign(beta2 - beta1)
-            b1_l = (
-                x1 + side * TRACK_WIDTH * math.cos(beta1),
-                y1 + side * TRACK_WIDTH * math.sin(beta1),
-            )
-            b1_r = (
-                x1 + side * (TRACK_WIDTH + BORDER) * math.cos(beta1),
-                y1 + side * (TRACK_WIDTH + BORDER) * math.sin(beta1),
-            )
-            b2_l = (
-                x2 + side * TRACK_WIDTH * math.cos(beta2),
-                y2 + side * TRACK_WIDTH * math.sin(beta2),
-            )
-            b2_r = (
-                x2 + side * (TRACK_WIDTH + BORDER) * math.cos(beta2),
-                y2 + side * (TRACK_WIDTH + BORDER) * math.sin(beta2),
-            )
-
-            vert = np.zeros((4, 2))
-            vert[0, :] = b1_l
-            vert[1, :] = b1_r
-            vert[2, :] = b2_r
-            vert[3, :] = b2_l
-            border_poly_verts.append(vert)
-            border_poly_col.append((255, 255, 255) if i % 2 == 0 else (0, 0, 255))
-            # road_poly.append(
-            #    ([b1_l, b1_r, b2_r, b2_l], (1, 1, 1) if i % 2 == 0 else (1, 0, 0))
-            # )
-
-    if ccw:
-        track_poly_verts = np.array(track_poly_verts)
-        border_poly_verts = np.array(border_poly_verts)
-        alphas = np.array(alphas)
-    else:
-        track_poly_verts = np.array(track_poly_verts)[::-1]
-        border_poly_verts = np.array(border_poly_verts)[::-1]
-        alphas = np.array(alphas[::-1]) + np.pi
-        centerline = centerline[::-1]
-
-    As, b, S_mat = construct_poly_track_eqns(track_poly_verts, device)
-    val = [centerline, track_poly_verts, alphas, As, b, S_mat, border_poly_verts,
-           border_poly_col], TRACK_DETAIL_STEP, len(track_poly_verts)
-    return val
-
-
 def draw_track(img,
                centerline,
                track_poly_verts,
@@ -368,121 +142,8 @@ def construct_poly_track_eqns(track_poly_verts, device):
     return A, b, S_mat
 
 
-def get_track_ensemble(Ntracks, cfg, device):
-    track_tile_counts = []
-    centerlines = []
-    poly_verts_tracks = []
-    alphas_tracks = []
-    A_tracks = []
-    b_tracks = []
-    S_mats = []
-    border_poly_verts = []
-    border_poly_cols = []
-
-    num_tracks = 0
-    it = 0
-    while num_tracks < Ntracks:
-        print(it)
-        ccw = np.random.rand() < 0.5
-        cfg['track']['seed'] += it * 10
-        return_val = get_track(cfg, device, ccw)
-
-        if return_val:
-            track, tile_len, track_num_tiles = return_val
-            centerlines.append(track[0])
-            poly_verts_tracks.append(track[1])
-            alphas_tracks.append(track[2])
-            A_tracks.append(track[3])
-            b_tracks.append(track[4])
-            S_mats.append(track[5])
-            border_poly_verts.append(track[6])
-            border_poly_cols.append(track[7])
-            track_tile_counts.append(track_num_tiles)
-            num_tracks += 1
-        else:
-            print('failed')
-        it += 1
-
-    # size trackmatrices according to largest track, make redundant poly infeasible by default
-    max_tile_count = np.max(track_tile_counts)
-
-    alpha = torch.zeros((Ntracks, max_tile_count), device=device, requires_grad=False, dtype=torch.float)
-    A = torch.zeros((Ntracks, 4 * max_tile_count, 2), device=device, requires_grad=False, dtype=torch.float)
-    b = 1000 * torch.ones((Ntracks, 4 * max_tile_count,), device=device, requires_grad=False, dtype=torch.float)
-    S_mat = torch.zeros((Ntracks, max_tile_count, 4 * max_tile_count),
-                        device=device, requires_grad=False, dtype=torch.float)
-    centerline = -10000 * torch.ones((Ntracks, max_tile_count, 2), device=device,
-                                     requires_grad=False, dtype=torch.float)
-    for idx in range(Ntracks):
-        A[idx, :A_tracks[idx].shape[0], :] = A_tracks[idx]
-        b[idx, :A_tracks[idx].shape[0]] = b_tracks[idx]
-        S_mat[idx, :S_mats[idx].shape[0], :S_mats[idx].shape[1]] = S_mats[idx]
-        centerline[idx, :len(centerlines[idx]), :] = torch.tensor(
-            centerlines[idx].copy(), device=device, dtype=torch.float, requires_grad=False)
-        alpha[idx, :len(centerlines[idx])] = torch.tensor(alphas_tracks[idx].copy(),
-                                                          device=device, dtype=torch.float, requires_grad=False)
-    #[centerline, track_poly_verts, alphas, A, b, S_mat, border_poly_verts, border_poly_col]
-    return [centerline, poly_verts_tracks, alpha, A, b, S_mat, border_poly_verts, border_poly_cols], tile_len, track_tile_counts
-
-
 def get_tri_track_ensemble(Ntracks, cfg, device):
-    track_tile_counts = []
-    centerlines = []
-    poly_verts_tracks = []
-    alphas_tracks = []
-    A_tracks = []
-    b_tracks = []
-    S_mats = []
-    border_poly_verts = []
-    border_poly_cols = []
-
-    num_tracks = 0
-    it = 0
-    while num_tracks < Ntracks:
-        print(it)
-        ccw = np.random.rand() < 0.5
-        cfg['track']['seed'] += it * 10
-        return_val = get_track(cfg, device, ccw)
-
-        if return_val:
-            track, tile_len, track_num_tiles = return_val
-            centerlines.append(track[0])
-            poly_verts_tracks.append(track[1])
-            alphas_tracks.append(track[2])
-            A_tracks.append(track[3])
-            b_tracks.append(track[4])
-            S_mats.append(track[5])
-            border_poly_verts.append(track[6])
-            border_poly_cols.append(track[7])
-            track_tile_counts.append(track_num_tiles)
-            num_tracks += 1
-        else:
-            print('failed')
-        it += 1
-
-    # size trackmatrices according to largest track, make redundant poly infeasible by default
-    max_tile_count = np.max(track_tile_counts)
-
-    alpha = torch.zeros((Ntracks, max_tile_count), device=device, requires_grad=False, dtype=torch.float)
-    A = torch.zeros((Ntracks, 4 * max_tile_count, 2), device=device, requires_grad=False, dtype=torch.float)
-    b = 1000 * torch.ones((Ntracks, 4 * max_tile_count,), device=device, requires_grad=False, dtype=torch.float)
-    S_mat = torch.zeros((Ntracks, max_tile_count, 4 * max_tile_count),
-                        device=device, requires_grad=False, dtype=torch.float)
-    centerline = -10000 * torch.ones((Ntracks, max_tile_count, 2), device=device,
-                                     requires_grad=False, dtype=torch.float)
-    for idx in range(Ntracks):
-        A[idx, :A_tracks[idx].shape[0], :] = A_tracks[idx]
-        b[idx, :A_tracks[idx].shape[0]] = b_tracks[idx]
-        S_mat[idx, :S_mats[idx].shape[0], :S_mats[idx].shape[1]] = S_mats[idx]
-        centerline[idx, :len(centerlines[idx]), :] = torch.tensor(
-            centerlines[idx].copy(), device=device, dtype=torch.float, requires_grad=False)
-        alpha[idx, :len(centerlines[idx])] = torch.tensor(alphas_tracks[idx].copy(),
-                                                          device=device, dtype=torch.float, requires_grad=False)
-    #[centerline, track_poly_verts, alphas, A, b, S_mat, border_poly_verts, border_poly_col]
-    return [centerline, poly_verts_tracks, alpha, A, b, S_mat, border_poly_verts, border_poly_cols], tile_len, track_tile_counts
-
-
-if __name__ == "__main__":
+    # Load a centerline track, generate polygons and matricies, and repeat Ntracks times
     file_path = "maps/large_oval.csv"
     path = []
     with open(file_path) as csv_file:
@@ -494,10 +155,43 @@ if __name__ == "__main__":
     # print(normal_vecs)
     polygons = generate_polygons(normal_vecs, track_pts, 0.5)
     # polygons = torch.tensor(polygons)  # .unsqueeze(0)
+    As, b, S_mat = construct_poly_track_eqns(polygons, device)
+    val = [track_pts, polygons, alphas, As, b, S_mat, None,
+           None], 0.5, len(polygons)
+
+    alpha = torch.tensor(alphas, device=device, requires_grad=False, dtype=torch.float).unsqueeze(0).expand(Ntracks, -1)
+    # A = torch.tensor(As, device=device, requires_grad=False, dtype=torch.float).unsqueeze(0).expand(Ntracks, -1, -1)
+    # b = torch.tensor(b, device=device, requires_grad=False, dtype=torch.float).unsqueeze(0).expand(Ntracks, -1)
+    # S_mat = torch.tensor(S_mat, device=device, requires_grad=False, dtype=torch.float).unsqueeze(0).expand(Ntracks, -1, -1)
+    A = As.unsqueeze(0).expand(Ntracks, -1, -1)
+    b = b.unsqueeze(0).expand(Ntracks, -1)
+    S_mat = S_mat.unsqueeze(0).expand(Ntracks, -1, -1)
+    centerline = torch.tensor(track_pts, device=device, requires_grad=False, dtype=torch.float).unsqueeze(0).expand(Ntracks, -1, -1)
+    track_poly_verts = np.tile(polygons, [Ntracks, 1, 1, 1])
+    track_tile_counts = np.array([len(polygons)])
+    track_tile_counts = np.tile(track_tile_counts, [Ntracks])
+
+    return [centerline, track_poly_verts, alpha, A, b, S_mat, np.ones([Ntracks,0]), np.ones([Ntracks,0])], 0.5, track_tile_counts
+
+
+if __name__ == "__main__":
+    file_path = "maps/large_oval.csv"
+    path = []
+    with open(file_path) as csv_file:
+        csv_reader = csv.reader(csv_file, delimiter=',', quoting=csv.QUOTE_NONNUMERIC)
+        for waypoint in csv_reader:
+            path.append((waypoint[0], waypoint[1]))
+    normal_vecs, track_pts, alphas = decimate_points(path, 0.5)
+    # print(track_pts)
+    # print(normal_vecs)
+    polygons = generate_polygons(normal_vecs, track_pts, 0.5)
+    # polygons = torch.tensor(polygons)  # .unsqueeze(0)
     print(polygons.shape)
     As, b, S_mat = construct_poly_track_eqns(polygons, "cpu")
     val = [track_pts, polygons, alphas, As, b, S_mat, None,
            None], 0.5, len(polygons)
+
+    ret = get_tri_track_ensemble(4, None, "cpu")
     # val = [centerline, track_poly_verts, alphas, As, b, S_mat, border_poly_verts,
     #        border_poly_col], TRACK_DETAIL_STEP, len(track_poly_verts)
     # print(polygons)

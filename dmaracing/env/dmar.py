@@ -9,6 +9,7 @@ from dmaracing.utils.helpers import rand
 from typing import Tuple, Dict, Union
 import numpy as np
 from dmaracing.utils.trackgen import get_track_ensemble
+from dmaracing.utils.trackgen_tri import get_tri_track_ensemble
 from torch.utils.tensorboard import SummaryWriter
 import random
 
@@ -60,7 +61,7 @@ class DmarEnv:
         # load track
         self.all_envs = torch.arange(self.num_envs, dtype=torch.long)
         self.num_tracks = cfg["track"]["num_tracks"]
-        t, self.tile_len, self.track_tile_counts = get_track_ensemble(self.num_tracks, cfg, self.device)
+        t, self.tile_len, self.track_tile_counts = get_tri_track_ensemble(self.num_tracks, cfg, self.device)
         self.track_lengths = torch.tensor(self.track_tile_counts, device=self.device) * self.tile_len
         (
             self.track_centerlines,
@@ -347,7 +348,7 @@ class DmarEnv:
                 * self.active_obs_template
                 * is_other_close
             )
-            
+
             self.obs_buf = torch.cat(
                 (
                     self.vels_body * 0.1,
@@ -374,7 +375,7 @@ class DmarEnv:
             dim=2,
         )
 
-        
+
     def compute_rewards(
         self,
     ) -> None:
@@ -572,7 +573,7 @@ class DmarEnv:
             return self.obs_buf.clone(), self.privileged_obs, self.rew_buf.clone(), self.reset_buf.clone(), self.info
         else:
             return self.obs_buf[:,0,:].clone(), self.privileged_obs, self.rew_buf[:,0].clone(), self.reset_buf[:,0].clone(), self.info
-            
+
     def post_physics_step(self) -> None:
         self.total_step += 1
         self.episode_length_buf += 1
@@ -793,7 +794,7 @@ def compute_rewards_jit(
         rew_rank = 1.0 / num_agents * (num_active_agents.view(-1, 1) / 2.0 - ranks) * reward_scales["rank"]
 
         rew_collision = is_collision * reward_scales["collision"]
-    
+
         rew_buf = torch.clip(
             rew_progress + rew_on_track + rew_actionrate + rew_energy + rew_rank + rew_collision, min=0, max=None
         )
