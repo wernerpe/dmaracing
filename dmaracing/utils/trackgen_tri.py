@@ -144,16 +144,18 @@ def construct_poly_track_eqns(track_poly_verts, device):
 
 def get_tri_track_ensemble(Ntracks, cfg, device):
     # Load a centerline track, generate polygons and matricies, and repeat Ntracks times
+    TRACK_POLYGON_SPACING = 0.5
+    TRACK_HALF_WIDTH = 0.5
     file_path = "maps/large_oval.csv"
     path = []
     with open(file_path) as csv_file:
         csv_reader = csv.reader(csv_file, delimiter=',', quoting=csv.QUOTE_NONNUMERIC)
         for waypoint in csv_reader:
             path.append((waypoint[0], waypoint[1]))
-    normal_vecs, track_pts, alphas = decimate_points(path, 0.49)
+    normal_vecs, track_pts, alphas = decimate_points(path, TRACK_POLYGON_SPACING)
     # print(track_pts)
     # print(normal_vecs)
-    polygons = generate_polygons(normal_vecs, track_pts, 0.5)
+    polygons = generate_polygons(normal_vecs, track_pts, TRACK_HALF_WIDTH)
     # polygons = torch.tensor(polygons)  # .unsqueeze(0)
     As, b, S_mat = construct_poly_track_eqns(polygons, device)
     val = [track_pts, polygons, alphas, As, b, S_mat, None,
