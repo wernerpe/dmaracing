@@ -31,9 +31,9 @@ def decimate_points(pts, pt_separation):
             pt1 = np.array(pt)
             dir_vec = pt1 - pt0
             alpha = math.atan2(dir_vec[1], dir_vec[0])
-            alphas.append(alpha)
             perpendicular_unit_vec = np.dot(dir_vec, rot) / np.linalg.norm(dir_vec)
             normal_vecs.append(perpendicular_unit_vec)
+            alphas.append(alpha-np.pi/2.0)
             last_pt = pt
     # Add in the lastpt->firstpt polygon
     print(pt_dist)
@@ -62,53 +62,53 @@ def generate_polygons(normal_vecs, decimated_pts, half_track_width):
         poly2 = pt1 - n1 * half_track_width
         poly3 = pt1 + n1 * half_track_width
         poly4 = pt0 + n0 * half_track_width
-        polygons.append([poly1, poly2, poly3, poly4])
+        polygons.append([poly4, poly1, poly2, poly3])
     return np.array(polygons)
 
 
-def draw_track(img,
-               centerline,
-               track_poly_verts,
-               border_poly_verts,
-               border_poly_col,
-               track_tile_count,
-               cords2px,
-               cl=True):
+# def draw_track(img,
+#                centerline,
+#                track_poly_verts,
+#                border_poly_verts,
+#                border_poly_col,
+#                track_tile_count,
+#                cords2px,
+#                cl=True):
 
-    img[:, :, 0] = 130
-    img[:, :, 1] = 255
-    img[:, :, 2] = 130
+#     img[:, :, 0] = 130
+#     img[:, :, 1] = 255
+#     img[:, :, 2] = 130
 
-    overlay = img.copy()
-    for idx in range(track_tile_count):
-        verts = track_poly_verts[idx, :, :]
-        vert_px = cords2px(verts)
-        if idx == 0:
-            cv.fillPoly(img, [vert_px], color=(178, 178, 178))
-            cv.polylines(overlay, [vert_px], isClosed=True,  color=(0, 0, 0), thickness=1)
-            cv.polylines(img, [vert_px[0:2, :]], isClosed=False,  color=(0, 0, 0), thickness=3)
-        else:
-            cv.fillPoly(img, [vert_px], color=(178, 178, 178) if idx % 2 == 0 else (168, 168, 168))
-            cv.polylines(overlay, [vert_px], isClosed=True,  color=(0, 0, 0), thickness=1)
+#     overlay = img.copy()
+#     for idx in range(track_tile_count):
+#         verts = track_poly_verts[idx, :, :]
+#         vert_px = cords2px(verts)
+#         if idx == 0:
+#             cv.fillPoly(img, [vert_px], color=(178, 178, 178))
+#             cv.polylines(overlay, [vert_px], isClosed=True,  color=(0, 0, 0), thickness=1)
+#             cv.polylines(img, [vert_px[0:2, :]], isClosed=False,  color=(0, 0, 0), thickness=3)
+#         else:
+#             cv.fillPoly(img, [vert_px], color=(178, 178, 178) if idx % 2 == 0 else (168, 168, 168))
+#             cv.polylines(overlay, [vert_px], isClosed=True,  color=(0, 0, 0), thickness=1)
 
-    #cv.polylines(overlay, [vert_px], isClosed = True,  color = (0,0,0), thickness = 1)
+#     #cv.polylines(overlay, [vert_px], isClosed = True,  color = (0,0,0), thickness = 1)
 
-    if cl:
-        cl_px = cords2px(centerline[:track_tile_count, ...])
-        cv.polylines(img, [cl_px], isClosed=True, color=(0, 0, 0), thickness=1)
-        num_cl = len(cl_px)
-        for idx in range(num_cl):
-            cv.circle(img, (cl_px[idx, 0], cl_px[idx, 1]), 1, (0, 0, int(idx / num_cl * 255)))
+#     if cl:
+#         cl_px = cords2px(centerline[:track_tile_count, ...])
+#         cv.polylines(img, [cl_px], isClosed=True, color=(0, 0, 0), thickness=1)
+#         num_cl = len(cl_px)
+#         for idx in range(num_cl):
+#             cv.circle(img, (cl_px[idx, 0], cl_px[idx, 1]), 1, (0, 0, int(idx / num_cl * 255)))
 
-    for idx in range(len(border_poly_verts)):
-        verts = border_poly_verts[idx, :, :]
-        vert_px = cords2px(verts)
-        cv.fillPoly(img, [vert_px], color=(0, 0, 255) if idx % 2 == 0 else (255, 255, 255))
+#     for idx in range(len(border_poly_verts)):
+#         verts = border_poly_verts[idx, :, :]
+#         vert_px = cords2px(verts)
+#         cv.fillPoly(img, [vert_px], color=(0, 0, 255) if idx % 2 == 0 else (255, 255, 255))
 
-    img = cv.addWeighted(overlay, 0.1, img, 0.9, 0)
+#     img = cv.addWeighted(overlay, 0.1, img, 0.9, 0)
 
-    #draw_cord_axs(img, cords2px)
-    return img
+#     #draw_cord_axs(img, cords2px)
+#     return img
 
 
 def draw_cord_axs(img, cords2px):
