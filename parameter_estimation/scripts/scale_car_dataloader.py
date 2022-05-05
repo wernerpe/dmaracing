@@ -85,7 +85,10 @@ if __name__ == "__main__":
     import time
     import matplotlib.pyplot as plt
 
-    d = ScaleCarDynamicsData("parameter_estimation/data/racecar_3_2022-03-22-10-34-20.json", 0, 1000)
+    # dynamics_file = "racecar_3_2022-03-22-10-34-20.json"
+    dynamics_file = "racecar_3_2022-03-22-11-11-48.json"
+
+    d = ScaleCarDynamicsData("parameter_estimation/data/" + dynamics_file, 0, 1000)
     for i in range(5):
         data = d[10000]
         plt.figure()
