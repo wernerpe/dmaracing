@@ -20,8 +20,11 @@ def play():
     model_path = "{}/model_{}.pt".format(dir, model)
     print("Loading model" + model_path)
     runner.load(model_path)
+
     policy = runner.get_inference_policy(device=env.device)
-    
+    policy(obs)
+    policy_jit = torch.jit.script(runner.alg.actor_critic.actor.to('cpu'))
+    policy_jit.save("logs/saved_models/policy0_8.pt")
     time_per_step = cfg['sim']['dt']*cfg['sim']['decimation']
 
     while True:
@@ -43,11 +46,14 @@ def play():
                      (f"""{'ang vel:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 2]:.2f}"""),
                      (f"""{'steer:':>{10}}{' '}{states[env.viewer.env_idx_render, 0, env.vn['S_STEER']]:.2f}"""),
                      (f"""{'gas:':>{10}}{' '}{states[env.viewer.env_idx_render, 0, env.vn['S_GAS']]:.2f}"""),
-                     (f"""{'brake:':>{10}}{' '}{act[env.viewer.env_idx_render, 0, env.vn['A_BRAKE']]:.2f}"""),
+                    # (f"""{'brake:':>{10}}{' '}{act[env.viewer.env_idx_render, 0, env.vn['A_BRAKE']]:.2f}"""),
                      #(f"""{'cont err:':>{10}}{' '}{cont[env.viewer.env_idx_render, 0]:.2f}"""),
                      (f"""{'omega mean:':>{10}}{' '}{om_mean:.2f}"""),
                      ]
-        
+        env.viewer.clear_markers()
+        closest_point_marker = env.interpolated_centers[env.viewer.env_idx_render, 0, :, :].cpu().numpy()
+        env.viewer.add_point(closest_point_marker, 2,(222,10,0), 2)
+
         env.viewer.clear_string()
         for msg in viewermsg:
             env.viewer.add_string(msg)

@@ -23,7 +23,7 @@ runner:
   max_iterations: 300 # number of policy updates
   population_update_interval: 40 #number of iterations before the opponent policy is updated
   # logging
-  save_interval: 100 # check for potential saves every this many iterations
+  save_interval: 50 # check for potential saves every this many iterations
   experiment_name: 'tri_single_agent'
   run_name: ''
   # load and resume

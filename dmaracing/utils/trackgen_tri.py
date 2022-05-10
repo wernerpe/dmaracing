@@ -154,14 +154,51 @@ def get_tri_track_ensemble(Ntracks, cfg, device):
         csv_reader = csv.reader(csv_file, delimiter=',', quoting=csv.QUOTE_NONNUMERIC)
         for waypoint in csv_reader:
             path.append((waypoint[0], waypoint[1]))
-    normal_vecs, track_pts, alphas = decimate_points(path, TRACK_POLYGON_SPACING)
-    # print(track_pts)
-    # print(normal_vecs)
-    polygons = generate_polygons(normal_vecs, track_pts, TRACK_HALF_WIDTH)
-    # polygons = torch.tensor(polygons)  # .unsqueeze(0)
-    As, b, S_mat = construct_poly_track_eqns(polygons, device)
-    val = [track_pts, polygons, alphas, As, b, S_mat, None,
-           None], 0.5, len(polygons)
+
+    track_tile_counts =[]
+    centerlines = []
+    poly_verts_tracks = []
+    alphas_tracks =[]
+    A_tracks = []
+    b_tracks = []
+    S_mats = []
+    border_poly_verts =[]
+    border_poly_cols =[]
+
+    for idx in range(Ntracks):
+        normal_vecs, track_pts, alphas = decimate_points(path, TRACK_POLYGON_SPACING)
+        polygons = generate_polygons(normal_vecs, track_pts, TRACK_HALF_WIDTH)
+        ccw = np.random.rand() > 0.5
+        if ccw:    
+            polygons = np.array(polygons)
+            #border_poly_verts = np.array([])
+            alphas = np.array(alphas)
+        else:
+            polygons = np.array(polygons)[::-1]
+            #border_poly_verts = np.array([])
+            alphas = np.array(alphas[::-1]) + np.pi 
+            track_pts = track_pts[::-1]
+
+    
+        # polygons = torch.tensor(polygons)  # .unsqueeze(0)
+        As, b, S_mat = construct_poly_track_eqns(polygons, device)
+        track_tile_counts.append(len(track_pts))
+        centerlines.append(track_pts)
+        poly_verts_tracks.append(polygons)
+        alphas_tracks.append(alphas)
+        A_tracks.append(As)
+        b_tracks.append(b)
+        S_mats.append(S_mat)
+        border_poly_verts.append([])
+        border_poly_cols.append([])   
+        # val = [track_pts, polygons, alphas, As, b, S_mat, None,
+        #     None], 0.5, len(polygons)
+    alpha = torch.cat(tuple([torch.tensor(alph, device=device, requires_grad=False, dtype = torch.float).view(1, -1) for alph in alphas_tracks]), dim = 0)
+    A = torch.cat(tuple([torch.tensor(a, device=device, requires_grad=False, dtype = torch.float).view(1, a.shape[0], -1) for a in A_tracks]), dim = 0)
+    b = torch.cat(tuple([torch.tensor(b, device=device, requires_grad=False, dtype = torch.float).view(1, b.shape[0],) for b in b_tracks]), dim = 0)
+    S_mat = torch.cat(tuple([torch.tensor(s, device=device, requires_grad=False, dtype = torch.float).view(1, s.shape[0], -1) for s in S_mats]), dim = 0)
+    centerline = torch.cat(tuple([torch.tensor(c.copy(), device=device, requires_grad=False, dtype = torch.float).view(1, c.shape[0], -1) for c in centerlines]), dim = 0)
+    return [centerline, poly_verts_tracks, alpha, A, b, S_mat, border_poly_verts, border_poly_cols], TRACK_POLYGON_SPACING, track_tile_counts
 
     alpha = torch.tensor(alphas, device=device, requires_grad=False, dtype=torch.float).unsqueeze(0).expand(Ntracks, -1)
     # A = torch.tensor(As, device=device, requires_grad=False, dtype=torch.float).unsqueeze(0).expand(Ntracks, -1, -1)

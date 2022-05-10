@@ -233,7 +233,7 @@ class DmarEnv:
         theta = self.states[:, :, 2]
         vels = self.states[:, :, 3:6].clone()
         tile_idx_unwrapped = self.active_track_tile.unsqueeze(2) + (
-            4 * torch.arange(self.horizon, device=self.device, dtype=torch.long)
+            1 * torch.arange(self.horizon, device=self.device, dtype=torch.long)
         ).unsqueeze(0).unsqueeze(0)
         tile_idx = torch.remainder(tile_idx_unwrapped, self.active_track_tile_counts.view(-1, 1, 1))
         centers = self.active_centerlines[:, tile_idx, :]
@@ -563,11 +563,11 @@ class DmarEnv:
         if len(actions.shape) == 2:
             self.actions[:, 0, 0] = self.action_scales[0] * actions[..., 0] + self.default_actions[0]
             self.actions[:, 0, 1] = self.action_scales[1] * actions[..., 1] + self.default_actions[1]
-            self.actions[:, 0, 2] = self.action_scales[2] * actions[..., 2] + self.default_actions[2]
+        #    self.actions[:, 0, 2] = self.action_scales[2] * actions[..., 2] + self.default_actions[2]
         else:
             self.actions[:, :, 0] = self.action_scales[0] * actions[..., 0] + self.default_actions[0]
             self.actions[:, :, 1] = self.action_scales[1] * actions[..., 1] + self.default_actions[1]
-            self.actions[:, :, 2] = self.action_scales[2] * actions[..., 2] + self.default_actions[2]
+        #    self.actions[:, :, 2] = self.action_scales[2] * actions[..., 2] + self.default_actions[2]
 
         # reset collision detection
         self.is_collision = self.is_collision < 0
