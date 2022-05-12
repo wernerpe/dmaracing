@@ -2,6 +2,8 @@ seed: 1
 clip_observations: 1000.0
 clip_actions: 4.0
 
+track_cfgs: True
+
 algorithm:
   clip_param: 0.2
   entropy_coef: 0.005
