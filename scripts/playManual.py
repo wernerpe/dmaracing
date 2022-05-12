@@ -6,9 +6,7 @@ import numpy as np
 import time
 
 def play():
-    
-    
-    
+       
     env = DmarEnv(cfg, args)
     obs = env.obs_buf
 
@@ -45,8 +43,8 @@ def play():
                      #(f"""{'steer:':>{10}}{' '}{states[env.viewer.env_idx_render, 0, env.vn['S_STEER']]:.2f}"""),
                      #(f"""{'gas:':>{10}}{' '}{states[env.viewer.env_idx_render, 0, env.vn['S_GAS']]:.2f}"""),
                      #(f"""{'gas state:':>{10}}{' '}{states[env.viewer.env_idx_render, ag, env.vn['S_GAS']]:.2f}"""),
-                     (f"""{'gas act:':>{10}}{' '}{act[env.viewer.env_idx_render, env.vn['A_GAS']]:.2f}"""),
-                     (f"""{'steer act:':>{10}}{' '}{act[env.viewer.env_idx_render, env.vn['A_STEER']]:.2f}"""),
+                     (f"""{'gas act:':>{10}}{' '}{act[0, env.vn['A_GAS']]:.2f}"""),
+                     (f"""{'steer act:':>{10}}{' '}{act[0, env.vn['A_STEER']]:.2f}"""),
                      #(f"""{'gas:':>{10}}{' '}{env.states[env.viewer.env_idx_render,0, env.vn['S_GAS']].item():.2f}"""),
                      #(f"""{'cont err:':>{10}}{' '}{cont[env.viewer.env_idx_render, 0]:.2f}"""),
                      #(f"""{'omega mean:':>{10}}{' '}{om_mean:.2f}"""),

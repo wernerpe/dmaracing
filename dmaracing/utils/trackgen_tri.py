@@ -146,9 +146,9 @@ def construct_poly_track_eqns(track_poly_verts, device):
 
 def get_single_track(device):
     # Load a centerline track, generate polygons and matricies
-    track_paths = ["maps/figure_8_track_top.csv", "maps/large_oval.csv", "maps/large_square_track.csv", "maps/sharp_turns_track.csv"]
+    track_paths = [ "maps/large_oval.csv", "maps/large_square_track.csv", "maps/sharp_turns_track.csv"] #"maps/figure_8_track_top.csv",
     track_path = track_paths[np.random.randint(0, len(track_paths))]
-    track_path = track_paths[3]
+    #track_path = track_paths[3]
     ccw = np.random.rand()<0.5
     TRACK_POLYGON_SPACING = 0.5
     TRACK_HALF_WIDTH = 0.5
@@ -189,7 +189,7 @@ def get_tri_track_ensemble(Ntracks, cfg, device):
     it = 0
     while num_tracks < Ntracks:
         print(it)
-        ccw = np.random.rand()<0.5
+        #ccw = np.random.rand()<0.5
         # cfg['track']['seed'] += it*10
         # return_val = get_track(cfg, device, ccw)
         return_val = get_single_track(device)
