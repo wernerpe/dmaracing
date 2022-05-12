@@ -25,5 +25,6 @@ if __name__ == "__main__":
     logdir = logdir+'/'+timestamp
     cfg["logdir"] = logdir
     cfg["viewer"]["logEvery"] = -1
+    cfg['learn']['offtrack_reset'] = 0.01
     set_dependent_cfg_entries(cfg)
     train()
