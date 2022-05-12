@@ -1,6 +1,7 @@
 # track generator copied from https://github.com/openai/gym/blob/master/gym/envs/box2d/car_racing.py
 # Track generator for TRIKart tracks to work with RLAgent code.
 
+from pickle import FALSE
 from typing import overload
 
 import csv
@@ -143,18 +144,37 @@ def construct_poly_track_eqns(track_poly_verts, device):
     S_mat = torch.kron(S_mat, tmp)
     return A, b, S_mat
 
-
-def get_tri_track_ensemble(Ntracks, cfg, device):
-    # Load a centerline track, generate polygons and matricies, and repeat Ntracks times
+def get_single_track(device):
+    # Load a centerline track, generate polygons and matricies
+    track_paths = [ "maps/large_oval.csv", "maps/large_square_track.csv", "maps/sharp_turns_track.csv"] #"maps/figure_8_track_top.csv",
+    track_path = track_paths[np.random.randint(0, len(track_paths))]
+    #track_path = track_paths[3]
+    ccw = np.random.rand()<0.5
     TRACK_POLYGON_SPACING = 0.5
     TRACK_HALF_WIDTH = 0.5
-    file_path = "maps/large_oval.csv"
     path = []
-    with open(file_path) as csv_file:
+    with open(track_path) as csv_file:
         csv_reader = csv.reader(csv_file, delimiter=',', quoting=csv.QUOTE_NONNUMERIC)
         for waypoint in csv_reader:
             path.append((waypoint[0], waypoint[1]))
+    normal_vecs, track_pts, alphas = decimate_points(path, TRACK_POLYGON_SPACING)
+    polygons = generate_polygons(normal_vecs, track_pts, TRACK_HALF_WIDTH)
+    As, b, S_mat = construct_poly_track_eqns(polygons, device)
+    track_poly_verts = polygons
+    track_tile_counts = len(polygons)
+    
+    print(ccw)
+    if ccw:    
+        track_poly_verts = np.array(track_poly_verts)
+        alphas = np.array(alphas)
+    else:
+        track_poly_verts = np.array(track_poly_verts)[::-1]
+        alphas = np.array(alphas[::-1]) + np.pi 
+        track_pts = track_pts[::-1]
 
+    return [track_pts, track_poly_verts, alphas, As, b, S_mat, [], []], TRACK_POLYGON_SPACING, track_tile_counts
+
+def get_tri_track_ensemble(Ntracks, cfg, device):
     track_tile_counts =[]
     centerlines = []
     poly_verts_tracks = []
@@ -164,55 +184,46 @@ def get_tri_track_ensemble(Ntracks, cfg, device):
     S_mats = []
     border_poly_verts =[]
     border_poly_cols =[]
-
-    for idx in range(Ntracks):
-        normal_vecs, track_pts, alphas = decimate_points(path, TRACK_POLYGON_SPACING)
-        polygons = generate_polygons(normal_vecs, track_pts, TRACK_HALF_WIDTH)
-        ccw = np.random.rand() > 0.5
-        if ccw:    
-            polygons = np.array(polygons)
-            #border_poly_verts = np.array([])
-            alphas = np.array(alphas)
-        else:
-            polygons = np.array(polygons)[::-1]
-            #border_poly_verts = np.array([])
-            alphas = np.array(alphas[::-1]) + np.pi 
-            track_pts = track_pts[::-1]
-
     
-        # polygons = torch.tensor(polygons)  # .unsqueeze(0)
-        As, b, S_mat = construct_poly_track_eqns(polygons, device)
-        track_tile_counts.append(len(track_pts))
-        centerlines.append(track_pts)
-        poly_verts_tracks.append(polygons)
-        alphas_tracks.append(alphas)
-        A_tracks.append(As)
-        b_tracks.append(b)
-        S_mats.append(S_mat)
-        border_poly_verts.append([])
-        border_poly_cols.append([])   
-        # val = [track_pts, polygons, alphas, As, b, S_mat, None,
-        #     None], 0.5, len(polygons)
-    alpha = torch.cat(tuple([torch.tensor(alph, device=device, requires_grad=False, dtype = torch.float).view(1, -1) for alph in alphas_tracks]), dim = 0)
-    A = torch.cat(tuple([torch.tensor(a, device=device, requires_grad=False, dtype = torch.float).view(1, a.shape[0], -1) for a in A_tracks]), dim = 0)
-    b = torch.cat(tuple([torch.tensor(b, device=device, requires_grad=False, dtype = torch.float).view(1, b.shape[0],) for b in b_tracks]), dim = 0)
-    S_mat = torch.cat(tuple([torch.tensor(s, device=device, requires_grad=False, dtype = torch.float).view(1, s.shape[0], -1) for s in S_mats]), dim = 0)
-    centerline = torch.cat(tuple([torch.tensor(c.copy(), device=device, requires_grad=False, dtype = torch.float).view(1, c.shape[0], -1) for c in centerlines]), dim = 0)
-    return [centerline, poly_verts_tracks, alpha, A, b, S_mat, border_poly_verts, border_poly_cols], TRACK_POLYGON_SPACING, track_tile_counts
+    num_tracks = 0
+    it = 0
+    while num_tracks < Ntracks:
+        print(it)
+        #ccw = np.random.rand()<0.5
+        # cfg['track']['seed'] += it*10
+        # return_val = get_track(cfg, device, ccw)
+        return_val = get_single_track(device)
+        
+        track, tile_len, track_num_tiles = return_val
+        centerlines.append(track[0])
+        poly_verts_tracks.append(track[1])
+        alphas_tracks.append(track[2])
+        A_tracks.append(track[3])
+        b_tracks.append(track[4])
+        S_mats.append(track[5])
+        border_poly_verts.append(track[6])
+        border_poly_cols.append(track[7])
+        track_tile_counts.append(track_num_tiles)
+        num_tracks +=1
+        it +=1
+    
+    #size trackmatrices according to largest track, make redundant poly infeasible by default
+    max_tile_count = np.max(track_tile_counts)
 
-    alpha = torch.tensor(alphas, device=device, requires_grad=False, dtype=torch.float).unsqueeze(0).expand(Ntracks, -1)
-    # A = torch.tensor(As, device=device, requires_grad=False, dtype=torch.float).unsqueeze(0).expand(Ntracks, -1, -1)
-    # b = torch.tensor(b, device=device, requires_grad=False, dtype=torch.float).unsqueeze(0).expand(Ntracks, -1)
-    # S_mat = torch.tensor(S_mat, device=device, requires_grad=False, dtype=torch.float).unsqueeze(0).expand(Ntracks, -1, -1)
-    A = As.unsqueeze(0).expand(Ntracks, -1, -1)
-    b = b.unsqueeze(0).expand(Ntracks, -1)
-    S_mat = S_mat.unsqueeze(0).expand(Ntracks, -1, -1)
-    centerline = torch.tensor(track_pts, device=device, requires_grad=False, dtype=torch.float).unsqueeze(0).expand(Ntracks, -1, -1)
-    track_poly_verts = np.tile(polygons, [Ntracks, 1, 1, 1])
-    track_tile_counts = np.array([len(polygons)])
-    track_tile_counts = np.tile(track_tile_counts, [Ntracks])
+    alpha = torch.zeros((Ntracks, max_tile_count), device = device, requires_grad=False, dtype=torch.float)
+    A = torch.zeros((Ntracks, 4*max_tile_count, 2), device = device, requires_grad=False, dtype=torch.float)
+    b = 1000*torch.ones((Ntracks, 4*max_tile_count,), device = device, requires_grad=False, dtype=torch.float)
+    S_mat = torch.zeros((Ntracks, max_tile_count, 4*max_tile_count), device = device, requires_grad=False, dtype=torch.float)
+    centerline = -10000*torch.ones((Ntracks, max_tile_count, 2), device = device, requires_grad=False, dtype=torch.float)
+    for idx in range(Ntracks):
+        A[idx, :A_tracks[idx].shape[0], :] = A_tracks[idx]
+        b[idx, :A_tracks[idx].shape[0]] = b_tracks[idx]
+        S_mat[idx, :S_mats[idx].shape[0], :S_mats[idx].shape[1]] = S_mats[idx]
+        centerline[idx, :len(centerlines[idx]), :] = torch.tensor(centerlines[idx].copy(), device = device, dtype=torch.float, requires_grad = False)
+        alpha[idx, :len(centerlines[idx])] = torch.tensor(alphas_tracks[idx].copy(), device = device, dtype=torch.float, requires_grad = False)
+    #[centerline, track_poly_verts, alphas, A, b, S_mat, border_poly_verts, border_poly_col]
+    return [centerline, poly_verts_tracks, alpha, A, b, S_mat, np.ones([Ntracks,0]), np.ones([Ntracks,0])] ,tile_len , track_tile_counts
 
-    return [centerline, track_poly_verts, alpha, A, b, S_mat, np.ones([Ntracks,0]), np.ones([Ntracks,0])], 0.5, track_tile_counts
 
 
 if __name__ == "__main__":
