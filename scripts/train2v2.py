@@ -47,7 +47,7 @@ if __name__ == "__main__":
     set_dependent_cfg_entries(cfg)
     now = datetime.now()
     timestamp = now.strftime("%y_%m_%d_%H_%M_%S")
-    logdir = logdir_root +'/'+ cfg_train['runner']['algorithm_class_name'] + '_' + timestamp
+    logdir = logdir_root +'/'+cfg_train['runner']['algorithm_class_name']+timestamp
     cfg["logdir"] = logdir
     INIT_FROM_CHKPT = False
     #active policies
