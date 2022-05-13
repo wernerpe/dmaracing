@@ -14,8 +14,6 @@ import matplotlib.pyplot as plt
 
 
 def play():
-    env = DmarEnv(cfg, args)
-    obs = env.obs_buf
     model_paths = []
     modelnrs = []
     for run, chkpt in zip(runs, chkpts):
@@ -23,14 +21,20 @@ def play():
         modelnrs.append(modelnr)
         model_paths.append("{}/model_{}.pt".format(dir, modelnr))
         print("Loading model" + model_paths[-1])
+    if 'JRMAPPO' in model_paths[0]:
+        cfg_train['runner']['algorithm_class_name'] =  'JRMAPPO'
+        cfg_train['runner']['policy_class_name'] =  'MultiTeamCMAAC'
+        
+    env = DmarEnv(cfg, args)
+    obs = env.obs_buf
     runner = get_mappo_runner(env, cfg_train, logdir, env.device, cfg['sim']['numAgents'])
     
     policy_infos = runner.load_multi_path(model_paths)
     policy = runner.get_inference_policy(device=env.device)
-    attention_head = runner.alg.actor_critic.ac1.actor._encoder._network
-    num_ego_obs = runner.alg.actor_critic.ac1.actor._encoder.num_ego_obs
-    num_ado_obs = runner.alg.actor_critic.ac1.actor._encoder.num_ado_obs
-    num_agents = runner.alg.actor_critic.ac1.actor._encoder.num_agents
+    attention_head = runner.alg.actor_critic.teamacs[0].ac.actor._encoder._network
+    num_ego_obs = runner.alg.actor_critic.teamacs[0].ac.actor._encoder.num_ego_obs
+    num_ado_obs = runner.alg.actor_critic.teamacs[0].ac.actor._encoder.num_ado_obs
+    num_agents = runner.alg.actor_critic.teamacs[0].ac.actor._encoder.num_agents
     attention_tensor = torch.zeros((env.num_envs, env.num_agents-1))
 
     def compute_linear_attention(obs, attention_tensor):
@@ -67,7 +71,7 @@ def play():
         actions = policy(obs)
         obs, _, rew, dones, info = env.step(actions)
         attention_tensor = compute_linear_attention(obs[:,ag,:], attention_tensor)
-
+        values = runner.alg.actor_critic.evaluate(obs[:, runner.alg.actor_critic.teams[int(ag/2)],:])
         obsnp = obs[:,ag,:].cpu().numpy()
         act = actions[:,ag,:].cpu().detach().numpy()
         states = env.states.cpu().numpy()
@@ -123,7 +127,8 @@ def play():
         env.viewer.clear_string()
         env.viewer.clear_markers()
         env.viewer.clear_lines()
-        
+        env.viewer.draw_value_activation_team(values)
+        #env.viewer.draw_in_step()
         #self_centerline_pos = env.interpolated_centers[env.viewer.env_idx_render, ag, 0, :].cpu().numpy()
         #env.viewer.add_point(self_centerline_pos.reshape(1,2), 2,(222,10,0), 2)
         #endpoints = np.array([env.states[env.viewer].reshape(1,2), 
@@ -167,8 +172,8 @@ if __name__ == "__main__":
 
     cfg, cfg_train, logdir = getcfg(path_cfg)
 
-    chkpts = [-1]*4
-    runs = [-1]*4
+    chkpts = [-1]*2
+    runs = [-1]*2
     cfg['sim']['numEnv'] = 1 #500
     cfg['sim']['numAgents'] = 4
     cfg['sim']['collide'] = 1

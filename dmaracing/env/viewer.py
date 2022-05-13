@@ -42,6 +42,10 @@ class Viewer:
         self.num_agents = self.cfg['sim']['numAgents']
         self.num_envs = self.cfg['sim']['numEnv']
         self.teams = teams
+        self.value_bar_locations = np.array([[-100, 0],[-80, 0],[-40, 0],[-20, 0],[-100, 200],[-80, 200],[-40, 200],[-20, 200],])
+        self.value_bar_locations[:, 0] += 130
+        self.value_bar_locations[:, 1] += 600
+        self.value_bar_locations = self.value_bar_locations.astype(np.int32)
         cols = [(255,0,0), (0,0,255), (0,255,0),(0,125,125), (125,125,0), (125,0,125)] 
         self.teamcolors = []
         for teamidx, team in enumerate(self.teams):
@@ -82,6 +86,7 @@ class Viewer:
         self.slip_markers = []
         self.drag_reduced_markers = []
         self.lines = []
+        self.values = None
         self.draw_track()
         if not self._headless:
             cv.imshow('dmaracing', self.track_canvas)
@@ -119,7 +124,7 @@ class Viewer:
             self.draw_lines(self.lines)
             self.draw_string()
             self.draw_marked_agents()
-
+            self._draw_value_activation_team()
         
         #listen for keypressed events
         if not self._headless:
@@ -333,6 +338,25 @@ class Viewer:
             px = self.cords2px_np(pos)
             cv.circle(self.img, (px[0,0],px[0,1]), 30, (250,150,0))
     
+    def draw_value_activation_team(self, values):
+        self.values = values.detach().cpu().numpy().reshape(-1,)
+
+    def _draw_value_activation_team(self,):
+        if self.values is not None:
+            heights = self.values
+            locs = self.value_bar_locations.copy()
+            locs[1::2,1] -= (10*heights).astype(np.int32)
+            #px = self.cords2px_np(self.value_bar_locations)
+            locs = locs.reshape(4,2,2)
+            for bar, nm in zip(locs, ['ego0', 'team0','ego1', 'team1']):
+                self.img = cv.rectangle(self.img, tuple(bar[0]), tuple(bar[1]), (0,0,0), -1)
+                self.img = cv.putText(self.img, nm, (bar[0,0], bar[0,1]+40), self.font, 0.5, (0, 0, 0), 1, cv.LINE_AA)
+        self.values = None
+
+    def draw_in_step(self,):
+        cv.imshow("dmaracing", self.img)
+        key = cv.waitKey(1)
+
     def draw_track(self,):
         self.track_canvas = draw_track(self.track_canvas,
                                        self.track_centerlines[self.active_track_ids[self.env_idx_render]].copy(),

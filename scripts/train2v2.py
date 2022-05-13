@@ -41,8 +41,8 @@ if __name__ == "__main__":
     #cfg['track']['num_tracks'] = 2
     cfg_train['policy']['teamsize'] = 2
     cfg_train['policy']['numteams'] = 2
-    cfg_train['runner']['policy_class_name'] = 'MultiTeamCMAAC' #MAActorCritic 
-    cfg_train['runner']['algorithm_class_name'] = 'JRMAPPO' #IMAPPO 
+    #cfg_train['runner']['policy_class_name'] = 'MultiTeamCMAAC' #MAActorCritic 
+    #cfg_train['runner']['algorithm_class_name'] = 'JRMAPPO' #IMAPPO 
 
     set_dependent_cfg_entries(cfg)
     now = datetime.now()
