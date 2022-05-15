@@ -109,7 +109,7 @@
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",
             "justMyCode": false,
-            "args": ["num_steps_per_env=128", "policy_class_name=MultiTeamCMAAC"]
+            "args": []
         },
         {
             "name": "play2v2",
