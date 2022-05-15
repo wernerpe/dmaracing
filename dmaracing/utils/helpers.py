@@ -1,11 +1,46 @@
+from ast import arg
 from numbers import Rational
 import yaml
 import os
 import torch
 
-class CmdLineArguments:
-    pass
+def recursive_items(dictionary):
+    for key, value in dictionary.items():
+        if type(value) is dict:
+            yield from recursive_items(value)
+        else:
+            yield (key, value)
 
+class CmdLineArguments:
+    def __init__(self):
+        self.device = 'cpu'
+        self.headless = False
+        self.override_cfg_train = False
+        self.override_keys = []
+        self.override_values = []
+
+    def parse(self, argv):
+        for arg in argv:
+            split = arg.split('=')
+            self.override_keys.append(split[0])
+            self.override_values.append(split[1])
+            
+    def override_cfg_with_args(self, cfg, cfg_train):
+#        overridestring = ''
+        for override_key, override_value in zip(self.override_keys, self.override_values):
+            print(override_key)
+            for key, val in cfg_train.items():
+                if key == override_key:
+                    #typecast from string into type in dict
+                    cfg_train[key] = type(val)(override_value)
+                    print('cfg_train: '+ key + ' changed to', override_value)
+                elif isinstance(cfg_train[key], dict):
+                    for key2, val2 in cfg_train[key].items():
+                        #print(key2, override_key)
+                        if key2 == override_key:
+                            #typecast from string into type in dict
+                            cfg_train[key][key2] = type(val2)(override_value)
+                            print('cfg_train: '+ key+':' + key2 + ' changed to', override_value)
 
 def set_dependent_cfg_entries(cfg):
     numObservations = cfg['sim']['numConstantObservations']

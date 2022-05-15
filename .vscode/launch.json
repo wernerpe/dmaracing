@@ -108,7 +108,8 @@
             "program": "scripts/train2v2.py",
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",
-            "justMyCode": false
+            "justMyCode": false,
+            "args": ["num_steps_per_env=128", "policy_class_name=MultiTeamCMAAC"]
         },
         {
             "name": "play2v2",
