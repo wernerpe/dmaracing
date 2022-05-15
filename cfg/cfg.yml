@@ -73,7 +73,7 @@ learn:
   offtrackRewardScale: -2.0
   actionRateRewardScale: 0.1 
   energyRewardScale: 0.00006
-  rankRewardScale: 2000.0
+  rankRewardScale: 8000.0
   collisionRewardScale: -300.0
   horizon: 15
   
