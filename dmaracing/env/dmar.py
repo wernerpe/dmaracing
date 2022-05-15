@@ -115,6 +115,7 @@ class DmarEnv():
         self.default_actions = cfg['learn']['defaultactions']
         self.action_scales = cfg['learn']['actionscale']
         self.horizon = cfg['learn']['horizon']
+        self.race_length_laps = cfg['learn']['race_length_laps']
         self.reset_randomization = cfg['learn']['resetrand']
         self.reset_tile_rand = cfg['learn']['reset_tile_rand']
         self.reset_grid = cfg['learn']['resetgrid']
@@ -201,6 +202,8 @@ class DmarEnv():
         self.lookahead_body = torch.einsum('eaij, eatj->eati', self.R, self.lookahead)
         lookahead_scaled = self.lookahead_scaler*self.lookahead_body
 
+        distance_to_go_race = ((self.race_length_laps*self.track_lengths[self.active_track_ids]).view(-1,1) - self.track_progress)/(self.race_length_laps*self.track_lengths[self.active_track_ids]).view(-1,1)
+
         otherpositions = []
         otherrotations = []
         othervelocities = []
@@ -268,7 +271,8 @@ class DmarEnv():
                                   lookahead_scaled[:,:,:,1], 
                                   self.last_actions,
                                   self.ranks.view(-1, self.num_agents, 1),
-                                  self.teamranks.view(-1, self.num_agents, 1), 
+                                  self.teamranks.view(-1, self.num_agents, 1),
+                                  distance_to_go_race.view(-1, self.num_agents, 1), 
                                   self.progress_other * 0.1, 
                                   self.contouring_err_other * 0.25, 
                                   rot_other,
@@ -289,7 +293,7 @@ class DmarEnv():
                                    self.last_actions,
                                    self.vn,
                                    self.states,
-                                   self.teamranks,
+                                   self.rew_endrace,
                                    self.is_collision,
                                    self.reward_terms,
                                    self.num_agents,
@@ -305,6 +309,7 @@ class DmarEnv():
         #self.reset_buf = torch.rand((self.num_envs, 1), device=self.device) < 0.00005
         self.reset_buf = self.time_off_track[:, self.trained_agent_slot].view(-1,1) > self.offtrack_reset
         #self.reset_buf = torch.any(self.time_off_track[:, :] > self.offtrack_reset, dim = 1).view(-1,1)
+        self.reset_buf |= (torch.max(self.lap_counter, dim = 1)[0] == self.race_length_laps).view(-1,1)
         self.time_out_buf = self.episode_length_buf > self.max_episode_length
         self.reset_buf |= self.time_out_buf
 
@@ -462,7 +467,12 @@ class DmarEnv():
         #self.rank_reporting_active *= all_agents_on_track
         #if len(ids_report):
         #    self.info['ranking'] = [torch.mean(1.0*self.ranks[ids_report, :], dim = 0), 1.0*len(ids_report)/(1.0*len(self.reset_buf))]
-
+        
+        num_active_agents = torch.sum(1.0*self.active_agents, dim = 1)
+        #only give raceend reward if the environment completes the race
+        self.rew_endrace = 1.0/self.num_agents*(num_active_agents.view(-1,1)/2.0-self.teamranks)*self.reward_scales['teamrank'] * ((torch.max(self.lap_counter, dim = 1)[0] == self.race_length_laps).view(-1,1))
+        self.reward_terms['teamrank'] += self.rew_endrace
+        
         if len(env_ids):
             self.reset_envs(env_ids)
         
@@ -588,6 +598,7 @@ class DmarEnv():
     def set_trained_agent_slot(self, slot):
         self.trained_agent_slot = slot
 
+            
 ### jit functions
 @torch.jit.script
 def compute_rewards_jit(track_progress : torch.Tensor,
@@ -598,7 +609,7 @@ def compute_rewards_jit(track_progress : torch.Tensor,
                         last_actions : torch.Tensor,
                         vn : Dict[str, int],
                         states : torch.Tensor,
-                        teamranks : torch.Tensor,
+                        rew_racend : torch.Tensor,
                         is_collision : torch.Tensor,
                         reward_terms : Dict[str, torch.Tensor],
                         num_agents : int,
@@ -610,17 +621,15 @@ def compute_rewards_jit(track_progress : torch.Tensor,
             rew_on_track = reward_scales['offtrack']*~is_on_track 
             rew_actionrate = -torch.sum(torch.square(actions-last_actions), dim = 2) *reward_scales['actionrate']
             rew_energy = -torch.sum(torch.square(states[:,:,vn['S_W0']:vn['S_W3']+1]), dim = 2)*reward_scales['energy']
-            num_active_agents = torch.sum(1.0*active_agents, dim = 1)
-            rew_teamrank = 1.0/num_agents*(num_active_agents.view(-1,1)/2.0-teamranks)*reward_scales['teamrank']
             
             rew_collision = is_collision*reward_scales['collision']
             rew_buf[:,:, 0] = torch.clip(rew_progress + rew_collision + rew_on_track + rew_actionrate + rew_energy, min = 0, max= None) 
-            rew_buf[:,:, 1] = torch.clip(rew_teamrank, min = 0, max= None) 
+            rew_buf[:,:, 1] = torch.clip(rew_racend, min = 0, max= None) 
 
             reward_terms['progress'] += rew_progress
             reward_terms['offtrack'] += rew_on_track
             reward_terms['actionrate'] += rew_actionrate
             reward_terms['energy'] += rew_energy
-            reward_terms['teamrank'] += rew_teamrank
+            #reward_terms['teamrank'] += rew_racend
             reward_terms['collision'] += rew_collision
             return rew_buf, reward_terms
