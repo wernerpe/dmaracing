@@ -221,7 +221,7 @@ def get_state_control_tensors(
     wheels_on_track_segments_concat = 1.0 * (
         torch.einsum("es, stc, eawc  -> eawt", active_track_mask, A_track, wheel_locations_world)
         - torch.einsum("es, st -> et", active_track_mask, b_track).view(num_envs, 1, 1, -1)
-        + 0.1
+        + 0.01
         >= 0
     )
     wheels_on_track_segments[:] = torch.einsum("jt, eawt -> eawj", S_track, wheels_on_track_segments_concat) >= 3.5

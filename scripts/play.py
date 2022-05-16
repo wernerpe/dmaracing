@@ -24,7 +24,7 @@ def play():
     policy = runner.get_inference_policy(device=env.device)
     policy(obs)
     policy_jit = torch.jit.script(runner.alg.actor_critic.actor.to('cpu'))
-    policy_jit.save("logs/saved_models/three_track_rubber_wheels_0_8_gas.pt")
+    policy_jit.save("logs/saved_models/narrow_track_three_track_rubber_wheels_0_8_gas.pt")
     time_per_step = cfg['sim']['dt']*cfg['sim']['decimation']
 
     while True:
@@ -53,7 +53,7 @@ def play():
         env.viewer.clear_markers()
         closest_point_marker = env.interpolated_centers[env.viewer.env_idx_render, 0, :, :].cpu().numpy()
         env.viewer.add_point(closest_point_marker, 2,(222,10,0), 2)
-
+        print(env.is_on_track[env.viewer.env_idx_render])
         env.viewer.clear_string()
         for msg in viewermsg:
             env.viewer.add_string(msg)
@@ -75,9 +75,9 @@ if __name__ == "__main__":
     cfg_train['runner']['algorithm_class_name'] = 'PPO'
     cfg['sim']['numAgents'] = 1
     cfg['sim']['collide'] = 0
-    cfg['sim']['numEnv'] = 1
+    cfg['sim']['numEnv'] = 3
     cfg['sim']['numAgents'] = 1
-    cfg['track']['num_tracks'] = 3
+    cfg['track']['num_tracks'] = 10
     cfg['learn']['offtrack_reset'] = 10
     cfg['learn']['timeout'] = 100
     cfg['model']['OFFTRACK_FRICTION_SCALE'] = 1

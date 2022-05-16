@@ -151,7 +151,7 @@ def get_single_track(device):
     #track_path = track_paths[3]
     ccw = np.random.rand()<0.5
     TRACK_POLYGON_SPACING = 0.5
-    TRACK_HALF_WIDTH = 0.5
+    TRACK_HALF_WIDTH = 0.25
     path = []
     with open(track_path) as csv_file:
         csv_reader = csv.reader(csv_file, delimiter=',', quoting=csv.QUOTE_NONNUMERIC)
