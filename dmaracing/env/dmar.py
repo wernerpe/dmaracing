@@ -39,7 +39,7 @@ class DmarEnv:
         # Import TRI dynamics model and weights
         self.dyn_model = DynamicsEncoder.load_from_checkpoint(
             #"/home/peter/git/dynamics_model_learning/sample_models/fixed_integration_current_v25.ckpt").to(self.device)
-            "/home/peter/git/dynamics_model_learning/sample_models/higher_roll_loss.ckpt").to(self.device)
+            "dynamics_models/"+cfg['model']['dynamics_model_name']).to(self.device)
 
         # use bootstrapping on vf
         self.use_timeouts = cfg["learn"]["use_timeouts"]

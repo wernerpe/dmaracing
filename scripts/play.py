@@ -23,8 +23,8 @@ def play():
 
     policy = runner.get_inference_policy(device=env.device)
     policy(obs)
-    policy_jit = torch.jit.script(runner.alg.actor_critic.actor.to('cpu'))
-    policy_jit.save("logs/saved_models/narrow_track_three_track_rubber_wheels_0_8_gas.pt")
+    #policy_jit = torch.jit.script(runner.alg.actor_critic.actor.to('cpu'))
+    #policy_jit.save("logs/saved_models/narrow_track_three_track_rubber_wheels_0_8_gas.pt")
     time_per_step = cfg['sim']['dt']*cfg['sim']['decimation']
 
     while True:
@@ -53,7 +53,7 @@ def play():
         env.viewer.clear_markers()
         closest_point_marker = env.interpolated_centers[env.viewer.env_idx_render, 0, :, :].cpu().numpy()
         env.viewer.add_point(closest_point_marker, 2,(222,10,0), 2)
-        print(env.is_on_track[env.viewer.env_idx_render])
+        #print(env.is_on_track[env.viewer.env_idx_render])
         env.viewer.clear_string()
         for msg in viewermsg:
             env.viewer.add_string(msg)
