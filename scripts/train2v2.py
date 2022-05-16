@@ -45,6 +45,8 @@ if __name__ == "__main__":
     #cfg_train['policy']['numteams'] = 2
     #cfg_train['runner']['policy_class_name'] = 'MultiTeamCMAAC' #MAActorCritic 
     #cfg_train['runner']['algorithm_class_name'] = 'JRMAPPO' #IMAPPO 
+    #cfg_train['runner']['num_steps_per_env'] = 5
+    #cfg_train['runner']['population_update_interval'] = 5
 
     set_dependent_cfg_entries(cfg)
     args.override_cfg_with_args(cfg, cfg_train)
