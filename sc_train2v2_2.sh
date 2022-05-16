@@ -14,5 +14,5 @@ conda init bash
 conda activate /home/gridsan/pwerner/.conda/envs/dmaracing
 conda env list
 # Run the script
-#xvfb-run -a python $HOME/projects/dmaracing/scripts/train2v2.py num_steps_per_env=64 policy_class_name=MAActorCritic algorithm_class_name=IMAPPO
-xvfb-run -a python $HOME/projects/dmaracing/scripts/train2v2.py num_steps_per_env=64 policy_class_name=MultiTeamCMAAC algorithm_class_name=JRMAPPO
+xvfb-run -a python $HOME/projects/dmaracing/scripts/train2v2.py num_steps_per_env=64 policy_class_name=MAActorCritic algorithm_class_name=IMAPPO
+#xvfb-run -a python $HOME/projects/dmaracing/scripts/train2v2.py num_steps_per_env=128 policy_class_name=MultiTeamCMAAC algorithm_class_name=JRMAPPO
