@@ -44,3 +44,4 @@ policy:
   encoder_type: attention2  # attention{1, 2}
   teamsize: 2
   numteams: 2
+  max_num_old_models: 40
