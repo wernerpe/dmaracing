@@ -43,9 +43,9 @@ if __name__ == "__main__":
     #cfg['track']['num_tracks'] = 2
     #cfg_train['policy']['teamsize'] = 2
     #cfg_train['policy']['numteams'] = 2
-    #cfg_train['runner']['policy_class_name'] = 'MultiTeamCMAAC' #MAActorCritic 
-    #cfg_train['runner']['algorithm_class_name'] = 'JRMAPPO' #IMAPPO 
-    #cfg_train['runner']['num_steps_per_env'] = 5
+    cfg_train['runner']['policy_class_name'] = 'MultiTeamCMAAC' #MAActorCritic 
+    cfg_train['runner']['algorithm_class_name'] = 'JRMAPPO' #IMAPPO 
+    cfg_train['runner']['num_steps_per_env'] = 32
     #cfg_train['runner']['population_update_interval'] = 5
 
     set_dependent_cfg_entries(cfg)
@@ -53,7 +53,7 @@ if __name__ == "__main__":
 
     now = datetime.now()
     timestamp = now.strftime("%y_%m_%d_%H_%M_%S")
-    logdir = logdir_root +'/'+cfg_train['runner']['algorithm_class_name']+timestamp
+    logdir = logdir_root +'/'+cfg_train['runner']['algorithm_class_name']+'_'+str(cfg_train['runner']['num_steps_per_env'])+'_'+timestamp
     cfg["logdir"] = logdir
     INIT_FROM_CHKPT = False
     #active policies
