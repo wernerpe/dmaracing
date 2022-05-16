@@ -24,8 +24,13 @@ def play():
     print('###########################')
     while True:
         t1 = time.time()
-        actions[0 , ag, 0] = steer_cmd 
-        actions[0 , ag, 1] = vel_cmd
+        actions[0 , ag, 0] = 0#steer_cmd 
+        actions[0 , ag, 1] = 0#vel_cmd
+        env.states[0,0,0:3] = 0
+        env.states[0,0,0] = 2
+        env.states[0,0,0] = -0.05
+        env.states[0,0,2] = np.pi/2
+        
         #actions[0 , ag, 2] = 0
         
         obs, _, rew, dones, info = env.step(actions)
@@ -33,7 +38,7 @@ def play():
             act = actions[env.viewer.env_idx_render, ag]
         else:
             act = actions[env.viewer.env_idx_render]
-
+        print(env.is_on_track[0,0])
         #print(states[env.viewer.env_idx_render,0, env.vn['S_W0']:env.vn['S_W3'] +1 ])
        
         #print(env.active_agents[env.viewer.env_idx_render])
@@ -60,7 +65,13 @@ def play():
         env.viewer.x_offset = int(-env.viewer.width/env.viewer.scale_x*env.states[env.viewer.env_idx_render, ag, 0])
         env.viewer.y_offset = int(env.viewer.height/env.viewer.scale_y*env.states[env.viewer.env_idx_render, ag, 1])
         env.viewer.draw_track()
-       
+        
+        env.viewer.clear_markers()
+        wheelloc = (env.wheel_locations_world[env.viewer.env_idx_render, 0, 1, :].view(1,2)).cpu().numpy()
+        env.viewer.add_point(wheelloc, 2,(222,10,0), 2)
+        #env.track_centerlines
+
+
         env.viewer.clear_string()
         for msg in viewermsg:
             env.viewer.add_string(msg)

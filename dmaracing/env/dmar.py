@@ -593,6 +593,7 @@ class DmarEnv:
         self.active_track_tile = sort[1][:, :, 0]
 
         # check if any tire is off track
+        
         self.is_on_track = ~torch.any(~torch.any(self.wheels_on_track_segments, dim=3), dim=2)
         self.time_off_track += 1.0 * ~self.is_on_track
 
