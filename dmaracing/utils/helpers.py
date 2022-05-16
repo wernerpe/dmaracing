@@ -26,7 +26,8 @@ class CmdLineArguments:
             self.override_values.append(split[1])
             
     def override_cfg_with_args(self, cfg, cfg_train):
-        overridestring = ''
+        overridestring_train = ''
+        overridestring_env = ''
         for override_key, override_value in zip(self.override_keys, self.override_values):
             print(override_key)
             for key, val in cfg_train.items():
@@ -34,7 +35,7 @@ class CmdLineArguments:
                     #typecast from string into type in dict
                     cfg_train[key] = type(val)(override_value)
                     print('cfg_train: '+ key + ' changed to', override_value)
-                    overridestring+=key+override_value
+                    overridestring_train+=key+override_value
                 elif isinstance(cfg_train[key], dict):
                     for key2, val2 in cfg_train[key].items():
                         #print(key2, override_key)
@@ -42,9 +43,29 @@ class CmdLineArguments:
                             #typecast from string into type in dict
                             cfg_train[key][key2] = type(val2)(override_value)
                             print('cfg_train: '+ key+':' + key2 + ' changed to', override_value)
-                            overridestring+=key+key2+override_value
-        if len(overridestring):
-            cfg_train['comments'] = overridestring
+                            overridestring_train+=key+key2+override_value
+
+        for override_key, override_value in zip(self.override_keys, self.override_values):
+            print(override_key)
+            for key, val in cfg.items():
+                if key == override_key:
+                    #typecast from string into type in dict
+                    cfg[key] = type(val)(override_value)
+                    print('cfg: '+ key + ' changed to', override_value)
+                    overridestring_train+=key+override_value
+                elif isinstance(cfg[key], dict):
+                    for key2, val2 in cfg[key].items():
+                        #print(key2, override_key)
+                        if key2 == override_key:
+                            #typecast from string into type in dict
+                            cfg[key][key2] = type(val2)(override_value)
+                            print('cfg: '+ key+':' + key2 + ' changed to', override_value)
+                            overridestring_env+=key+key2+override_value
+        if len(overridestring_train):
+            cfg_train['overrides'] = overridestring_train
+
+        if len(overridestring_env):
+            cfg['overrides'] = overridestring_env
             
 def set_dependent_cfg_entries(cfg):
     numObservations = cfg['sim']['numConstantObservations']
