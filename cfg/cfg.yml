@@ -9,7 +9,7 @@ sim:
   #dependent on the lookaheadhorizon length and number of ado cars in an env
   #this is done in get_cfg directly
   numObservations: -1 
-  numConstantObservations: 11 #vels, steer, gas, last actions, rank, team_rank, distance to go 
+  numConstantObservations: 10 #vels, steer, gas, last actions, rank, team_rank, distance to go 
   numActions: 3
   collide: 1
   decimation: 4

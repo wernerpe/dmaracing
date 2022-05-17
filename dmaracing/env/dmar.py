@@ -272,7 +272,7 @@ class DmarEnv():
                                   self.last_actions,
                                   self.ranks.view(-1, self.num_agents, 1),
                                   self.teamranks.view(-1, self.num_agents, 1),
-                                  distance_to_go_race.view(-1, self.num_agents, 1), 
+                                  #distance_to_go_race.view(-1, self.num_agents, 1), 
                                   self.progress_other * 0.1, 
                                   self.contouring_err_other * 0.25, 
                                   rot_other,
