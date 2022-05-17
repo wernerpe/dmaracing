@@ -19,8 +19,8 @@ algorithm:
   use_clipped_value_loss: True
 
 runner:
-  policy_class_name: MAActorCritic #MultiTeamCMAAC 
-  algorithm_class_name: IMAPPO #JRMAPPO 
+  policy_class_name: MultiTeamCMAAC #MAActorCritic #MultiTeamCMAAC 
+  algorithm_class_name: JRMAPPO # IMAPPO #JRMAPPO 
   num_steps_per_env: 32 # per iteration
   max_iterations: 50000 # number of policy updates
   population_update_interval: 40 #number of iterations before the opponent policy is updated
@@ -44,4 +44,4 @@ policy:
   encoder_type: attention2  # attention{1, 2}
   teamsize: 2
   numteams: 2
-  max_num_old_models: 40
+  max_num_old_models: 5
