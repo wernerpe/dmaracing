@@ -54,7 +54,7 @@ if __name__ == "__main__":
 
     now = datetime.now()
     timestamp = now.strftime("%y_%m_%d_%H_%M_%S")
-    logdir = logdir_root +'/'+timestamp+'_' + cfg_train['runner']['algorithm_class_name']+'_'+str(cfg_train['runner']['num_steps_per_env'])
+    logdir = logdir_root +'/'+timestamp+'_no_dist_to_go_' + cfg_train['runner']['algorithm_class_name']+'_'+str(cfg_train['runner']['num_steps_per_env'])
     cfg["logdir"] = logdir
     INIT_FROM_CHKPT = False
     #active policies
