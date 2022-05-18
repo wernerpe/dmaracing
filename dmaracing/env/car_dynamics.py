@@ -142,7 +142,7 @@ def step_cars(state : torch.Tensor,
     acc = torch.cat((ddx.unsqueeze(2),ddy.unsqueeze(2),ddtheta.unsqueeze(2)), dim= 2)
     state[:, :, vn['S_X']:vn['S_THETA'] + 1] += sim_par['dt']*state[:,:,vn['S_DX']:vn['S_DTHETA']+1]
     state[:, :, vn['S_X']:vn['S_Y'] + 1] += shove[:,:,:2]
-    state[:, :, vn['S_THETA']] += shove[:,:,2]
+    state[:, :, vn['S_THETA']] += 1.5*shove[:,:,2]
     state[:, :, vn['S_DX']:vn['S_DTHETA'] + 1] += sim_par['dt']*acc
 
     if collide:

@@ -49,14 +49,14 @@ if __name__ == "__main__":
     #cfg_train['runner']['num_steps_per_env'] = 32
     #cfg_train['runner']['population_update_interval'] = 5
 
-    set_dependent_cfg_entries(cfg)
     args.override_cfg_with_args(cfg, cfg_train)
+    set_dependent_cfg_entries(cfg, cfg_train)
 
     now = datetime.now()
     timestamp = now.strftime("%y_%m_%d_%H_%M_%S")
     logdir = logdir_root +'/'+timestamp+'_' + cfg_train['runner']['algorithm_class_name']+'_'+str(cfg_train['runner']['num_steps_per_env'])
     cfg["logdir"] = logdir
-    INIT_FROM_CHKPT = True
+    INIT_FROM_CHKPT = False
     #active policies
     runs = ['JRMAPPO22_05_16_11_41_14']*2
     chkpts = [-1] * 4

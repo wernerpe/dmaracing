@@ -67,12 +67,15 @@ class CmdLineArguments:
         if len(overridestring_env):
             cfg['overrides'] = overridestring_env
             
-def set_dependent_cfg_entries(cfg):
+def set_dependent_cfg_entries(cfg, cfg_train):
     numObservations = cfg['sim']['numConstantObservations']
     numObservations += cfg['learn']['horizon']*2 #lookaheadhorizon
     numObservations += (2+1+1+2) * (cfg['sim']['numAgents']-1)
     cfg['sim']['numObservations'] = numObservations
-
+    if cfg_train['policy']['attentive']:
+        cfg_train['policy']['num_ego_obs'] = cfg['learn']['horizon']*2 + cfg['sim']['numConstantObservations']
+        cfg_train['policy']['num_ado_obs'] = 2+1+1+2
+        
 def getcfg(path):
     pth_cfg = path+'/cfg.yml'
     pth_cfg_train = path+'/cfg_train.yml'
@@ -84,7 +87,7 @@ def getcfg(path):
     logdir = 'logs/'+cfg_train['runner']['experiment_name']
     
     #update parameter dependent observation counts
-    set_dependent_cfg_entries(cfg)
+    set_dependent_cfg_entries(cfg, cfg_train)
     return cfg, cfg_train, logdir
 
 

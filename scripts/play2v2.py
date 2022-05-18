@@ -173,7 +173,7 @@ if __name__ == "__main__":
     cfg, cfg_train, logdir = getcfg(path_cfg)
 
     chkpts = [-1]*2
-    runs = [-1]*2
+    runs = ['22_05_18_10_45_20_JRMAPPO_32']*2
     cfg['sim']['numEnv'] = 1 #500
     cfg['sim']['numAgents'] = 4
     cfg['sim']['collide'] = 1
@@ -191,6 +191,6 @@ if __name__ == "__main__":
     cfg_train['policy']['numteams'] = 2
     cfg['viewer']['multiagent'] = True
     
-    set_dependent_cfg_entries(cfg)
+    set_dependent_cfg_entries(cfg, cfg_train)
 
     play()    
