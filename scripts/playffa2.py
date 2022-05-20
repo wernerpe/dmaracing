@@ -11,13 +11,13 @@ import playsound
 import threading
 import trueskill
 import matplotlib.pyplot as plt
-
+import sys
 
 def play():
     model_paths = []
     modelnrs = []
     for run, chkpt in zip(runs, chkpts):
-        dir, modelnr = get_run(logdir, run = run, chkpt=chkpt)
+        dir, modelnr = get_run(logdir_root, run = run, chkpt=chkpt)
         modelnrs.append(modelnr)
         model_paths.append("{}/model_{}.pt".format(dir, modelnr))
         print("Loading model" + model_paths[-1])
@@ -27,14 +27,14 @@ def play():
         
     env = DmarEnv(cfg, args)
     obs = env.obs_buf
-    runner = get_mappo_runner(env, cfg_train, logdir, env.device, cfg['sim']['numAgents'])
+    runner = get_mappo_runner(env, cfg_train, logdir_root, env.device, cfg['sim']['numAgents'])
     
     policy_infos = runner.load_multi_path(model_paths)
     policy = runner.get_inference_policy(device=env.device)
-    attention_head = runner.alg.actor_critic.teamacs[0].ac.actor._encoder._network
-    num_ego_obs = runner.alg.actor_critic.teamacs[0].ac.actor._encoder.num_ego_obs
-    num_ado_obs = runner.alg.actor_critic.teamacs[0].ac.actor._encoder.num_ado_obs
-    num_agents = runner.alg.actor_critic.teamacs[0].ac.actor._encoder.num_agents
+    attention_head = runner.alg.actor_critic.ac1.actor._encoder._network
+    num_ego_obs = runner.alg.actor_critic.ac1.actor._encoder.num_ego_obs
+    num_ado_obs = runner.alg.actor_critic.ac1.actor._encoder.num_ado_obs
+    num_agents = runner.alg.actor_critic.ac1.actor._encoder.num_agents
     attention_tensor = torch.zeros((env.num_envs, env.num_agents-1))
 
     def compute_linear_attention(obs, attention_tensor):
@@ -43,7 +43,7 @@ def play():
 
         for ado_id in range(num_agents-1):
             ado_ag_obs = obs_ado[..., ado_id::(num_agents-1)]
-            attention_tensor[:, ado_id]= attention_head(torch.cat((obs_ego, ado_ag_obs), dim=-1).detach())
+            attention_tensor[:, ado_id] = attention_head(torch.cat((obs_ego, ado_ag_obs), dim=-1).detach()).squeeze()
         return attention_tensor
 
     time_per_step = cfg['sim']['dt']*cfg['sim']['decimation']
@@ -62,7 +62,7 @@ def play():
     lastvel = 0
     mus = []
     fig, ax = plt.subplots(nrows=1, ncols=1)
-
+    
     #while True:
     for idx in range(30000):
         
@@ -84,7 +84,7 @@ def play():
         
         
         #env.viewer.add_lines()
-        ado_pattern = [[1,2,3],[0,2,3],[0,1,3],[0,1,2]]
+        ado_pattern = [[1],[0]]
         #ado_obs_ag = obsnp[env.viewer.env_idx_render, 35:52]
         ado_msg_attention = [(f"""{'att ' + str(ado_idx):>{10}}{' '}{attention_tensor[env.viewer.env_idx_render, idx].item():.2f}""") if env.active_agents[env.viewer.env_idx_render, ado_idx] else (f"""{'att ' + str(ado_idx):>{10}}{' '}{'deactivated'}""") for idx, ado_idx in enumerate(ado_pattern[ag])]
         #ado_msg_cont = [(f"""{'ado cont ag' + str(ado_idx):>{10}}{' '}{ado_obs_ag[3+idx]:.2f}""") for idx, ado_idx in enumerate(ado_pattern[ag])]
@@ -127,7 +127,7 @@ def play():
         env.viewer.clear_string()
         env.viewer.clear_markers()
         env.viewer.clear_lines()
-        env.viewer.draw_value_activation_team(values)
+        #env.viewer.draw_value_activation_team(values)
         #env.viewer.draw_in_step()
         #self_centerline_pos = env.interpolated_centers[env.viewer.env_idx_render, ag, 0, :].cpu().numpy()
         #env.viewer.add_point(self_centerline_pos.reshape(1,2), 2,(222,10,0), 2)
@@ -135,12 +135,12 @@ def play():
         #                      env.states[env.viewer.env_idx_render, ag, 0:2].cpu().numpy().reshape(1,2)])
         #env.viewer.add_lines(endpoints=endpoints.squeeze(), color = (0,0,255), thickness=2)
    
-        for ado_idx, ado_ag in enumerate(ado_pattern[ag]):
-            if ado_ag != ag:
-                endpoints = np.array([states[env.viewer.env_idx_render,ag,0:2],
-                                      states[env.viewer.env_idx_render,ado_ag,0:2]])
-                if attention_tensor[env.viewer.env_idx_render, ado_idx].item() >= 0.01 and env.active_agents[env.viewer.env_idx_render, ado_ag]:
-                    env.viewer.add_lines(endpoints=endpoints.squeeze(), color = (255,0,0), thickness= int(8*attention_tensor[env.viewer.env_idx_render, ado_idx].item()))
+        # for ado_idx, ado_ag in enumerate(ado_pattern[ag]):
+        #     if ado_ag != ag:
+        #         endpoints = np.array([states[env.viewer.env_idx_render,ag,0:2],
+        #                               states[env.viewer.env_idx_render,ado_ag,0:2]])
+        #         if attention_tensor[env.viewer.env_idx_render, ado_idx].item() >= 0.01 and env.active_agents[env.viewer.env_idx_render, ado_ag]:
+        #             env.viewer.add_lines(endpoints=endpoints.squeeze(), color = (255,0,0), thickness= int(8*attention_tensor[env.viewer.env_idx_render, ado_idx].item()))
             
         for msg in viewermsg:
             env.viewer.add_string(msg)
@@ -164,32 +164,36 @@ def play():
 
 if __name__ == "__main__":
     args = CmdLineArguments()
-    SOUND = False
+    args.parse(sys.argv[1:])
     args.device = 'cuda:0'
     args.headless = False 
-    #args.test = True
     path_cfg = os.getcwd() + '/cfg'
+    cfg, cfg_train, logdir_root = getcfg(path_cfg, straightline=True)
+    SOUND = False
 
-    cfg, cfg_train, logdir = getcfg(path_cfg)
-
-    chkpts = [-1]*2
-    runs = ['22_05_18_14_57_25_no_dist_to_go_JRMAPPO_64']*2
-    cfg['sim']['numEnv'] = 1 #500
-    cfg['sim']['numAgents'] = 4
-    cfg['sim']['collide'] = 1
+    chkpts = [-1, -1]
+    runs = [-1]*2
     
-    cfg['learn']['timeout'] = 100
-    cfg['learn']['offtrack_reset'] = 5.0
+    cfg['sim']['numAgents'] = 2
+    cfg['sim']['collide'] = 1
+    if not args.headless:
+        cfg['viewer']['logEvery'] = -1
+
+    args.override_cfg_with_args(cfg, cfg_train)
+    set_dependent_cfg_entries(cfg, cfg_train)
+    
+    #cfg['learn']['timeout'] = 100
+    #cfg['learn']['offtrack_reset'] = 5.0
     #cfg['learn']['reset_tile_rand'] = 20
     #cfg['sim']['test_mode'] = True
-    cfg['learn']['resetgrid'] = True
-    cfg['learn']['reset_tile_rand'] = 40
-    cfg['viewer']['logEvery'] = -1
-    cfg['track']['seed'] = 5
-    cfg['track']['num_tracks'] = 30
-    cfg_train['policy']['teamsize'] = 2
-    cfg_train['policy']['numteams'] = 2
-    cfg['viewer']['multiagent'] = True
+    #cfg['learn']['resetgrid'] = True
+    #cfg['learn']['reset_tile_rand'] = 40
+    #cfg['viewer']['logEvery'] = -1
+    #cfg['track']['seed'] = 5
+    #cfg['track']['num_tracks'] = 30
+    #cfg_train['policy']['teamsize'] = 2
+    #cfg_train['policy']['numteams'] = 2
+    #cfg['viewer']['multiagent'] = True
     
     set_dependent_cfg_entries(cfg, cfg_train)
 

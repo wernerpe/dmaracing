@@ -1,4 +1,3 @@
-from unicodedata import decimal
 import torch
 from torch._C import device, dtype
 from gym import spaces
@@ -38,13 +37,11 @@ class DmarEnv():
         self.num_actions = self.simParameters['numActions']
         self.num_obs = self.simParameters['numObservations']       
         self.num_agents = self.simParameters['numAgents']
-        if self.num_agents != 4:
-            raise NotImplementedError
         self.num_envs = self.simParameters['numEnv']
         self.collide = self.simParameters['collide']
         self.decimation = self.simParameters['decimation']
 
-        self.teams_list = [[0,1], [2,3]]
+        self.teams_list = [[0,1], [2,3]] if self.num_agents == 4 else [[idx] for idx in range(self.num_agents)]
 
         #gym stuff
         self.obs_space = spaces.Box(np.ones(self.num_obs)*-np.Inf, np.ones(self.num_obs)*np.Inf)
@@ -271,7 +268,7 @@ class DmarEnv():
                                   lookahead_scaled[:,:,:,1], 
                                   self.last_actions,
                                   self.ranks.view(-1, self.num_agents, 1),
-                                  self.teamranks.view(-1, self.num_agents, 1),
+                                  #self.teamranks.view(-1, self.num_agents, 1),
                                   #distance_to_go_race.view(-1, self.num_agents, 1), 
                                   self.progress_other * 0.1, 
                                   self.contouring_err_other * 0.25, 
@@ -323,7 +320,7 @@ class DmarEnv():
         self.resample_track(env_ids)
         self.active_agents[env_ids, 1:] = torch.rand((len(env_ids),self.num_agents-1), device=self.device) > self.agent_dropout_prob
         tile_idx_env = (torch.rand((len(env_ids),1), device=self.device) * self.active_track_tile_counts[env_ids].view(-1,1)).to(dtype=torch.long)
-        tile_idx_env = torch.tile(tile_idx_env, (self.num_agents,))
+        tile_idx_env = 47 + 0*torch.tile(tile_idx_env, (self.num_agents,))
         self.drag_reduction_points[env_ids,:,:] = 0.0
         self.drag_reduced[env_ids, :] = False
 
@@ -338,6 +335,8 @@ class DmarEnv():
                 tile_idx_env = tile_idx_env + 1 * torch.linspace(0, self.num_agents-1, self.num_agents, device=self.device).unsqueeze(0).to(dtype=torch.long)
                 tile_idx_env = torch.remainder(tile_idx_env, self.active_track_tile_counts[env_ids].view(-1,1))
         positions = torch.ones((len(env_ids), self.num_agents), device=self.device).multinomial(self.num_agents, replacement=False)
+        positions[:, 0] = 0
+        positions[:, 1] = 1
         for agent in range(self.num_agents):
             if not self.reset_grid:
                 tile_idx = tile_idx_env[:, agent] 
@@ -470,7 +469,9 @@ class DmarEnv():
         
         num_active_agents = torch.sum(1.0*self.active_agents, dim = 1)
         #only give raceend reward if the environment completes the race
-        self.rew_endrace = 1.0/self.num_agents*(num_active_agents.view(-1,1)/2.0-self.teamranks)*self.reward_scales['teamrank'] * ((torch.max(self.lap_counter, dim = 1)[0] == self.race_length_laps).view(-1,1))
+        #if self.num_agents==4:
+        self.rew_endrace = 1.0/self.num_agents*(num_active_agents.view(-1,1)/2.0-self.teamranks)*self.reward_scales['teamrank'] #* ((torch.max(self.lap_counter, dim = 1)[0] == self.race_length_laps).view(-1,1))
+        
         self.reward_terms['teamrank'] += self.rew_endrace
         
         if len(env_ids):

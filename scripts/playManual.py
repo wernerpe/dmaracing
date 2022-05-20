@@ -5,25 +5,25 @@ import os
 import numpy as np
 
 def play():
-    cfg['sim']['numEnv'] = 3
-    cfg['sim']['numAgents'] = 4
+    #cfg['sim']['numEnv'] = 3
+    #cfg['sim']['numAgents'] = 4
     #cfg['sim']['decimation'] = 4
     
-    cfg['track']['num_tracks'] = 3
     #cfg['track']['num_tracks'] = 3
-    cfg['viewer']['multiagent'] = True
+    #cfg['track']['num_tracks'] = 3
+    #cfg['viewer']['multiagent'] = True
     cfg['learn']['defaultactions'] = [0,0,0]
     cfg['learn']['actionscale'] = [1,1,1]
-    cfg['learn']['resetrand'] = [0.0]*7
-    cfg['learn']['reset_tile_rand'] = 200
-    cfg['learn']['resetgrid'] = True
+    #cfg['learn']['resetrand'] = [0.0]*7
+    #cfg['learn']['reset_tile_rand'] = 200
+    #cfg['learn']['resetgrid'] = True
     
-    cfg['learn']['offtrack_reset'] = 10
-    cfg['learn']['timeout'] = 100
-    cfg['model']['OFFTRACK_FRICTION_SCALE'] = 1
-    cfg['model']['drag_reduction'] = 1.0
+    #cfg['learn']['offtrack_reset'] = 10
+    #cfg['learn']['timeout'] = 100
+    #cfg['model']['OFFTRACK_FRICTION_SCALE'] = 1
+    #cfg['model']['drag_reduction'] = 1.0
     
-    set_dependent_cfg_entries(cfg)
+    set_dependent_cfg_entries(cfg, cfg_train)
     
     env = DmarEnv(cfg, args)
     obs = env.obs_buf
@@ -51,7 +51,7 @@ def play():
         if 'ranking' in info:
             print('info', info['ranking'])
         obsnp = obs[:,0,:].cpu().numpy()
-        rewnp = rew[:, 0, 0].cpu().numpy()
+        rewnp = rew[:, 0].cpu().numpy()
         cont = env.contouring_err.cpu().numpy()
         act = actions[:,ag,:].cpu().detach().numpy()
         states = env.states.cpu().numpy()
@@ -116,7 +116,7 @@ if __name__ == "__main__":
     args.device = 'cuda:0'
     args.headless = False 
     path_cfg = os.getcwd() + '/cfg'
-    cfg, cfg_train, logdir = getcfg(path_cfg)
+    cfg, cfg_train, logdir = getcfg(path_cfg, straightline=True)
     cfg["viewer"]["logEvery"] = -1
     cfg["track"]['OFFTRACK_FRICTION_SCALE'] = 1.0
     play()    

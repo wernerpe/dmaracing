@@ -102,6 +102,24 @@
             "justMyCode": false
         },
         {
+            "name": "trainffa2",
+            "type": "python",
+            "request": "launch",
+            "program": "scripts/trainffa2.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": false
+        },
+        {
+            "name": "playffa2",
+            "type": "python",
+            "request": "launch",
+            "program": "scripts/playffa2.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": false
+        },
+        {
             "name": "train2v2",
             "type": "python",
             "request": "launch",

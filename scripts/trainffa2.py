@@ -8,7 +8,6 @@ import sys
 def train():
     env = DmarEnv(cfg, args)
     runner = get_mappo_runner(env, cfg_train, logdir, args.device, cfg['sim']['numAgents'])
-
     if INIT_FROM_CHKPT:
         #load active policies
         model_paths = []
@@ -35,33 +34,29 @@ if __name__ == "__main__":
     args.device = 'cuda:0'
     args.headless = False 
     path_cfg = os.getcwd() + '/cfg'
-    cfg, cfg_train, logdir_root = getcfg(path_cfg)
-    #cfg['sim']['numAgents'] = 4
-    #cfg['sim']['collide'] = 1
+    cfg, cfg_train, logdir_root = getcfg(path_cfg, straightline=True)
+    cfg['sim']['numAgents'] = 2
+    cfg['sim']['collide'] = 1
+    
+    #cfg['sim']['numEnv'] = 16
+    #cfg['track']['num_tracks'] = 2
+    
     if not args.headless:
         cfg['viewer']['logEvery'] = -1
-    cfg['sim']['numEnv'] = 16
-    cfg['track']['num_tracks'] = 2
-    #cfg_train['policy']['teamsize'] = 2
-    #cfg_train['policy']['numteams'] = 2
-    cfg_train['runner']['policy_class_name'] = 'MultiTeamCMAAC' #MAActorCritic 
-    cfg_train['runner']['algorithm_class_name'] = 'JRMAPPO' #IMAPPO 
-    #cfg_train['runner']['num_steps_per_env'] = 32
-    #cfg_train['runner']['population_update_interval'] = 5
 
     args.override_cfg_with_args(cfg, cfg_train)
     set_dependent_cfg_entries(cfg, cfg_train)
 
     now = datetime.now()
     timestamp = now.strftime("%y_%m_%d_%H_%M_%S")
-    logdir = logdir_root +'/'+timestamp+'_no_dist_to_go_' + cfg_train['runner']['algorithm_class_name']+'_'+str(cfg_train['runner']['num_steps_per_env'])
+    logdir = logdir_root +'/'+timestamp + '_straightline_2ag'
     cfg["logdir"] = logdir
     INIT_FROM_CHKPT = False
     #active policies
-    runs = ['JRMAPPO22_05_16_11_41_14']*2
+    runs = ['22_02_03_21_09_18']*4
     chkpts = [-1] * 4
     ##policies to populate adversary buffer
-    adv_runs = ['JRMAPPO22_05_16_11_41_14'] * 3
-    adv_chkpts = [1000, 500, 200]
+    adv_runs = ['22_02_03_21_09_18'] * 10
+    adv_chkpts = [1000, 1500, 2000, 2200, 2500, 5000, 10000, 11000, 12000, 10500]
 
     train()

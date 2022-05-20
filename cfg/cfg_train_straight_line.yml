@@ -1,0 +1,47 @@
+seed: 1
+clip_observations: 1000.0
+clip_actions: 4.0
+
+track_cfgs: True
+
+algorithm:
+  clip_param: 0.2
+  entropy_coef: 0.005
+  num_learning_epochs: 5
+  num_mini_batches: 6 # this is per agent
+  learning_rate: 5.e-5
+  schedule: adaptive # could be adaptive, linear or fixed
+  gamma: 0.99
+  lam: 0.95
+  desired_kl: 0.008
+  value_loss_coef: 1.0
+  max_grad_norm: 0.5
+  use_clipped_value_loss: True
+
+runner:
+  policy_class_name: MAActorCritic #MultiTeamCMAAC 
+  algorithm_class_name:  IMAPPO #JRMAPPO 
+  num_steps_per_env: 64 # per iteration
+  max_iterations: 50000 # number of policy updates
+  population_update_interval: 40 #number of iterations before the opponent policy is updated
+  # logging
+  save_interval: 100 # check for potential saves every this many iterations
+  experiment_name: 'straightline'
+  run_name: ''
+  # load and resume
+  resume: False
+  load_run: -1 # -1 = last run
+  checkpoint: -1 # -1 = last saved model
+  resume_path: None # updated from load_run and chkpt
+
+policy: 
+  actor_hidden_dims: [512, 256, 32]
+  critic_hidden_dims: [512, 256, 32]
+  encoder_hidden_dims: [256, 256]
+  activation: elu # can be elu, relu, selu, crelu, lrelu, tanh, sigmoid
+  init_noise_std: 1.0
+  attentive: True
+  encoder_type: attention2  # attention{1, 2}
+  teamsize: 2
+  numteams: 2
+  max_num_old_models: 40
