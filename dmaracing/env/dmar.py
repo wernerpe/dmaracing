@@ -625,7 +625,9 @@ def compute_rewards_jit(track_progress : torch.Tensor,
             rew_progress = torch.clip(track_progress-old_track_progress, min = -10, max = 10) * reward_scales['progress']
             rew_on_track = reward_scales['offtrack']*~is_on_track 
             rew_actionrate = -torch.sum(torch.square(actions-last_actions), dim = 2) *reward_scales['actionrate']
-            rew_actions = -torch.sum(torch.square(actions), dim = 2) *reward_scales['actions']
+            act_scale = actions
+            act_scale[:,:,2] *= 10.0
+            rew_actions = -torch.sum(torch.square(act_scale), dim = 2) *reward_scales['actions']
             rew_energy = -torch.sum(torch.square(states[:,:,vn['S_W0']:vn['S_W3']+1]), dim = 2)*reward_scales['energy']
             
             rew_collision = is_collision*reward_scales['collision']

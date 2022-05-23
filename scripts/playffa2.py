@@ -171,9 +171,9 @@ if __name__ == "__main__":
     cfg, cfg_train, logdir_root = getcfg(path_cfg, straightline=True)
     SOUND = False
 
-    chkpts = [43500, 100 ]
+    chkpts = [-1,  1000]
     runs = [-1]*2
-    
+    cfg['sim']['numEnvs'] = 4
     cfg['sim']['numAgents'] = 2
     cfg['sim']['collide'] = 1
     if not args.headless:
