@@ -7,6 +7,8 @@ import sys
 
 def train():
     env = DmarEnv(cfg, args)
+    env.viewer.x_offset = -600
+    env.viewer.y_offset = 20
     runner = get_mappo_runner(env, cfg_train, logdir, args.device, cfg['sim']['numAgents'])
     if INIT_FROM_CHKPT:
         #load active policies
@@ -32,7 +34,7 @@ if __name__ == "__main__":
     args = CmdLineArguments()
     args.parse(sys.argv[1:])
     args.device = 'cuda:0'
-    args.headless = False 
+    args.headless = True 
     path_cfg = os.getcwd() + '/cfg'
     cfg, cfg_train, logdir_root = getcfg(path_cfg, straightline=True)
     cfg['sim']['numAgents'] = 2

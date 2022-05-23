@@ -107,6 +107,7 @@ class DmarEnv():
         self.reward_scales['energy'] = cfg['learn']['energyRewardScale']*self.dt
         self.reward_scales['teamrank'] = cfg['learn']['rankRewardScale']*self.dt
         self.reward_scales['collision'] = cfg['learn']['collisionRewardScale']*self.dt
+        self.reward_scales['actions'] = cfg['learn']['actionRewardScale']*self.dt
         
 
         self.default_actions = cfg['learn']['defaultactions']
@@ -120,6 +121,8 @@ class DmarEnv():
         self.offtrack_reset_s = cfg['learn']['offtrack_reset']
         self.offtrack_reset = int(self.offtrack_reset_s/(self.decimation*self.dt))
         self.max_episode_length = int(self.timeout_s/(self.decimation*self.dt))
+        self.race_lead_reward_interval = int(cfg['learn']['race_lead_reward_interval']/(self.decimation*self.dt))
+        
         self.agent_dropout_prob = cfg['learn']['agent_dropout_prob']
 
         self.lap_counter = torch.zeros((self.num_envs, self.num_agents), requires_grad=False, device=self.device, dtype=torch.int)
@@ -138,6 +141,7 @@ class DmarEnv():
                              'energy': torch_zeros((self.num_envs, self.num_agents)),
                              'teamrank': torch_zeros((self.num_envs, self.num_agents)),
                              'collision': torch_zeros((self.num_envs, self.num_agents)),
+                             'actions': torch_zeros((self.num_envs, self.num_agents)),
                              }
         
         self.is_collision = torch.zeros((self.num_envs, self.num_agents), requires_grad=False, device=self.device, dtype = torch.float)
@@ -335,8 +339,8 @@ class DmarEnv():
                 tile_idx_env = tile_idx_env + 1 * torch.linspace(0, self.num_agents-1, self.num_agents, device=self.device).unsqueeze(0).to(dtype=torch.long)
                 tile_idx_env = torch.remainder(tile_idx_env, self.active_track_tile_counts[env_ids].view(-1,1))
         positions = torch.ones((len(env_ids), self.num_agents), device=self.device).multinomial(self.num_agents, replacement=False)
-        positions[:, 0] = 0
-        positions[:, 1] = 1
+        #positions[:, 0] = 0
+        #positions[:, 1] = 1
         for agent in range(self.num_agents):
             if not self.reset_grid:
                 tile_idx = tile_idx_env[:, agent] 
@@ -352,8 +356,8 @@ class DmarEnv():
                 self.states[env_ids, agent, self.vn['S_X']] = startpos[:,0] + rand(-self.reset_randomization[0], self.reset_randomization[0], (len(env_ids),), device=self.device)
                 self.states[env_ids, agent, self.vn['S_Y']] = startpos[:,1] + rand(-self.reset_randomization[1], self.reset_randomization[1], (len(env_ids),), device=self.device)
             else:
-                self.states[env_ids, agent, self.vn['S_X']] = startpos[:,0] - dir_y * (-1)**(positions[:, agent]+1) * 2
-                self.states[env_ids, agent, self.vn['S_Y']] = startpos[:,1] + dir_x * (-1)**(positions[:, agent]+1) * 2
+                self.states[env_ids, agent, self.vn['S_X']] = startpos[:,0] - dir_y * (-1)**(positions[:, agent]+1) * 2  + rand(-self.reset_randomization[0], self.reset_randomization[0], (len(env_ids),), device=self.device)
+                self.states[env_ids, agent, self.vn['S_Y']] = startpos[:,1] + dir_x * (-1)**(positions[:, agent]+1) * 2 + rand(-self.reset_randomization[1], self.reset_randomization[1], (len(env_ids),), device=self.device)
             self.states[env_ids, agent, self.vn['S_THETA']] = angs + rand(-self.reset_randomization[2], self.reset_randomization[2], (len(env_ids),), device=self.device) 
             self.states[env_ids, agent, self.vn['S_DX']] = dir_x * vels_long - dir_y*vels_lat
             self.states[env_ids, agent, self.vn['S_DY']] = dir_y * vels_long + dir_x*vels_lat
@@ -470,7 +474,7 @@ class DmarEnv():
         num_active_agents = torch.sum(1.0*self.active_agents, dim = 1)
         #only give raceend reward if the environment completes the race
         #if self.num_agents==4:
-        self.rew_endrace = 1.0/self.num_agents*(num_active_agents.view(-1,1)/2.0-self.teamranks)*self.reward_scales['teamrank'] #* ((torch.max(self.lap_counter, dim = 1)[0] == self.race_length_laps).view(-1,1))
+        self.rew_endrace = 1.0/self.num_agents*(num_active_agents.view(-1,1)/2.0-self.teamranks)*self.reward_scales['teamrank'] * (torch.remainder(self.episode_length_buf, self.race_lead_reward_interval)==0) #* ((torch.max(self.lap_counter, dim = 1)[0] == self.race_length_laps).view(-1,1))
         
         self.reward_terms['teamrank'] += self.rew_endrace
         
@@ -621,16 +625,19 @@ def compute_rewards_jit(track_progress : torch.Tensor,
             rew_progress = torch.clip(track_progress-old_track_progress, min = -10, max = 10) * reward_scales['progress']
             rew_on_track = reward_scales['offtrack']*~is_on_track 
             rew_actionrate = -torch.sum(torch.square(actions-last_actions), dim = 2) *reward_scales['actionrate']
+            rew_actions = -torch.sum(torch.square(actions), dim = 2) *reward_scales['actions']
             rew_energy = -torch.sum(torch.square(states[:,:,vn['S_W0']:vn['S_W3']+1]), dim = 2)*reward_scales['energy']
             
             rew_collision = is_collision*reward_scales['collision']
-            rew_buf[:,:, 0] = torch.clip(rew_progress + rew_collision + rew_on_track + rew_actionrate + rew_energy, min = 0, max= None) 
+            rew_buf[:,:, 0] = torch.clip(rew_progress + rew_collision + rew_on_track + rew_actions + rew_actionrate + rew_energy, min = 0, max= None) 
             rew_buf[:,:, 1] = torch.clip(rew_racend, min = 0, max= None) 
 
             reward_terms['progress'] += rew_progress
             reward_terms['offtrack'] += rew_on_track
             reward_terms['actionrate'] += rew_actionrate
             reward_terms['energy'] += rew_energy
+            reward_terms['actions'] += rew_actions
+            
             #reward_terms['teamrank'] += rew_racend
             reward_terms['collision'] += rew_collision
             return rew_buf, reward_terms

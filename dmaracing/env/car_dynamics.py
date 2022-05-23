@@ -78,9 +78,8 @@ def step_cars(state : torch.Tensor,
     
     #set wheel speeds
     num = sim_par['dt'] * mod_par['ENGINE_POWER']*state[:, :, vn['S_GAS']]
-    den = mod_par['WHEEL_MOMENT_OF_INERTIA']*(torch.abs(state[:, :, vn['S_W2']:vn['S_W3']+1]) + 5)
+    den = mod_par['WHEEL_MOMENT_OF_INERTIA']*(1.6*torch.abs(state[:, :, vn['S_W2']:vn['S_W3']+1]) + 5)
     state[:, :, vn['S_W2']:vn['S_W3']+1] += torch.div( num.unsqueeze(2),den)
-
     #set brake
     #break >0.9 -> lock up wheels
     dir =  -torch.sign(state[:, :, vn['S_W0']:vn['S_W3']+1])

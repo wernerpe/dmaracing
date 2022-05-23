@@ -51,7 +51,7 @@ def play():
         if 'ranking' in info:
             print('info', info['ranking'])
         obsnp = obs[:,0,:].cpu().numpy()
-        rewnp = rew[:, 0].cpu().numpy()
+        rewnp = rew[:, 0,0].cpu().numpy()
         cont = env.contouring_err.cpu().numpy()
         act = actions[:,ag,:].cpu().detach().numpy()
         states = env.states.cpu().numpy()

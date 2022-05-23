@@ -171,7 +171,7 @@ if __name__ == "__main__":
     cfg, cfg_train, logdir_root = getcfg(path_cfg, straightline=True)
     SOUND = False
 
-    chkpts = [-1, -1]
+    chkpts = [43500, 100 ]
     runs = [-1]*2
     
     cfg['sim']['numAgents'] = 2
