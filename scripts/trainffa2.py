@@ -34,14 +34,14 @@ if __name__ == "__main__":
     args = CmdLineArguments()
     args.parse(sys.argv[1:])
     args.device = 'cuda:0'
-    args.headless = False 
+    args.headless = True 
     path_cfg = os.getcwd() + '/cfg'
-    cfg, cfg_train, logdir_root = getcfg(path_cfg, straightline=True)
+    cfg, cfg_train, logdir_root = getcfg(path_cfg, straightline=False)
     cfg['sim']['numAgents'] = 2
     cfg['sim']['collide'] = 1
     
-    #cfg['sim']['numEnv'] = 16
-    #cfg['track']['num_tracks'] = 2
+    #cfg['sim']['numEnv'] = 64
+    cfg['track']['num_tracks'] = 64
     
     if not args.headless:
         cfg['viewer']['logEvery'] = -1
@@ -51,7 +51,7 @@ if __name__ == "__main__":
 
     now = datetime.now()
     timestamp = now.strftime("%y_%m_%d_%H_%M_%S")
-    logdir = logdir_root +'/'+timestamp + '_straightline_2ag'
+    logdir = logdir_root +'/'+timestamp #+ '_straightline_2ag'
     cfg["logdir"] = logdir
     INIT_FROM_CHKPT = False
     #active policies

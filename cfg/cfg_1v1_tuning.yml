@@ -1,0 +1,86 @@
+sim:
+  numEnv: 512  # 4096
+  #number of racing agents per env
+  numAgents: 2  # 4
+  dt: 0.01 #[s]
+  numStates: 12
+  #need to overwrite this everytime env gets initialized to the correct number
+  #dependent on the lookaheadhorizon length and number of ado cars in an env
+  #this is done in get_cfg directly
+  numObservations: -1 
+  numConstantObservations: 9  # 10 #vels, steer, gas, last actions, rank, team_rank, distance to go 
+  numActions: 3
+  collide: 1
+  decimation: 4
+  test_mode: False
+  collisionstiffness: 480000.0  # 280000.0
+  
+model:
+  SIZE: 0.02 #[px/m]
+  BREAKFORCE: 100
+  ENGINE_POWER_SCALE: 150000000
+  WHEEL_MOMENT_OF_INERTIA_SCALE: 2000
+  FRICTION_LIMIT_SCALE: 10000000
+  OFFTRACK_FRICTION_SCALE: 0.2
+  WHEEL_R_SCALE: 27
+  LENGTH_SCALE: 200
+  MASS_SCALE: 160
+  MOMENT_OF_INERTIA_SCALE: 7.0
+  drag_reduction: 1.3
+viewer:
+  width: 1200  # 1200
+  height: 1200  # 1200
+  width_tb: 600  # 1200
+  height_tb: 600  # 1200
+  
+  scale: 240.0 #[m/width*px] indicates how wide the window is in pixels
+  linethickness: 1
+  multiagent: True
+  maxAgents: 400
+  logEvery: 1  # 10
+track:
+  #https://github.com/openai/gym/blob/master/gym/envs/box2d/car_racing.py
+  SCALE: 6.0  # Track scale
+  TRACK_RAD: 700   # Track is heavily morphed circle with this radius
+  CHECKPOINTS: 15
+  TRACK_DETAIL_STEP: 25 
+  TRACK_TURN_RATE: 0.51
+  TRACK_WIDTH: 40 
+  BORDER: 8 
+  BORDER_MIN_COUNT: 3
+  verbose: False
+  seed: 1
+  ccw: True
+  draw_centerline: False
+  num_tracks: 400
+learn:
+  use_timeouts: True
+  #[posx, posy, theta, vellong, vellat, dtheta, steer]
+  resetrand: [3.0, 3.0, 0.1, 0.1, 0.01,  0.1, 0.01]  # [5.0, 5.0, 0.1, 0.1, 0.01,  0.1, 0.0]
+  reset_tile_rand: 7  # 20
+  resetgrid: False
+  defaultactions: [0., 0.2, 0.0]
+  actionscale: [0.2, 0.4, 0.2]  # [1.0, 0.5, 0.2]
+  agent_dropout_prob: 0.0
+  distance_obs_cutoff: 100 #[m]
+  race_length_laps: 1
+  # progressRewardScale: 5.0
+  # offtrackRewardScale: -100.0  # -2.0
+  # actionRateRewardScale: 0.1 
+  # energyRewardScale: 0.00006
+  # actionRewardScale: 0.0001
+  # rankRewardScale: 1000.0
+  # collisionRewardScale: -0.0  # -300.0
+  # horizon: 8  # 15
+  progressRewardScale: 15.0
+  offtrackRewardScale: -2000.0
+  actionRateRewardScale: 0.1 
+  energyRewardScale: 0.00006
+  actionRewardScale: 0.0001
+  rankRewardScale: 400.0
+  collisionRewardScale: -0.0
+  horizon: 8  # 15
+  race_lead_reward_interval: 3 #s
+  
+  timeout: 20.0  # 25.0 #[s]
+  offtrack_reset: 1.0 #[s]
