@@ -39,7 +39,7 @@ viewer:
   linethickness: 1
   multiagent: True
   maxAgents: 400
-  logEvery: 10
+  logEvery: 10  # 10
 
 track:
   #https://github.com/openai/gym/blob/master/gym/envs/box2d/car_racing.py
@@ -76,9 +76,9 @@ learn:
   actionRewardScale: 0.0001
   rankRewardScale: 400.0
   collisionRewardScale: -0.0
-  horizon: 15
+  horizon: 8  # 15
   
   race_lead_reward_interval: 3 #s
 
   timeout: 15.0 #[s]
-  offtrack_reset: 0.3 #[s]
+  offtrack_reset: 1.0  # 0.3 #[s]
