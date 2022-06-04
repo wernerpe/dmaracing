@@ -435,6 +435,12 @@ class DmarEnv():
           self.viewer._frames = []
           self._global_step += 1
 
+    def step_with_importance_sampling_check(self, actions, uncertainty):
+        is_interesting = self.is_interesting_scenario(uncertainty)
+        interesting_state_idx = torch.where(is_interesting)[0]
+        new_init_states = self.states[interesting_state_idx,...].clone()
+        raise NotImplementedError
+        
     def step(self, actions) -> Tuple[torch.Tensor, Union[None, torch.Tensor], torch.Tensor, Dict[str, float]] : 
         actions = actions.clone().to(self.device)
         if actions.requires_grad:
