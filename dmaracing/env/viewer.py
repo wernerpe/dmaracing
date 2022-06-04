@@ -3,6 +3,8 @@ import torch
 import numpy as np
 import sys
 
+from collections import deque
+
 from dmaracing.utils.trackgen import draw_track
 
 
@@ -42,9 +44,11 @@ class Viewer:
         self.num_agents = self.cfg['sim']['numAgents']
         self.num_envs = self.cfg['sim']['numEnv']
         self.teams = teams
-        self.value_bar_locations = np.array([[-100, 0],[-80, 0],[-40, 0],[-20, 0],[-100, 200],[-80, 200],[-40, 200],[-20, 200],])
-        self.value_bar_locations[:, 0] += 130
-        self.value_bar_locations[:, 1] += 600
+        # self.value_bar_locations = np.array([[-100, 0],[-80, 0],[-40, 0],[-20, 0],[-100, 200],[-80, 200],[-40, 200],[-20, 200],])
+        # self.value_bar_locations = np.array([[100, 0],[120, 0],[160, 0],[180, 0],[220, 200],[240, 200],[-40, 200],[-20, 200],])
+        self.value_bar_locations = np.array([[100, 0],[120, 0],[160, 0],[180, 0],[220, 0],[240, 0],[280, 0],[300, 0],])
+        self.value_bar_locations[:, 0] += 50  # 400  # 130
+        self.value_bar_locations[:, 1] += 30 # 50  # 600
         self.value_bar_locations = self.value_bar_locations.astype(np.int32)
         cols = [(255,0,0), (0,0,255), (0,255,0),(0,125,125), (125,125,0), (125,0,125)] 
         self.teamcolors = []
@@ -87,6 +91,15 @@ class Viewer:
         self.drag_reduced_markers = []
         self.lines = []
         self.values = None
+        self.first = None
+
+        self._value_stdv_running_mean = 0.0
+        self._value_stdv_running_stdv = 0.0
+        self._value_stdv_currep_max = 0.0
+        self._scenario_counter = 0
+        self.img_queue = deque([0])
+        self._logdir = cfg["logdir"]
+
         self.draw_track()
         if not self._headless:
             cv.imshow('dmaracing', self.track_canvas)
@@ -103,11 +116,14 @@ class Viewer:
         return None
         
 
-    def render(self, state, slip, drag_reduced, wheel_locs):
+    def render(self, state, slip, drag_reduced, wheel_locs, lookahead, bounds, actions):
         self.state = state.clone()
         self.slip = slip.clone()
         self.wheel_locs = wheel_locs.clone()
         self.drag_reduced = drag_reduced.clone()
+
+        if self._headless:
+          key = self._render_tb()
 
         if self.do_render:
             self.img = self.track_canvas.copy()
@@ -116,21 +132,26 @@ class Viewer:
             if self.draw_multiagent:
                 self.add_slip_markers()
                 self.draw_slip_markers()
+                self.draw_lookahead_markers(lookahead, bounds)
+                self.draw_actions(actions)
                 self.draw_multiagent_rep(state)
             else:
                 self.draw_singleagent_rep(state[:self.num_cars])
-            cv.putText(self.img, "env:" + str(self.env_idx_render), (50, 50), self.font, 2, (0,0,0), 1, cv.LINE_AA)
+            # cv.putText(self.img, "env:" + str(self.env_idx_render), (50, 50), self.font, 2, (0,0,0), 1, cv.LINE_AA)
+            cv.putText(self.img, "env: " + str(self.env_idx_render), (30, 50), self.font, 0.5, (0,0,0), 1, cv.LINE_AA)
             self.draw_points()
             self.draw_lines(self.lines)
             self.draw_string()
             self.draw_marked_agents()
-            self._draw_value_activation_team()
+            # self._draw_value_activation_team()
+            self._draw_value_moments()
+            self._draw_ranks()
         
         #listen for keypressed events
         if not self._headless:
             key = self._render_interactive()
-        else:
-            key = self._render_tb()
+        # else:
+        #     key = self._render_tb()
 
         return key
 
@@ -315,6 +336,29 @@ class Viewer:
             for loc in group.tolist():
                 self.img = cv.circle(self.img, (loc[0], loc[1]), scale, (30,30,30), -1)
 
+    def draw_lookahead_markers(self, lookahead, bounds):
+        points = lookahead[self.env_idx_render, 0, :, :].cpu().numpy()
+
+        #project into camera frame%
+        points = self.cords2px_np(points)
+        scale =  int(2*500/(self.scale_x))
+        for point in points:
+            self.img = cv.circle(self.img, (point[0], point[1]), scale, (255, 0,0), -1)
+
+        rbounds = bounds[self.env_idx_render, 0, :, [0, 1]].cpu().numpy()
+        #project into camera frame%
+        rbounds = self.cords2px_np(rbounds)
+        scale =  int(2*500/(self.scale_x))
+        for rbound in rbounds:
+            self.img = cv.circle(self.img, (rbound[0], rbound[1]), scale, (0, 0, 0), -1)
+
+        lbounds = bounds[self.env_idx_render, 0, :, [2, 3]].cpu().numpy()
+        #project into camera frame%
+        lbounds = self.cords2px_np(lbounds)
+        scale =  int(2*500/(self.scale_x))
+        for lbound in lbounds:
+            self.img = cv.circle(self.img, (lbound[0], lbound[1]), scale, (0, 0, 0), -1)
+
     def add_string(self, string):
         self.msg.append(string) 
 
@@ -352,6 +396,86 @@ class Viewer:
                 self.img = cv.rectangle(self.img, tuple(bar[0]), tuple(bar[1]), (0,0,0), -1)
                 self.img = cv.putText(self.img, nm, (bar[0,0], bar[0,1]+40), self.font, 0.5, (0, 0, 0), 1, cv.LINE_AA)
         self.values = None
+
+    def update_values(self, values):
+        # Assume value shape [#value functions, ...]
+        self.values = values[self.env_idx_render].detach().cpu().numpy().reshape(values.shape[1], -1)
+
+        self._value_stdv_running_mean = 0.7 * self._value_stdv_running_mean + 0.3 * self.values.std(axis=0).mean()
+        self._value_stdv_running_stdv = 0.7 * self._value_stdv_running_stdv + 0.3 * self.values.std(axis=0).std()
+        self._value_stdv_currep_max = max(self._value_stdv_currep_max, self.values[..., 0].std(axis=0))
+
+    def _draw_value_moments(self,):
+        if self.values is not None:
+            scale = 3.
+            heights_mean = self.values.mean(axis=0)
+            heights_stdv = self.values.std(axis=0)
+            locs = self.value_bar_locations.copy()[:2*len(heights_mean)]
+            locs[1::2,1] -= (scale*heights_mean).astype(np.int32)
+            locs = locs.reshape(heights_mean.shape[0],2,2)
+            for idx, bar in enumerate(locs):
+                self.img = cv.rectangle(self.img, tuple(bar[0]), tuple(bar[1]), (100,100,100), -1)
+
+                ucb = bar[1,1] - (scale*heights_stdv[idx]).astype(np.int32)
+                lcb = bar[1,1] + (scale*heights_stdv[idx]).astype(np.int32)
+                self.img = cv.line(self.img, (bar[0][0], lcb), (bar[1][0], lcb), (0, 0, 255), thickness=1)
+                self.img = cv.line(self.img, (bar[0][0], ucb), (bar[1][0], ucb), (255, 0, 0), thickness=1)
+                self.img = cv.putText(self.img, f'{heights_mean[idx]:.2f}', (bar[0,0], bar[0,1]+20), self.font, 0.5, (0, 0, 0), 1, cv.LINE_AA)
+                self.img = cv.putText(self.img, f'{heights_stdv[idx]:.2f}', (bar[0,0], bar[0,1]+40), self.font, 0.5, (0, 0, 0), 1, cv.LINE_AA)
+
+            pos = self.state[0, :, :2].cpu().numpy()
+            dist = (((pos[1] - pos[0])**2).sum())**0.5
+            if (heights_stdv[0] > self._value_stdv_running_mean + 2 * self._value_stdv_running_stdv) and (heights_stdv[0] >= self._value_stdv_currep_max) and (dist > 5. and dist < 10.):
+              if self.img_queue:
+                self.img_queue.pop()
+              self.img_queue.appendleft(self.img.copy())
+        self.values = None
+
+    def draw_actions(self, actions):
+        action = actions[self.env_idx_render, 0].cpu().numpy()
+
+        scale = 3.
+        ypos = 25
+        ylabel = 50
+
+        locs = [
+          [430, ypos], [450, ypos - (scale*action[0]).astype(np.int32)],
+          [480, ypos], [500, ypos - (scale*action[1]).astype(np.int32)],
+          [530, ypos], [550, ypos - (scale*action[2]).astype(np.int32)],
+        ]
+
+        # Action: steer
+        self.img = cv.rectangle(self.img, tuple(locs[0]), tuple(locs[1]), (100,100,100), -1)
+        self.img = cv.line(self.img, (locs[0][0]-3, ypos), (locs[1][0]+3, ypos), (0, 0, 255), thickness=1)
+        self.img = cv.putText(self.img, f'{action[0]:.2f}', (locs[0][0], ylabel), self.font, 0.5, (0, 0, 0), 1, cv.LINE_AA)
+        self.img = cv.putText(self.img, 'Steer', (locs[0][0], ylabel+20), self.font, 0.5, (0, 0, 0), 1, cv.LINE_AA)
+
+        # Action: gas
+        self.img = cv.rectangle(self.img, tuple(locs[2]), tuple(locs[3]), (100,100,100), -1)
+        self.img = cv.line(self.img, (locs[2][0]-3, ypos), (locs[3][0]+3, ypos), (0, 0, 255), thickness=1)
+        self.img = cv.putText(self.img, f'{action[1]:.2f}', (locs[2][0], ylabel), self.font, 0.5, (0, 0, 0), 1, cv.LINE_AA)
+        self.img = cv.putText(self.img, 'Gas', (locs[2][0], ylabel+20), self.font, 0.5, (0, 0, 0), 1, cv.LINE_AA)
+
+        # Action: break
+        self.img = cv.rectangle(self.img, tuple(locs[4]), tuple(locs[5]), (100,100,100), -1)
+        self.img = cv.line(self.img, (locs[4][0]-3, ypos), (locs[5][0]+3, ypos), (0, 0, 255), thickness=1)
+        self.img = cv.putText(self.img, f'{action[2]:.2f}', (locs[4][0], ylabel), self.font, 0.5, (0, 0, 0), 1, cv.LINE_AA)
+        self.img = cv.putText(self.img, 'Break', (locs[4][0], ylabel+20), self.font, 0.5, (0, 0, 0), 1, cv.LINE_AA)
+
+    def update_ranks(self, ranks):
+        self.first = ranks.detach().cpu().numpy()[0, 0]
+
+    def _draw_ranks(self,):
+        if self.first is not None:
+          self.img = cv.putText(self.img, 'First: ' + f'{self.first}', (30, 70), self.font, 0.5, (0, 0, 0), 1, cv.LINE_AA)
+        self.first = None
+
+    def save_uncertain_imgs(self,):
+        while self.img_queue:
+            img = self.img_queue.pop()
+            cv.imwrite(self._logdir + '/scenario' + str(self._scenario_counter) + '.png', img)
+            self._scenario_counter += 1
+        self._value_stdv_currep_max = 0.0
 
     def draw_in_step(self,):
         cv.imshow("dmaracing", self.img)

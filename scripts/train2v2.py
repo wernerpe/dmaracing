@@ -4,6 +4,7 @@ from dmaracing.utils.helpers import *
 from datetime import date, datetime
 import os
 import sys
+# os.environ['CUDA_VISIBLE_DEVICES'] = '1'
 
 def train():
     env = DmarEnv(cfg, args)
@@ -33,15 +34,15 @@ if __name__ == "__main__":
     args = CmdLineArguments()
     args.parse(sys.argv[1:])
     args.device = 'cuda:0'
-    args.headless = False 
+    args.headless = True  # False 
     path_cfg = os.getcwd() + '/cfg'
     cfg, cfg_train, logdir_root = getcfg(path_cfg)
     #cfg['sim']['numAgents'] = 4
     #cfg['sim']['collide'] = 1
     if not args.headless:
         cfg['viewer']['logEvery'] = -1
-    cfg['sim']['numEnv'] = 16
-    cfg['track']['num_tracks'] = 2
+    # cfg['sim']['numEnv'] = 16
+    # cfg['track']['num_tracks'] = 2
     #cfg_train['policy']['teamsize'] = 2
     #cfg_train['policy']['numteams'] = 2
     cfg_train['runner']['policy_class_name'] = 'MultiTeamCMAAC' #MAActorCritic 
@@ -54,7 +55,8 @@ if __name__ == "__main__":
 
     now = datetime.now()
     timestamp = now.strftime("%y_%m_%d_%H_%M_%S")
-    logdir = logdir_root +'/'+timestamp+'_no_dist_to_go_' + cfg_train['runner']['algorithm_class_name']+'_'+str(cfg_train['runner']['num_steps_per_env'])
+    # logdir = logdir_root +'/'+timestamp+'_no_dist_to_go_' + cfg_train['runner']['algorithm_class_name']+'_'+str(cfg_train['runner']['num_steps_per_env'])
+    logdir = logdir_root +'/'+timestamp + cfg_train['runner']['algorithm_class_name']+'_'+str(cfg_train['runner']['num_steps_per_env'])
     cfg["logdir"] = logdir
     INIT_FROM_CHKPT = False
     #active policies

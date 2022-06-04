@@ -4,11 +4,12 @@ from dmaracing.utils.helpers import *
 from datetime import date, datetime
 import os
 import sys
+# os.environ['CUDA_VISIBLE_DEVICES'] = '1'
 
 def train():
     env = DmarEnv(cfg, args)
-    env.viewer.x_offset = -600
-    env.viewer.y_offset = 20
+    # env.viewer.x_offset = -600
+    # env.viewer.y_offset = 20
     runner = get_mappo_runner(env, cfg_train, logdir, args.device, cfg['sim']['numAgents'])
     if INIT_FROM_CHKPT:
         #load active policies
@@ -28,15 +29,15 @@ def train():
             print("Loading model" + adv_model_paths[-1])
 
         runner.populate_adversary_buffer(adv_model_paths)
-    runner.learn(cfg_train['runner']['max_iterations'], init_at_random_ep_len=True)
+    runner.learn(cfg_train['runner']['max_iterations'], init_at_random_ep_len=False)  # True)
 
 if __name__ == "__main__":
     args = CmdLineArguments()
     args.parse(sys.argv[1:])
     args.device = 'cuda:0'
-    args.headless = False 
+    args.headless = True  # False 
     path_cfg = os.getcwd() + '/cfg'
-    cfg, cfg_train, logdir_root = getcfg(path_cfg, straightline=True)
+    cfg, cfg_train, logdir_root = getcfg(path_cfg, straightline=False)  # True)
     cfg['sim']['numAgents'] = 2
     cfg['sim']['collide'] = 1
     
@@ -51,7 +52,7 @@ if __name__ == "__main__":
 
     now = datetime.now()
     timestamp = now.strftime("%y_%m_%d_%H_%M_%S")
-    logdir = logdir_root +'/'+timestamp + '_straightline_2ag'
+    logdir = logdir_root +'/'+timestamp + '_2ag'  # '_straightline_2ag'
     cfg["logdir"] = logdir
     INIT_FROM_CHKPT = False
     #active policies
