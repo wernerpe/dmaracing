@@ -19,14 +19,24 @@ algorithm:
   use_clipped_value_loss: True
 
 runner:
+<<<<<<< HEAD
   policy_class_name: MAActorCritic #MultiTeamCMAAC 
   algorithm_class_name: IMAPPO #JRMAPPO 
+=======
+  policy_class_name: MultiTeamCMAAC  # MAActorCritic #MultiTeamCMAAC 
+  algorithm_class_name: JRMAPPO  # IMAPPO #JRMAPPO 
+>>>>>>> 937d15409478b940b0ea387ad303f2677c3d1c30
   num_steps_per_env: 128  # 64  # 32 # per iteration
   max_iterations: 50000 # number of policy updates
   population_update_interval: 20  # 10  # 40 #number of iterations before the opponent policy is updated
   # logging
   save_interval: 1000 # check for potential saves every this many iterations
+<<<<<<< HEAD
   experiment_name: '2v2_tuning'  # '1v1_tuning'  # '2v2'
+=======
+  eval_interval: 20
+  experiment_name: '2v2_tuning'
+>>>>>>> 937d15409478b940b0ea387ad303f2677c3d1c30
   run_name: ''
   # load and resume
   resume: False
