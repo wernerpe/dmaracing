@@ -1,3 +1,4 @@
+logdir: ''
 sim:
   numEnv: 512
   #number of racing agents per env
