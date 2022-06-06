@@ -574,7 +574,7 @@ class DmarEnv():
         self.sub_tile_progress = torch.einsum('eac, eac-> ea', self.trackdir, self.tile_car_vec)
         self.track_progress_no_laps = self.active_track_tile*self.tile_len + self.sub_tile_progress
         self.track_progress = self.track_progress_no_laps + self.lap_counter*self.track_lengths[self.active_track_ids].view(-1,1)
-        dist_sort, self.ranks = torch.sort(self.track_progress*self.is_on_track, dim = 1, descending = True)
+        dist_sort, self.ranks = torch.sort(self.track_progress*self.is_on_track_all, dim = 1, descending = True)
         self.ranks = torch.sort(self.ranks, dim = 1)[1]
         
         for team in self.teams:
