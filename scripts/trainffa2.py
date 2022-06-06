@@ -4,11 +4,12 @@ from dmaracing.utils.helpers import *
 from datetime import date, datetime
 import os
 import sys
+# os.environ['CUDA_VISIBLE_DEVICES'] = '1'
 
 def train():
     env = DmarEnv(cfg, args)
-    env.viewer.x_offset = -600
-    env.viewer.y_offset = 20
+    # env.viewer.x_offset = -600
+    # env.viewer.y_offset = 20
     runner = get_mappo_runner(env, cfg_train, logdir, args.device, cfg['sim']['numAgents'])
     if INIT_FROM_CHKPT:
         #load active policies
@@ -28,7 +29,7 @@ def train():
             print("Loading model" + adv_model_paths[-1])
 
         runner.populate_adversary_buffer(adv_model_paths)
-    runner.learn(cfg_train['runner']['max_iterations'], init_at_random_ep_len=True)
+    runner.learn(cfg_train['runner']['max_iterations'], init_at_random_ep_len=False)  # True)
 
 if __name__ == "__main__":
     args = CmdLineArguments()
