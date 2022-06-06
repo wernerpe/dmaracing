@@ -21,12 +21,12 @@ algorithm:
 runner:
   policy_class_name: MAActorCritic #MultiTeamCMAAC 
   algorithm_class_name:  IMAPPO #JRMAPPO 
-  num_steps_per_env: 64 # per iteration
+  num_steps_per_env: 32 # per iteration
   max_iterations: 50000 # number of policy updates
-  population_update_interval: 10 #number of iterations before the opponent policy is updated
+  population_update_interval: 25 #number of iterations before the opponent policy is updated
   # logging
   save_interval: 25 # check for potential saves every this many iterations
-  eval_interval: 20
+  eval_interval: 40
   experiment_name: 'straightline'
   run_name: ''
   # load and resume

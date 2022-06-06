@@ -69,7 +69,13 @@ def play():
         t1 = time.time()
         obs = obs
         actions = policy(obs)
-        obs, _, rew, dones, info = env.step(actions)
+        #obs, _, rew, dones, info = env.step(actions)
+        uncertainty = 0.1 + 0*actions[:, 0, 0]
+        if idx%100 == 0:
+            uncertainty[3] = 0.95
+        obs, _, rew, dones, info = env.step_with_importance_sampling_check(actions, uncertainty)
+    
+
         attention_tensor = compute_linear_attention(obs[:,ag,:], attention_tensor)
         values = runner.alg.actor_critic.evaluate(obs[:, runner.alg.actor_critic.teams[int(ag/2)],:])
         obsnp = obs[:,ag,:].cpu().numpy()
@@ -171,9 +177,9 @@ if __name__ == "__main__":
     cfg, cfg_train, logdir_root = getcfg(path_cfg, straightline=True)
     SOUND = False
 
-    chkpts = [375, 350]
+    chkpts = [-1, 1000]
     runs = [-1]*2
-    cfg['sim']['numEnvs'] = 4
+    cfg['sim']['numEnv'] = 4
     cfg['sim']['numAgents'] = 2
     cfg['sim']['collide'] = 1
     if not args.headless:
@@ -195,6 +201,6 @@ if __name__ == "__main__":
     #cfg_train['policy']['numteams'] = 2
     #cfg['viewer']['multiagent'] = True
     
-    set_dependent_cfg_entries(cfg, cfg_train)
+    #set_dependent_cfg_entries(cfg, cfg_train)
 
     play()    

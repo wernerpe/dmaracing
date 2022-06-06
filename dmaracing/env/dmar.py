@@ -170,6 +170,23 @@ class DmarEnv():
         self.trained_agent_slot = 0
 
         self.total_step = 0
+
+        ###importance sampling
+        self.IS_active = cfg['learn']['IS_active']
+
+        if self.IS_active:
+            self.IS_storage_size = cfg['learn']['IS_storage_size']
+            self.IS_ptr = 0
+            self.IS_replay_ptr = 0
+            self.IS_state_buf = torch.zeros((self.IS_storage_size, 
+                                            self.states.shape[1], 
+                                            self.states.shape[2]), 
+                                            requires_grad= False, dtype=torch.float, device=self.device)
+            self.IS_threshold = cfg['learn']['IS_threshold']
+            self.IS_active = cfg['learn']['IS_frac_is_envs']
+            self.IS_first_state_stored = False
+            self.IS_num_envs = int(cfg['learn']['IS_frac_is_envs']*self.num_envs)
+
         self.viewer.center_cam(self.states)
         self.reset()
         self.step(self.actions)
@@ -177,7 +194,8 @@ class DmarEnv():
         if not self.headless:
             self.viewer.center_cam(self.states)
             self.render()
-             
+
+
     def compute_observations(self,) -> None:
         steer =  self.states[:,:,self.vn['S_STEER']].unsqueeze(2)
         gas = self.states[:,:,self.vn['S_GAS']].unsqueeze(2)
@@ -366,6 +384,10 @@ class DmarEnv():
             self.states[env_ids, agent, self.vn['S_STEER']] = rand(-self.reset_randomization[6], self.reset_randomization[6], (len(env_ids),), device=self.device)
             self.states[env_ids, agent, self.vn['S_W0']:self.vn['S_W3']+1] = (vels_long/self.modelParameters['WHEEL_R']).unsqueeze(1)
         
+        if self.IS_active:
+            where_is_reset = torch.where(env_ids<=self.IS_num_envs)[0]
+            self.IS_reset(env_ids[where_is_reset])
+
         idx_inactive, idx2_inactive = torch.where(~self.active_agents[env_ids, :].view(len(env_ids), self.num_agents))
         if len(idx_inactive):
             self.states[env_ids[idx_inactive], idx2_inactive, self.vn['S_X']:self.vn['S_Y']+1] = 10000.0 + 1000*torch.rand((len(idx2_inactive),2), device=self.device, requires_grad=False)
@@ -409,11 +431,28 @@ class DmarEnv():
           self._global_step += 1
 
     def step_with_importance_sampling_check(self, actions, uncertainty):
-        is_interesting = self.is_interesting_scenario(uncertainty)
+        is_interesting = self.IS_interesting_scenario(uncertainty)
         interesting_state_idx = torch.where(is_interesting)[0]
         new_init_states = self.states[interesting_state_idx,...].clone()
-        raise NotImplementedError
-        
+        num_states_save = np.min([self.IS_storage_size-self.IS_ptr-1, len(new_init_states)])
+        self.IS_state_buf[self.IS_ptr % self.IS_storage_size : (self.IS_ptr+num_states_save ) % self.IS_storage_size, ...] = new_init_states[:num_states_save, ...]
+        self.IS_ptr = self.IS_ptr + num_states_save
+        if self.IS_ptr > 0 and not self.IS_first_state_stored:
+            self.IS_first_state_stored = True
+        return self.step(actions)
+
+    def IS_interesting_scenario(self, uncertainty):
+        return uncertainty >= self.IS_threshold
+    
+    def IS_reset(self, env_ids):
+        if self.IS_first_state_stored:
+            IS_checkpoint = self.IS_state_buf[self.IS_replay_ptr % self.IS_storage_size, ...].view(1, self.num_agents, -1)
+            self.states[env_ids, ...] = IS_checkpoint
+            if self.IS_replay_ptr < self.IS_ptr-1:
+                self.IS_replay_ptr += 1
+        else:
+            print('[DMAR IMPORTANCE SAMPLING] No interesting scenario added yet')
+    
     def step(self, actions) -> Tuple[torch.Tensor, Union[None, torch.Tensor], torch.Tensor, Dict[str, float]] : 
         actions = actions.clone().to(self.device)
         if actions.requires_grad:
@@ -506,7 +545,7 @@ class DmarEnv():
         self.sub_tile_progress = torch.einsum('eac, eac-> ea', self.trackdir, self.tile_car_vec)
         self.track_progress_no_laps = self.active_track_tile*self.tile_len + self.sub_tile_progress
         self.track_progress = self.track_progress_no_laps + self.lap_counter*self.track_lengths[self.active_track_ids].view(-1,1)
-        dist_sort, self.ranks = torch.sort(self.track_progress, dim = 1, descending = True)
+        dist_sort, self.ranks = torch.sort(self.track_progress*self.is_on_track, dim = 1, descending = True)
         self.ranks = torch.sort(self.ranks, dim = 1)[1]
         
         for team in self.teams:

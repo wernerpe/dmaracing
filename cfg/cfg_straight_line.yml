@@ -70,15 +70,19 @@ learn:
   race_length_laps: 1
 
   progressRewardScale: 15.0
-  offtrackRewardScale: -2000.0
+  offtrackRewardScale: -20.0
   actionRateRewardScale: 0.1 
   energyRewardScale: 0.00006
   actionRewardScale: 0.0001
-  rankRewardScale: 400.0
+  rankRewardScale: 80.0
   collisionRewardScale: -0.0
   horizon: 15
   
-  race_lead_reward_interval: 3 #s
+  race_lead_reward_interval: 1 #s
 
-  timeout: 15.0 #[s]
-  offtrack_reset: 0.3 #[s]
+  timeout: 10.0 #[s]
+  offtrack_reset: 0.5 #[s]
+  IS_active: True
+  IS_storage_size: 100
+  IS_threshold: 0.9
+  IS_frac_is_envs: 0.3
