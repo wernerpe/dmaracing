@@ -364,7 +364,7 @@ class DmarEnv():
         self.resample_track(env_ids)
         self.active_agents[env_ids, 1:] = torch.rand((len(env_ids),self.num_agents-1), device=self.device) > self.agent_dropout_prob
         tile_idx_env = (torch.rand((len(env_ids),1), device=self.device) * (0.5 *self.active_track_tile_counts[env_ids].view(-1,1))).to(dtype=torch.long)
-        # tile_idx_env = 47 + 0*torch.tile(tile_idx_env, (self.num_agents,))
+        #tile_idx_env = 47 + 0*torch.tile(tile_idx_env, (self.num_agents,))
         tile_idx_env = torch.tile(tile_idx_env, (self.num_agents,))
         self.drag_reduction_points[env_ids,:,:] = 0.0
         self.drag_reduced[env_ids, :] = False
@@ -574,7 +574,7 @@ class DmarEnv():
         self.sub_tile_progress = torch.einsum('eac, eac-> ea', self.trackdir, self.tile_car_vec)
         self.track_progress_no_laps = self.active_track_tile*self.tile_len + self.sub_tile_progress
         self.track_progress = self.track_progress_no_laps + self.lap_counter*self.track_lengths[self.active_track_ids].view(-1,1)
-        dist_sort, self.ranks = torch.sort(self.track_progress*self.is_on_track, dim = 1, descending = True)
+        dist_sort, self.ranks = torch.sort(self.track_progress*self.is_on_track_all, dim = 1, descending = True)
         self.ranks = torch.sort(self.ranks, dim = 1)[1]
         
         for team in self.teams:

@@ -1,3 +1,4 @@
+logdir: ''
 sim:
   numEnv: 1024  # 4096
   #number of racing agents per env
@@ -91,6 +92,11 @@ learn:
   
   timeout: 40  # 20.0  # 25.0 #[s]
   offtrack_reset: 0.5 #[s]
+<<<<<<< HEAD
+  IS_active: False
+  IS_storage_size: 100
+=======
   IS_active: True
+>>>>>>> 937d15409478b940b0ea387ad303f2677c3d1c30
   IS_threshold: 0.9
   IS_frac_is_envs: 0.3
