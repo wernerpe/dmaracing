@@ -462,16 +462,17 @@ class DmarEnv():
           self._global_step += 1
 
     def step_with_importance_sampling_check(self, actions, uncertainty):
-        is_interesting = self.IS_interesting_scenario(uncertainty)
-        interesting_state_idx = torch.where(is_interesting)[0]
-        new_init_states = self.states[interesting_state_idx,...].clone()
-        num_states_save = np.min([self.IS_storage_size-self.IS_ptr-1, len(new_init_states)])
-        new_init_tracks = self.active_track_ids[interesting_state_idx].clone()[:num_states_save]
-        self.IS_state_buf[self.IS_ptr % self.IS_storage_size : (self.IS_ptr+num_states_save ) % self.IS_storage_size, ...] = new_init_states[:num_states_save, ...]
-        self.IS_track_buf[self.IS_ptr % self.IS_storage_size : (self.IS_ptr+num_states_save ) % self.IS_storage_size] = new_init_tracks
-        self.IS_ptr = self.IS_ptr + num_states_save
-        if self.IS_ptr > 0 and not self.IS_first_state_stored:
-            self.IS_first_state_stored = True
+        if self.IS_active:
+            is_interesting = self.IS_interesting_scenario(uncertainty)
+            interesting_state_idx = torch.where(is_interesting)[0]
+            new_init_states = self.states[interesting_state_idx,...].clone()
+            num_states_save = np.min([self.IS_storage_size-self.IS_ptr-1, len(new_init_states)])
+            new_init_tracks = self.active_track_ids[interesting_state_idx].clone()[:num_states_save]
+            self.IS_state_buf[self.IS_ptr % self.IS_storage_size : (self.IS_ptr+num_states_save ) % self.IS_storage_size, ...] = new_init_states[:num_states_save, ...]
+            self.IS_track_buf[self.IS_ptr % self.IS_storage_size : (self.IS_ptr+num_states_save ) % self.IS_storage_size] = new_init_tracks
+            self.IS_ptr = self.IS_ptr + num_states_save
+            if self.IS_ptr > 0 and not self.IS_first_state_stored:
+                self.IS_first_state_stored = True
         return self.step(actions)
 
     def IS_interesting_scenario(self, uncertainty):
@@ -491,7 +492,7 @@ class DmarEnv():
             self.active_track_tile_counts[env_ids] = self.track_tile_counts[self.active_track_ids[env_ids]]
             if self.viewer.env_idx_render in env_ids:
                 self.viewer.draw_track_reset()
-                
+
             if self.IS_replay_ptr < self.IS_ptr-1:
                 self.IS_replay_ptr += 1
         else:
