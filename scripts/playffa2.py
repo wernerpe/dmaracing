@@ -174,14 +174,16 @@ if __name__ == "__main__":
     args.device = 'cuda:0'
     args.headless = False 
     path_cfg = os.getcwd() + '/cfg'
-    cfg, cfg_train, logdir_root = getcfg(path_cfg, straightline=True)
+    cfg, cfg_train, logdir_root = getcfg(path_cfg, straightline=False)
     SOUND = False
 
-    chkpts = [-1, 1000]
+    chkpts = [-1, -3]
     runs = [-1]*2
     cfg['sim']['numEnv'] = 4
     cfg['sim']['numAgents'] = 2
     cfg['sim']['collide'] = 1
+    cfg['learn']['IS_active'] = False
+
     if not args.headless:
         cfg['viewer']['logEvery'] = -1
 
@@ -196,7 +198,7 @@ if __name__ == "__main__":
     #cfg['learn']['reset_tile_rand'] = 40
     #cfg['viewer']['logEvery'] = -1
     #cfg['track']['seed'] = 5
-    #cfg['track']['num_tracks'] = 30
+    cfg['track']['num_tracks'] = 30
     #cfg_train['policy']['teamsize'] = 2
     #cfg_train['policy']['numteams'] = 2
     #cfg['viewer']['multiagent'] = True

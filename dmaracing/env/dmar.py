@@ -190,7 +190,6 @@ class DmarEnv():
                                             requires_grad=False, dtype = torch.long, device = self.device, )
         
             self.IS_threshold = cfg['learn']['IS_threshold']
-            self.IS_active = cfg['learn']['IS_frac_is_envs']
             self.IS_first_state_stored = False
             self.IS_num_envs = int(cfg['learn']['IS_frac_is_envs']*self.num_envs)
 
@@ -466,13 +465,16 @@ class DmarEnv():
             is_interesting = self.IS_interesting_scenario(uncertainty)
             interesting_state_idx = torch.where(is_interesting)[0]
             new_init_states = self.states[interesting_state_idx,...].clone()
-            num_states_save = np.min([self.IS_storage_size-self.IS_ptr-1, len(new_init_states)])
+            num_states_save = np.min([self.IS_storage_size-(self.IS_ptr%self.IS_storage_size)-1, len(new_init_states)])
             new_init_tracks = self.active_track_ids[interesting_state_idx].clone()[:num_states_save]
             self.IS_state_buf[self.IS_ptr % self.IS_storage_size : (self.IS_ptr+num_states_save ) % self.IS_storage_size, ...] = new_init_states[:num_states_save, ...]
             self.IS_track_buf[self.IS_ptr % self.IS_storage_size : (self.IS_ptr+num_states_save ) % self.IS_storage_size] = new_init_tracks
             self.IS_ptr = self.IS_ptr + num_states_save
             if self.IS_ptr > 0 and not self.IS_first_state_stored:
                 self.IS_first_state_stored = True
+            if self.IS_storage_size-(self.IS_ptr%self.IS_storage_size)-1 == 0:
+                self.IS_ptr += 1
+            
         return self.step(actions)
 
     def IS_interesting_scenario(self, uncertainty):

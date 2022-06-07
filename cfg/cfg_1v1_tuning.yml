@@ -1,7 +1,7 @@
 logdir: ''
 
 sim:
-  numEnv: 512  # 4096
+  numEnv: 4096
   #number of racing agents per env
   numAgents: 2  # 4
   dt: 0.01 #[s]
@@ -88,5 +88,5 @@ learn:
   offtrack_reset: 1.0 #[s]
   IS_active: True
   IS_storage_size: 100
-  IS_threshold: 0.9
+  IS_threshold: 1.6
   IS_frac_is_envs: 0.3
