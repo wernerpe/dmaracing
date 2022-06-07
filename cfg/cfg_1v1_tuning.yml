@@ -86,7 +86,7 @@ learn:
   
   timeout: 40.0  # 25.0 #[s]
   offtrack_reset: 1.0 #[s]
-  IS_active: False
+  IS_active: True
   IS_storage_size: 100
   IS_threshold: 0.9
   IS_frac_is_envs: 0.3

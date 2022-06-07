@@ -465,8 +465,8 @@ class DmarEnv():
         is_interesting = self.IS_interesting_scenario(uncertainty)
         interesting_state_idx = torch.where(is_interesting)[0]
         new_init_states = self.states[interesting_state_idx,...].clone()
-        new_init_tracks = self.active_track_ids[interesting_state_idx].clone()
         num_states_save = np.min([self.IS_storage_size-self.IS_ptr-1, len(new_init_states)])
+        new_init_tracks = self.active_track_ids[interesting_state_idx].clone()[:num_states_save]
         self.IS_state_buf[self.IS_ptr % self.IS_storage_size : (self.IS_ptr+num_states_save ) % self.IS_storage_size, ...] = new_init_states[:num_states_save, ...]
         self.IS_track_buf[self.IS_ptr % self.IS_storage_size : (self.IS_ptr+num_states_save ) % self.IS_storage_size] = new_init_tracks
         self.IS_ptr = self.IS_ptr + num_states_save
@@ -482,7 +482,16 @@ class DmarEnv():
             IS_checkpoint = self.IS_state_buf[self.IS_replay_ptr % self.IS_storage_size, ...].view(1, self.num_agents, -1)
             IS_track_checkpoint = self.IS_track_buf[self.IS_replay_ptr % self.IS_storage_size]
             self.states[env_ids, ...] = IS_checkpoint
+            
             self.active_track_ids[env_ids] = IS_track_checkpoint
+            self.active_track_mask[env_ids, ...] = 0.0
+            self.active_track_mask[env_ids, self.active_track_ids[env_ids]] = 1.0
+            self.active_centerlines[env_ids,...] = self.track_centerlines[self.active_track_ids[env_ids]]
+            self.active_alphas[env_ids,...] = self.track_alphas[self.active_track_ids[env_ids]]
+            self.active_track_tile_counts[env_ids] = self.track_tile_counts[self.active_track_ids[env_ids]]
+            if self.viewer.env_idx_render in env_ids:
+                self.viewer.draw_track_reset()
+                
             if self.IS_replay_ptr < self.IS_ptr-1:
                 self.IS_replay_ptr += 1
         else:
