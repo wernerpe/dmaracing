@@ -41,9 +41,11 @@ if __name__ == "__main__":
     args.device = 'cuda:0'
     args.headless = True 
     path_cfg = os.getcwd() + '/cfg'
-    cfg, cfg_train, logdir_root = getcfg(path_cfg)
+    cfg, cfg_train, logdir_root = getcfg(path_cfg, postfix='_1v1_tuning')
     cfg['sim']['numAgents'] = 2
     cfg['sim']['collide'] = 1
+    cfg['sim']['numEnv'] = 16
+    cfg['track']['num_tracks'] = 2
     cfg_train['runner']['experiment_name'] = '1v1_supercloud'
     #cfg['track']['num_tracks'] = 2
     set_dependent_cfg_entries(cfg)

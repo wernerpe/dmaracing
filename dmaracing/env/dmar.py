@@ -466,9 +466,9 @@ class DmarEnv():
             interesting_state_idx = torch.where(is_interesting)[0]
             new_init_states = self.states[interesting_state_idx,...].clone()
             num_states_save = np.min([self.IS_storage_size-(self.IS_ptr%self.IS_storage_size)-1, len(new_init_states)])
-            new_init_tracks = self.active_track_ids[interesting_state_idx].clone()[:num_states_save]
+            new_init_tracks = self.active_track_ids[interesting_state_idx].clone()
             self.IS_state_buf[self.IS_ptr % self.IS_storage_size : (self.IS_ptr+num_states_save ) % self.IS_storage_size, ...] = new_init_states[:num_states_save, ...]
-            self.IS_track_buf[self.IS_ptr % self.IS_storage_size : (self.IS_ptr+num_states_save ) % self.IS_storage_size] = new_init_tracks
+            self.IS_track_buf[self.IS_ptr % self.IS_storage_size : (self.IS_ptr+num_states_save ) % self.IS_storage_size] = new_init_tracks[:num_states_save]
             self.IS_ptr = self.IS_ptr + num_states_save
             if self.IS_ptr > 0 and not self.IS_first_state_stored:
                 self.IS_first_state_stored = True

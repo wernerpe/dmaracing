@@ -37,7 +37,7 @@ if __name__ == "__main__":
     args.device = 'cuda:0'
     args.headless = True  # False 
     path_cfg = os.getcwd() + '/cfg'
-    cfg, cfg_train, logdir_root = getcfg(path_cfg, straightline=False)  # True)
+    cfg, cfg_train, logdir_root = getcfg(path_cfg, postfix='_1v1_tuning')  # True)
     cfg['sim']['numAgents'] = 2
     cfg['sim']['collide'] = 1
     
