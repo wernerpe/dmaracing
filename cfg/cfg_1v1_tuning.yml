@@ -84,7 +84,7 @@ learn:
   horizon: 8  # 15
   race_lead_reward_interval: 3 #s
   
-  timeout: 20.0  # 25.0 #[s]
+  timeout: 40.0  # 25.0 #[s]
   offtrack_reset: 1.0 #[s]
   IS_active: False
   IS_storage_size: 100
