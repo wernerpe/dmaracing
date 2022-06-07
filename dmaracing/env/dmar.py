@@ -206,7 +206,7 @@ class DmarEnv():
         theta = self.states[:,:,2]
         vels = self.states[:,:,3:6].clone()
         # tile_idx_unwrapped = self.active_track_tile.unsqueeze(2) + (4*torch.arange(self.horizon, device=self.device, dtype=torch.long)).unsqueeze(0).unsqueeze(0)
-        tile_idx_unwrapped = self.active_track_tile.unsqueeze(2) + (0 + 1*torch.arange(self.horizon, device=self.device, dtype=torch.long)).unsqueeze(0).unsqueeze(0)
+        tile_idx_unwrapped = self.active_track_tile.unsqueeze(2) + (0 + 2*torch.arange(self.horizon, device=self.device, dtype=torch.long)).unsqueeze(0).unsqueeze(0)
         tile_idx = torch.remainder(tile_idx_unwrapped, self.active_track_tile_counts.view(-1,1,1))
         centers = self.active_centerlines[:, tile_idx, :]
         centers = centers[self.all_envs,self.all_envs, ...]

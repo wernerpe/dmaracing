@@ -40,7 +40,7 @@ viewer:
   linethickness: 1
   multiagent: True
   maxAgents: 400
-  logEvery: 1  # 10
+  logEvery: 5  # 10
 
 track:
   #https://github.com/openai/gym/blob/master/gym/envs/box2d/car_racing.py
@@ -86,17 +86,13 @@ learn:
   actionRewardScale: 0.0001
   rankRewardScale: 1.  # 50.  # 5.0  # 400.0
   collisionRewardScale: -0.0
-  horizon: 8  # 15
+  horizon: 5  # 10  # 8  # 15
 
   race_lead_reward_interval: 3 #s
   
   timeout: 40  # 20.0  # 25.0 #[s]
-  offtrack_reset: 0.5 #[s]
-<<<<<<< HEAD
-  IS_active: False
-  IS_storage_size: 100
-=======
+  offtrack_reset: 1.0 #[s]
   IS_active: True
->>>>>>> 937d15409478b940b0ea387ad303f2677c3d1c30
-  IS_threshold: 0.9
+  IS_storage_size: 100
+  IS_threshold: 1.0  # 0.9
   IS_frac_is_envs: 0.3
