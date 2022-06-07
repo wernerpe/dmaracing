@@ -10,7 +10,7 @@ sim:
   #dependent on the lookaheadhorizon length and number of ado cars in an env
   #this is done in get_cfg directly
   numObservations: -1 
-  numConstantObservations: 9  # 10 #vels, steer, gas, last actions, rank, team_rank, distance to go 
+  numConstantObservations: 11  # 10 #vels, steer, gas, last actions, rank, team_rank, distance to go 
   numActions: 3
   collide: 1
   decimation: 4
@@ -79,10 +79,14 @@ learn:
   actionRateRewardScale: 0.1 
   energyRewardScale: 0.00006
   actionRewardScale: 0.0001
-  rankRewardScale: 400.0
+  rankRewardScale: 10.0
   collisionRewardScale: -0.0
   horizon: 8  # 15
   race_lead_reward_interval: 3 #s
   
   timeout: 20.0  # 25.0 #[s]
   offtrack_reset: 1.0 #[s]
+  IS_active: False
+  IS_storage_size: 100
+  IS_threshold: 0.9
+  IS_frac_is_envs: 0.3

@@ -79,8 +79,8 @@ def set_dependent_cfg_entries(cfg, cfg_train):
         cfg_train['policy']['num_ado_obs'] = 2+1+1+2
         
 def getcfg(path, straightline=False):
-    pth_cfg = path + '/cfg_straight_line.yml'if straightline==True else path + '/cfg.yml'
-    pth_cfg_train = path + '/cfg_train_straight_line.yml'if straightline==True else path + '/cfg_train.yml'
+    pth_cfg = path + '/cfg_straight_line.yml'if straightline==True else path + '/cfg_1v1_tuning.yml'
+    pth_cfg_train = path + '/cfg_train_straight_line.yml'if straightline==True else path + '/cfg_train_1v1_tuning.yml'
     #pth_cfg = path + '/cfg_1v1_tuning.yml'
     #pth_cfg_train = path + '/cfg_train_1v1_tuning.yml'
     

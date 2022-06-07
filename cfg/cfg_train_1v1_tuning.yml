@@ -23,7 +23,7 @@ runner:
   algorithm_class_name: IMAPPO #JRMAPPO 
   num_steps_per_env: 64  # 32 # per iteration
   max_iterations: 50000 # number of policy updates
-  population_update_interval: 10  # 40 #number of iterations before the opponent policy is updated
+  population_update_interval: 45  # 40 #number of iterations before the opponent policy is updated
   # logging
   save_interval: 30 # check for potential saves every this many iterations
   eval_interval: 20
@@ -34,7 +34,7 @@ runner:
   load_run: -1 # -1 = last run
   checkpoint: -1 # -1 = last saved model
   resume_path: None # updated from load_run and chkpt
-  
+
 policy: 
   actor_hidden_dims: [512, 256, 32]
   critic_hidden_dims: [512, 256, 32]
@@ -46,3 +46,4 @@ policy:
   teamsize: 2
   numteams: 2
   max_num_old_models: 20  # 5
+  kl_save_threshold: 1.5

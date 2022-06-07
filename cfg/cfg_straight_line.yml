@@ -75,7 +75,7 @@ learn:
   actionRateRewardScale: 0.1 
   energyRewardScale: 0.00006
   actionRewardScale: 0.0001
-  rankRewardScale: 80.0
+  rankRewardScale: 10.0
   collisionRewardScale: -0.0
   horizon: 8  # 15
   

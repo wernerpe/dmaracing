@@ -23,7 +23,7 @@ runner:
   algorithm_class_name:  IMAPPO #JRMAPPO 
   num_steps_per_env: 32 # per iteration
   max_iterations: 50000 # number of policy updates
-  population_update_interval: 25 #number of iterations before the opponent policy is updated
+  population_update_interval: 90 #number of iterations before the opponent policy is updated
   # logging
   save_interval: 25 # check for potential saves every this many iterations
   eval_interval: 40
@@ -46,3 +46,4 @@ policy:
   teamsize: 2
   numteams: 2
   max_num_old_models: 40
+  kl_save_threshold: 1.5

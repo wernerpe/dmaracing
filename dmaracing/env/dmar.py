@@ -185,6 +185,10 @@ class DmarEnv():
                                             self.states.shape[1], 
                                             self.states.shape[2]), 
                                             requires_grad= False, dtype=torch.float, device=self.device)
+
+            self.IS_track_buf = torch.zeros((self.IS_storage_size, ),
+                                            requires_grad=False, dtype = torch.long, device = self.device, )
+        
             self.IS_threshold = cfg['learn']['IS_threshold']
             self.IS_active = cfg['learn']['IS_frac_is_envs']
             self.IS_first_state_stored = False
@@ -461,8 +465,10 @@ class DmarEnv():
         is_interesting = self.IS_interesting_scenario(uncertainty)
         interesting_state_idx = torch.where(is_interesting)[0]
         new_init_states = self.states[interesting_state_idx,...].clone()
+        new_init_tracks = self.active_track_ids[interesting_state_idx].clone()
         num_states_save = np.min([self.IS_storage_size-self.IS_ptr-1, len(new_init_states)])
         self.IS_state_buf[self.IS_ptr % self.IS_storage_size : (self.IS_ptr+num_states_save ) % self.IS_storage_size, ...] = new_init_states[:num_states_save, ...]
+        self.IS_track_buf[self.IS_ptr % self.IS_storage_size : (self.IS_ptr+num_states_save ) % self.IS_storage_size] = new_init_tracks
         self.IS_ptr = self.IS_ptr + num_states_save
         if self.IS_ptr > 0 and not self.IS_first_state_stored:
             self.IS_first_state_stored = True
@@ -474,7 +480,9 @@ class DmarEnv():
     def IS_reset(self, env_ids):
         if self.IS_first_state_stored:
             IS_checkpoint = self.IS_state_buf[self.IS_replay_ptr % self.IS_storage_size, ...].view(1, self.num_agents, -1)
+            IS_track_checkpoint = self.IS_track_buf[self.IS_replay_ptr % self.IS_storage_size]
             self.states[env_ids, ...] = IS_checkpoint
+            self.active_track_ids[env_ids] = IS_track_checkpoint
             if self.IS_replay_ptr < self.IS_ptr-1:
                 self.IS_replay_ptr += 1
         else:

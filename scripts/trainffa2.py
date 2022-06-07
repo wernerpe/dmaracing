@@ -37,12 +37,12 @@ if __name__ == "__main__":
     args.device = 'cuda:0'
     args.headless = False  # False 
     path_cfg = os.getcwd() + '/cfg'
-    cfg, cfg_train, logdir_root = getcfg(path_cfg, straightline=True)  # True)
+    cfg, cfg_train, logdir_root = getcfg(path_cfg, straightline=False)  # True)
     cfg['sim']['numAgents'] = 2
     cfg['sim']['collide'] = 1
     
     #cfg['sim']['numEnv'] = 64
-    #cfg['track']['num_tracks'] = 64
+    cfg['track']['num_tracks'] = 64
     
     if not args.headless:
         cfg['viewer']['logEvery'] = -1
