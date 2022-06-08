@@ -487,7 +487,7 @@ class DmarEnv():
         #check if orientation is roughly correct for agent 0
         angs_track = self.active_alphas[self.all_envs, self.active_track_tile[:, 0]]
         angs_car = self.states[:, 0, 2]
-        ori_good = torch.remainder(torch.abs(angs_track - angs_car), 2*np.pi) < np.pi
+        ori_good = torch.remainder(torch.abs(angs_track - angs_car), 2*np.pi) < np.pi/2
         interesting *= ori_good
         interesting[:self.IS_num_envs] = False
         return interesting
