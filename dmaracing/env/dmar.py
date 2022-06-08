@@ -192,6 +192,7 @@ class DmarEnv():
             self.IS_threshold = cfg['learn']['IS_threshold']
             self.IS_first_state_stored = False
             self.IS_num_envs = int(cfg['learn']['IS_frac_is_envs']*self.num_envs)
+            self.IS_env_bool = torch.linspace(0, self.num_envs-1, self.num_envs, device=self.device) < self.IS_num_envs
 
         self.viewer.center_cam(self.states)
         self.reset()
@@ -463,9 +464,11 @@ class DmarEnv():
     def step_with_importance_sampling_check(self, actions, uncertainty):
         if self.IS_active:
             is_interesting = self.IS_interesting_scenario(uncertainty)
+            is_interesting = torch.logical_and(is_interesting, torch.all(self.is_on_track_all, dim=-1))
+            is_interesting = torch.logical_and(is_interesting, ~self.IS_env_bool)
             interesting_state_idx = torch.where(is_interesting)[0]
             new_init_states = self.states[interesting_state_idx,...].clone()
-            num_states_save = np.min([self.IS_storage_size-(self.IS_ptr%self.IS_storage_size)-1, len(new_init_states), 20])
+            num_states_save = np.min([self.IS_storage_size-(self.IS_ptr%self.IS_storage_size)-1, len(new_init_states), 10])
             new_init_tracks = self.active_track_ids[interesting_state_idx].clone()
             self.IS_state_buf[self.IS_ptr % self.IS_storage_size : (self.IS_ptr+num_states_save ) % self.IS_storage_size, ...] = new_init_states[:num_states_save, ...]
             self.IS_track_buf[self.IS_ptr % self.IS_storage_size : (self.IS_ptr+num_states_save ) % self.IS_storage_size] = new_init_tracks[:num_states_save]
