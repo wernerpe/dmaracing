@@ -465,7 +465,7 @@ class DmarEnv():
             is_interesting = self.IS_interesting_scenario(uncertainty)
             interesting_state_idx = torch.where(is_interesting)[0]
             new_init_states = self.states[interesting_state_idx,...].clone()
-            num_states_save = np.min([self.IS_storage_size-(self.IS_ptr%self.IS_storage_size)-1, len(new_init_states), 20])
+            num_states_save = np.min([self.IS_storage_size-(self.IS_ptr%self.IS_storage_size)-1, len(new_init_states), 4])
             new_init_tracks = self.active_track_ids[interesting_state_idx].clone()
             self.IS_state_buf[self.IS_ptr % self.IS_storage_size : (self.IS_ptr+num_states_save ) % self.IS_storage_size, ...] = new_init_states[:num_states_save, ...]
             self.IS_track_buf[self.IS_ptr % self.IS_storage_size : (self.IS_ptr+num_states_save ) % self.IS_storage_size] = new_init_tracks[:num_states_save]
@@ -478,7 +478,16 @@ class DmarEnv():
         return self.step(actions)
 
     def IS_interesting_scenario(self, uncertainty):
-        return uncertainty >= self.IS_threshold
+        interesting = uncertainty >= self.IS_threshold
+        #check if all cars are on track
+        interesting *= ~torch.any(~self.is_on_track_all, dim = 1)
+        #check if orientation is roughly correct for agent 0
+        angs_track = self.active_alphas[self.all_envs, self.active_track_tile[:, 0]]
+        angs_car = self.states[:, 0, 2]
+        ori_good = torch.remainder(torch.abs(angs_track - angs_car), 2*np.pi) < np.pi
+        interesting *= ori_good
+        interesting[:self.IS_num_envs] = False
+        return interesting
     
     def IS_reset(self, env_ids):
         if self.IS_first_state_stored:

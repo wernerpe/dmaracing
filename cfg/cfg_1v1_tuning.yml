@@ -60,7 +60,7 @@ learn:
   #[posx, posy, theta, vellong, vellat, dtheta, steer]
   resetrand: [3.0, 3.0, 0.1, 0.1, 0.01,  0.1, 0.01]  # [5.0, 5.0, 0.1, 0.1, 0.01,  0.1, 0.0]
   reset_tile_rand: 7  # 20
-  resetgrid: False
+  resetgrid: True
   defaultactions: [0., 0.2, 0.0]
   actionscale: [0.2, 0.4, 0.2]  # [1.0, 0.5, 0.2]
   agent_dropout_prob: 0.0
@@ -88,5 +88,5 @@ learn:
   offtrack_reset: 1.0 #[s]
   IS_active: True
   IS_storage_size: 100
-  IS_threshold: 1.6
+  IS_threshold: 1.0
   IS_frac_is_envs: 0.3

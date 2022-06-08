@@ -21,12 +21,12 @@ algorithm:
 runner:
   policy_class_name: MAActorCritic #MultiTeamCMAAC 
   algorithm_class_name: IMAPPO #JRMAPPO 
-  num_steps_per_env: 64  # 32 # per iteration
+  num_steps_per_env: 32  # 32 # per iteration
   max_iterations: 50000 # number of policy updates
-  population_update_interval: 45  # 40 #number of iterations before the opponent policy is updated
+  population_update_interval: 90  # 40 #number of iterations before the opponent policy is updated
   # logging
-  save_interval: 30 # check for potential saves every this many iterations
-  eval_interval: 20
+  save_interval: 80 # check for potential saves every this many iterations
+  eval_interval: 40
   experiment_name: 'ffa2_tuning'  # '2v2'
   run_name: ''
   # load and resume
