@@ -45,8 +45,8 @@ if __name__ == "__main__":
     cfg['track']['num_tracks'] = 2
     #cfg_train['policy']['teamsize'] = 2
     #cfg_train['policy']['numteams'] = 2
-    cfg_train['runner']['policy_class_name'] = 'MAActorCritic'  # 'MultiTeamCMAAC' #MAActorCritic 
-    cfg_train['runner']['algorithm_class_name'] = 'IMAPPO'  # 'JRMAPPO' #IMAPPO 
+    cfg_train['runner']['policy_class_name'] = 'MultiTeamCMAAC' #MAActorCritic 
+    cfg_train['runner']['algorithm_class_name'] = 'JRMAPPO' #IMAPPO 
     #cfg_train['runner']['num_steps_per_env'] = 32
     #cfg_train['runner']['population_update_interval'] = 5
 
