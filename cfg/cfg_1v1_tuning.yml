@@ -1,7 +1,7 @@
 logdir: ''
 
 sim:
-  numEnv: 4096
+  numEnv: 2048
   #number of racing agents per env
   numAgents: 2  # 4
   dt: 0.01 #[s]
