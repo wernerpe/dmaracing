@@ -13,8 +13,8 @@ def get_varnames()->Dict[str, int]:
     varnames['S_DY'] = 4
     varnames['S_DTHETA'] = 5
     varnames['S_STEER'] = 6
-    varnames['A_GAS'] = 0
-    varnames['A_STEER'] = 1
+    varnames['A_STEER'] = 0
+    varnames['A_GAS'] = 1
     return varnames
 
 # def get_varnames()->Dict[str, int]:
