@@ -38,7 +38,7 @@ def state_derivative(state : torch.Tensor,
     ddy = 1/par['M']*( Fry + Ffy*torch.cos(actions[:, :, vn['A_STEER']]) - par['M']*state[:, :, vn['S_DX']]*state[:, :, vn['S_DTHETA']]  \
                      - torch.sin(state[:, :, vn['S_THETA']]) * col_wrenches[:, :, 0] + torch.cos(state[:, :, vn['S_THETA']])* col_wrenches[:, :, 1] )
 
-    ddtheta = 1/par['Iz']*(Ffy*par['lf']*torch.cos(actions[:, :, vn['A_STEER']]) + col_wrenches[:, :, 2])
+    ddtheta = 1/par['Iz']*(Ffy*par['lf']*torch.cos(actions[:, :, vn['A_STEER']]) - Fry*par['lr'] + col_wrenches[:, :, 2])
     
     ddelta =  0*ddtheta
    
