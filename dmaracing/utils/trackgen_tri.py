@@ -42,7 +42,7 @@ def decimate_points(pts, pt_separation):
     pt1 = np.array(pts[0])
     dir_vec = pt1 - pt0
     alpha = math.atan2(dir_vec[1], dir_vec[0])
-    alphas.append(alpha)
+    alphas.append(alpha-np.pi/2.0)
     perpendicular_unit_vec = np.dot(dir_vec, rot) / np.linalg.norm(dir_vec)
     normal_vecs.append(perpendicular_unit_vec)
     return np.array(normal_vecs), np.array(decimated_pts), np.array(alphas)

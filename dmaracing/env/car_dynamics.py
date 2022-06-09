@@ -52,7 +52,7 @@ from dmaracing.env.car_dynamics_utils import resolve_collsions
 #                         ddtheta.view(-1, num_agents, 1),
 #                         ddelta.view(-1, num_agents, 1)
 #                         ), dim=2)
-    return dstate, Ffy, Fry, Frx 
+#    return dstate, Ffy, Fry, Frx 
 
 
 

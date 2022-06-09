@@ -2,11 +2,7 @@ sim:
   numEnv: 4096
   #number of racing agents per env
   numAgents: 1
-<<<<<<< HEAD
-  dt: 0.01 #[s] # If using this with TRI dynamics model, this must be 0.02 to match the refresh frequency of the model
-=======
   dt: 0.01  # 0.02 #[s] # If using this with TRI dynamics model, this must be 0.02 to match the refresh frequency of the model
->>>>>>> 54a847871cc397b3c7674afe8585ba1b91e7e908
   numStates: 7
 
   #need to overwrite this everytime env gets initialized to the correct number
@@ -16,11 +12,7 @@ sim:
   numConstantObservations: 5 # 6 #vels, steer, gas, last actions, rank 
   numActions: 2
   collide: 1
-<<<<<<< HEAD
-  decimation: 8
-=======
   decimation: 8  # 2
->>>>>>> 54a847871cc397b3c7674afe8585ba1b91e7e908
   test_mode: False
   collisionstiffness: 280000.0
   
