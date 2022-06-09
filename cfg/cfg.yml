@@ -1,7 +1,7 @@
 sim:
   numEnv: 4096
   #number of racing agents per env
-  numAgents: 4
+  numAgents: 1
   dt: 0.02 #[s] # If using this with TRI dynamics model, this must be 0.02 to match the refresh frequency of the model
   numStates: 7
 
@@ -9,7 +9,7 @@ sim:
   #dependent on the lookaheadhorizon length and number of ado cars in an env
   #this is done in get_cfg directly
   numObservations: -1 
-  numConstantObservations: 6 #vels, steer, gas, last actions, rank 
+  numConstantObservations: 5 # 6 #vels, steer, gas, last actions, rank 
   numActions: 2
   collide: 1
   decimation: 2
@@ -50,11 +50,11 @@ viewer:
   width_tb: 600  # 1200
   height_tb: 600  # 1200
   
-  scale: 12.0 #[m/width*px] indicates how wide the window is in pixels
+  scale: 24.0  # 12.0 #[m/width*px] indicates how wide the window is in pixels
   linethickness: 1
   multiagent: True
   maxAgents: 400
-  logEvery: 10
+  logEvery: 1  # 10
 
 track:
   #https://github.com/openai/gym/blob/master/gym/envs/box2d/car_racing.py
