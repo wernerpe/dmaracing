@@ -28,6 +28,8 @@ class DmarEnv:
         self.rl_device = args.device
         self.headless = args.headless
 
+        self.track_halfwidth = cfg['track']['TRACK_WIDTH'] / cfg['track']['SCALE']
+
         # variable names and indices
         self.vn = get_varnames()
         self.cfg = cfg
@@ -179,7 +181,7 @@ class DmarEnv:
         )
 
         self.lookahead_scaler = 1 / (
-            4
+            1
             * (1 + torch.arange(self.horizon, device=self.device, requires_grad=False, dtype=torch.float))
             * self.tile_len
         )
@@ -224,7 +226,7 @@ class DmarEnv:
         theta = self.states[:, :, 2]
         vels = self.states[:, :, 3:6].clone()
         tile_idx_unwrapped = self.active_track_tile.unsqueeze(2) + (
-            4 * torch.arange(self.horizon, device=self.device, dtype=torch.long)
+            1 * torch.arange(self.horizon, device=self.device, dtype=torch.long)
         ).unsqueeze(0).unsqueeze(0)
         tile_idx = torch.remainder(tile_idx_unwrapped, self.active_track_tile_counts.view(-1, 1, 1))
         centers = self.active_centerlines[:, tile_idx, :]
@@ -235,6 +237,12 @@ class DmarEnv:
         self.interpolated_centers = centers + self.trackdir_lookahead * self.sub_tile_progress.view(
             self.num_envs, self.num_agents, 1, 1
         )
+
+        trackdir_lookahead_rbound = torch.stack((torch.sin(angles_at_centers), -torch.cos(angles_at_centers)), dim = 3)        
+        trackdir_lookahead_lbound = torch.stack((-torch.sin(angles_at_centers), torch.cos(angles_at_centers)), dim = 3)        
+        interpolated_rbound = self.interpolated_centers + self.track_halfwidth * trackdir_lookahead_rbound
+        interpolated_lbound = self.interpolated_centers + self.track_halfwidth * trackdir_lookahead_lbound
+        self.interpolated_bounds = torch.concat((interpolated_rbound, interpolated_lbound), dim=-1)
 
         self.lookahead = self.interpolated_centers - torch.tile(
             self.states[:, :, 0:2].unsqueeze(2), (1, 1, self.horizon, 1)
@@ -679,7 +687,7 @@ class DmarEnv:
                 )
         elif self.log_video_freq >= 0:
             self.viewer_events = self.viewer.render(
-                self.states[:, :, [0, 1, 2, 6]], self.slip, self.drag_reduced, self.wheel_locations_world
+                self.states[:, :, [0, 1, 2, 6]], self.slip, self.drag_reduced, self.wheel_locations_world, self.interpolated_centers, self.interpolated_bounds, self.actions,
             )
         else:
           pass

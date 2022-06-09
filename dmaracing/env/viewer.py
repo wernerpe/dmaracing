@@ -91,7 +91,7 @@ class Viewer:
         return None
         
 
-    def render(self, state, slip, drag_reduced, wheel_locs):
+    def render(self, state, slip, drag_reduced, wheel_locs, lookahead, bounds, actions):
         self.state = state.clone()
         self.slip = slip.clone()
         self.wheel_locs = wheel_locs.clone()
@@ -104,6 +104,8 @@ class Viewer:
             if self.draw_multiagent:
                 self.add_slip_markers()
                 self.draw_slip_markers()
+                self.draw_lookahead_markers(lookahead, bounds)
+                self.draw_actions(actions)
                 self.draw_multiagent_rep(state)
             else:
                 self.draw_singleagent_rep(state[:self.num_cars])
@@ -303,6 +305,59 @@ class Viewer:
         for group in current_markers:
             for loc in group.tolist():
                 self.img = cv.circle(self.img, (loc[0], loc[1]), scale, (30,30,30), -1)
+
+    def draw_lookahead_markers(self, lookahead, bounds):
+        points = lookahead[self.env_idx_render, 0, :, :].cpu().numpy()
+
+        #project into camera frame%
+        points = self.cords2px_np(points)
+        scale =  int(2*20/(self.scale_x))
+        thick = -1
+        for point in points:
+            self.img = cv.circle(self.img, (point[0], point[1]), scale, (255, 0,0), thick)
+
+        rbounds = bounds[self.env_idx_render, 0, :, [0, 1]].cpu().numpy()
+        #project into camera frame%
+        rbounds = self.cords2px_np(rbounds)
+        for rbound in rbounds:
+            self.img = cv.circle(self.img, (rbound[0], rbound[1]), scale, (0, 0, 0), thick)
+
+        lbounds = bounds[self.env_idx_render, 0, :, [2, 3]].cpu().numpy()
+        #project into camera frame%
+        lbounds = self.cords2px_np(lbounds)
+        for lbound in lbounds:
+            self.img = cv.circle(self.img, (lbound[0], lbound[1]), scale, (0, 0, 0), thick)
+
+    def draw_actions(self, actions):
+        action = actions[self.env_idx_render, 0].cpu().numpy()
+
+        scale = 3.
+        ypos = 25
+        ylabel = 50
+
+        locs = [
+          [330, ypos], [350, ypos - (scale*action[0]).astype(np.int32)],
+          [380, ypos], [400, ypos - (scale*action[1]).astype(np.int32)],
+          # [330, ypos], [350, ypos - (scale*action[2]).astype(np.int32)],
+        ]
+
+        # Action: steer
+        self.img = cv.rectangle(self.img, tuple(locs[0]), tuple(locs[1]), (100,100,100), -1)
+        self.img = cv.line(self.img, (locs[0][0]-3, ypos), (locs[1][0]+3, ypos), (0, 0, 255), thickness=1)
+        self.img = cv.putText(self.img, f'{action[0]:.2f}', (locs[0][0], ylabel), self.font, 0.5, (0, 0, 0), 1, cv.LINE_AA)
+        self.img = cv.putText(self.img, 'Steer', (locs[0][0], ylabel+20), self.font, 0.5, (0, 0, 0), 1, cv.LINE_AA)
+
+        # Action: gas
+        self.img = cv.rectangle(self.img, tuple(locs[2]), tuple(locs[3]), (100,100,100), -1)
+        self.img = cv.line(self.img, (locs[2][0]-3, ypos), (locs[3][0]+3, ypos), (0, 0, 255), thickness=1)
+        self.img = cv.putText(self.img, f'{action[1]:.2f}', (locs[2][0], ylabel), self.font, 0.5, (0, 0, 0), 1, cv.LINE_AA)
+        self.img = cv.putText(self.img, 'Gas', (locs[2][0], ylabel+20), self.font, 0.5, (0, 0, 0), 1, cv.LINE_AA)
+
+        # # Action: break
+        # self.img = cv.rectangle(self.img, tuple(locs[4]), tuple(locs[5]), (100,100,100), -1)
+        # self.img = cv.line(self.img, (locs[4][0]-3, ypos), (locs[5][0]+3, ypos), (0, 0, 255), thickness=1)
+        # self.img = cv.putText(self.img, f'{action[2]:.2f}', (locs[4][0], ylabel), self.font, 0.5, (0, 0, 0), 1, cv.LINE_AA)
+        # self.img = cv.putText(self.img, 'Break', (locs[4][0], ylabel+20), self.font, 0.5, (0, 0, 0), 1, cv.LINE_AA)
 
     def add_string(self, string):
         self.msg.append(string) 
