@@ -6,53 +6,59 @@ import numpy as np
 from dmaracing.env.car_dynamics_utils import resolve_collsions
 
 
-# @torch.jit.script
-# def state_derivative_kinematic(state : torch.Tensor,
-#                      actions : torch.Tensor,
-#                      col_wrenches : torch.Tensor, 
-#                      par : Dict[str, float], 
-#                      num_agents : int, 
-#                      vn : Dict[str, int])-> Tuple[torch.Tensor,torch.Tensor,torch.Tensor,torch.Tensor]:
-#     # https://onlinelibrary.wiley.com/doi/pdf/10.1002/oca.2123
-#     # 
-#     # [x, y, theta, xdot, ydot, thetadot]
+@torch.jit.script
+def state_derivative_kinematic(state : torch.Tensor,
+                     actions : torch.Tensor,
+                     col_wrenches : torch.Tensor, 
+                     par : Dict[str, float], 
+                     num_agents : int, 
+                     vn : Dict[str, int])-> Tuple[torch.Tensor,torch.Tensor,torch.Tensor,torch.Tensor]:
+    # https://onlinelibrary.wiley.com/doi/pdf/10.1002/oca.2123
+    # 
+    # [x, y, theta, xdot, ydot, thetadot]
  
-#     fast_fwd = state[:, :, vn['S_DX']] > par['MAXVEL']
-#     fast_bwd = -state[:, :, vn['S_DX']] > 0.01
-#     gas = actions[:, :, vn['A_GAS']]
-#     gas_clip = 1.0*fast_fwd*torch.clip(gas, -1,0) + 1.0*fast_bwd*torch.clip(gas, 0,1) + ~(fast_fwd|fast_bwd) *  torch.clip(gas, -1.0, 0.3)
-#     acc_force = gas_clip*par['ACCFORCE']
-#     #print(actions[0, 0, vn['A_STEER']])
+    fast_fwd = state[:, :, vn['S_DX']] > par['MAXVEL']
+    fast_bwd = -state[:, :, vn['S_DX']] > 0.01
+    gas = actions[:, :, vn['A_GAS']]
+    gas_clip = 1.0*fast_fwd*torch.clip(gas, -1,0) + 1.0*fast_bwd*torch.clip(gas, 0,1) + ~(fast_fwd|fast_bwd) *  torch.clip(gas, -1.0, 0.3)
+    acc_force = gas_clip*par['ACCFORCE']
+    #print(actions[0, 0, vn['A_STEER']])
+    beta = torch.arctan(torch.tan(state[:, :, vn['A_STEER']]))
+    v_bax = state[:, :, vn['S_DX']] 
+    ddx = 1/par['M']*acc_force
+    dx = v_bax*torch.cos(state[:, :, vn['S_THETA']] + beta)
+    dy = v_bax*torch.sin(state[:, :, vn['S_THETA']] + beta)
+    dtheta = v_bax*torch.tan(state[:, :, vn['A_STEER']])*torch.cos(beta)/par['L']
 
-#     #alphaf = -torch.atan2(state[:, :, vn['S_DTHETA']]*par['lf'] + state[:, :, vn['S_DY']], state[:, :, vn['S_DX']] ) + actions[:, :, vn['A_STEER']]
-#     #alphar = torch.atan2(state[:, :, vn['S_DTHETA']]*par['lr'] - state[:, :, vn['S_DY']], state[:, :, vn['S_DX']])
-#     #Ffy = par['Df'] * torch.sin(par['Cf']*torch.atan(par['Bf']*alphaf)) 
-#     #Fry = par['Dr'] * torch.sin(par['Cr']*torch.atan(par['Br']*alphar))  
-#     #Frx = acc_force
+    #alphaf = -torch.atan2(state[:, :, vn['S_DTHETA']]*par['lf'] + state[:, :, vn['S_DY']], state[:, :, vn['S_DX']] ) + actions[:, :, vn['A_STEER']]
+    #alphar = torch.atan2(state[:, :, vn['S_DTHETA']]*par['lr'] - state[:, :, vn['S_DY']], state[:, :, vn['S_DX']])
+    #Ffy = par['Df'] * torch.sin(par['Cf']*torch.atan(par['Bf']*alphaf)) 
+    #Fry = par['Dr'] * torch.sin(par['Cr']*torch.atan(par['Br']*alphar))  
+    #Frx = acc_force
 
-#     dx = state[:, :, vn['S_DX']] * torch.cos(state[:, :, vn['S_THETA']]) - state[:, :, vn['S_DY']] * torch.sin(state[:, :, vn['S_THETA']]) 
-#     dy = state[:, :, vn['S_DX']] * torch.sin(state[:, :, vn['S_THETA']]) + state[:, :, vn['S_DY']] * torch.cos(state[:, :, vn['S_THETA']])
-#     dtheta = state[:, :, vn['S_DTHETA']]
-#     ddx = 1/par['M']*( Frx - Ffy*torch.sin(actions[:, :, vn['A_STEER']]) + par['M']*state[:, :, vn['S_DY']]*state[:, :, vn['S_DTHETA']]  \
-#                      +   torch.cos(state[:, :, vn['S_THETA']]) * col_wrenches[:, :, 0] + torch.sin(state[:, :, vn['S_THETA']])* col_wrenches[:, :, 1]  \
-#                      - 0.1  * (state[:, :, vn['S_DX']]>0) +  0.1  * (state[:, :, vn['S_DX']]<0 ))
+    # dx = state[:, :, vn['S_DX']] * torch.cos(state[:, :, vn['S_THETA']]) - state[:, :, vn['S_DY']] * torch.sin(state[:, :, vn['S_THETA']]) 
+    # dy = state[:, :, vn['S_DX']] * torch.sin(state[:, :, vn['S_THETA']]) + state[:, :, vn['S_DY']] * torch.cos(state[:, :, vn['S_THETA']])
+    # dtheta = state[:, :, vn['S_DTHETA']]
+    # ddx = 1/par['M']*( Frx - Ffy*torch.sin(actions[:, :, vn['A_STEER']]) + par['M']*state[:, :, vn['S_DY']]*state[:, :, vn['S_DTHETA']]  \
+    #                  +   torch.cos(state[:, :, vn['S_THETA']]) * col_wrenches[:, :, 0] + torch.sin(state[:, :, vn['S_THETA']])* col_wrenches[:, :, 1]  \
+    #                  - 0.1  * (state[:, :, vn['S_DX']]>0) +  0.1  * (state[:, :, vn['S_DX']]<0 ))
 
-#     ddy = 1/par['M']*( Fry + Ffy*torch.cos(actions[:, :, vn['A_STEER']]) - par['M']*state[:, :, vn['S_DX']]*state[:, :, vn['S_DTHETA']]  \
-#                      - torch.sin(state[:, :, vn['S_THETA']]) * col_wrenches[:, :, 0] + torch.cos(state[:, :, vn['S_THETA']])* col_wrenches[:, :, 1] )
+    # ddy = 1/par['M']*( Fry + Ffy*torch.cos(actions[:, :, vn['A_STEER']]) - par['M']*state[:, :, vn['S_DX']]*state[:, :, vn['S_DTHETA']]  \
+    #                  - torch.sin(state[:, :, vn['S_THETA']]) * col_wrenches[:, :, 0] + torch.cos(state[:, :, vn['S_THETA']])* col_wrenches[:, :, 1] )
 
-#     ddtheta = 1/par['Iz']*(Ffy*par['lf']*torch.cos(actions[:, :, vn['A_STEER']]) - Fry*par['lr'] + col_wrenches[:, :, 2])
+    # ddtheta = 1/par['Iz']*(Ffy*par['lf']*torch.cos(actions[:, :, vn['A_STEER']]) - Fry*par['lr'] + col_wrenches[:, :, 2])
     
-#     ddelta =  0*ddtheta
+    # ddelta =  0*ddtheta
    
-#     dstate = torch.cat((dx.view(-1, num_agents, 1),
-#                         dy.view(-1, num_agents, 1),
-#                         dtheta.view(-1, num_agents, 1),
-#                         ddx.view(-1, num_agents, 1),
-#                         ddy.view(-1, num_agents, 1),
-#                         ddtheta.view(-1, num_agents, 1),
-#                         ddelta.view(-1, num_agents, 1)
-#                         ), dim=2)
-#    return dstate, Ffy, Fry, Frx 
+    # dstate = torch.cat((dx.view(-1, num_agents, 1),
+    #                     dy.view(-1, num_agents, 1),
+    #                     dtheta.view(-1, num_agents, 1),
+    #                     ddx.view(-1, num_agents, 1),
+    #                     ddy.view(-1, num_agents, 1),
+    #                     ddtheta.view(-1, num_agents, 1),
+    #                     ddelta.view(-1, num_agents, 1)
+    #                     ), dim=2)
+   return dstate, Ffy, Fry, Frx 
 
 
 
