@@ -8,7 +8,7 @@ from dmaracing.env.viewer import Viewer
 from dmaracing.utils.helpers import rand
 from typing import Tuple, Dict, Union
 import numpy as np
-from dmaracing.utils.trackgen import get_track_ensemble
+from dmaracing.utils.trackgen_tri import get_tri_track_ensemble
 from torch.utils.tensorboard import SummaryWriter
 import random
 
@@ -60,7 +60,7 @@ class DmarEnv:
         # load track
         self.all_envs = torch.arange(self.num_envs, dtype=torch.long)
         self.num_tracks = cfg["track"]["num_tracks"]
-        t, self.tile_len, self.track_tile_counts = get_track_ensemble(self.num_tracks, cfg, self.device)
+        t, self.tile_len, self.track_tile_counts = get_tri_track_ensemble(self.num_tracks, cfg, self.device)
         self.track_lengths = torch.tensor(self.track_tile_counts, device=self.device) * self.tile_len
         (
             self.track_centerlines,

@@ -50,7 +50,7 @@ viewer:
   width_tb: 600  # 1200
   height_tb: 600  # 1200
   
-  scale: 24.0  # 12.0 #[m/width*px] indicates how wide the window is in pixels
+  scale: 12.0  # 24.0  # 12.0 #[m/width*px] indicates how wide the window is in pixels
   linethickness: 1
   multiagent: True
   maxAgents: 400
