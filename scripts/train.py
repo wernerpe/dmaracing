@@ -12,12 +12,12 @@ def train():
 if __name__ == "__main__":
     args = CmdLineArguments()
     args.device = 'cuda:0'
-    args.headless = True 
+    args.headless = False 
     path_cfg = os.getcwd() + '/cfg'
     cfg, cfg_train, logdir = getcfg(path_cfg)
     # cfg['sim']['numAgents'] = 1
     cfg['sim']['collide'] = 0
-    cfg['track']['num_tracks'] = 2
+    cfg['track']['num_tracks'] = 10
     cfg_train['runner']['policy_class_name'] = 'ActorCritic'
     cfg_train['runner']['algorithm_class_name'] = 'PPO'
     now = datetime.now()

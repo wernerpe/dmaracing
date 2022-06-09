@@ -5,7 +5,7 @@ import numpy as np
 
 from dmaracing.env.car_dynamics_utils import resolve_collsions
 
-#@torch.jit.script
+@torch.jit.script
 def state_derivative(state : torch.Tensor,
                      actions : torch.Tensor,
                      col_wrenches : torch.Tensor, 
@@ -15,12 +15,13 @@ def state_derivative(state : torch.Tensor,
     # https://onlinelibrary.wiley.com/doi/pdf/10.1002/oca.2123
     # 
     # [x, y, theta, xdot, ydot, thetadot]
-    #blah wip
+ 
     fast_fwd = state[:, :, vn['S_DX']] > par['MAXVEL']
     fast_bwd = -state[:, :, vn['S_DX']] > 0.01
     gas = actions[:, :, vn['A_GAS']]
-    gas_clip = 1.0*fast_fwd*torch.clip(gas, -1,0) + 1.0*fast_bwd*torch.clip(gas, 0,1) + ~(fast_fwd|fast_bwd) *  torch.clip(gas, -1,1)
+    gas_clip = 1.0*fast_fwd*torch.clip(gas, -1,0) + 1.0*fast_bwd*torch.clip(gas, 0,1) + ~(fast_fwd|fast_bwd) *  torch.clip(gas, -1.0, 0.3)
     acc_force = gas_clip*par['ACCFORCE']
+    #print(actions[0, 0, vn['A_STEER']])
 
     alphaf = -torch.atan2(state[:, :, vn['S_DTHETA']]*par['lf'] + state[:, :, vn['S_DY']], state[:, :, vn['S_DX']] ) + actions[:, :, vn['A_STEER']]
     alphar = torch.atan2(state[:, :, vn['S_DTHETA']]*par['lr'] - state[:, :, vn['S_DY']], state[:, :, vn['S_DX']])
@@ -38,7 +39,7 @@ def state_derivative(state : torch.Tensor,
     ddy = 1/par['M']*( Fry + Ffy*torch.cos(actions[:, :, vn['A_STEER']]) - par['M']*state[:, :, vn['S_DX']]*state[:, :, vn['S_DTHETA']]  \
                      - torch.sin(state[:, :, vn['S_THETA']]) * col_wrenches[:, :, 0] + torch.cos(state[:, :, vn['S_THETA']])* col_wrenches[:, :, 1] )
 
-    ddtheta = 1/par['Iz']*(Ffy*par['lf']*torch.cos(actions[:, :, vn['A_STEER']]) + col_wrenches[:, :, 2])
+    ddtheta = 1/par['Iz']*(Ffy*par['lf']*torch.cos(actions[:, :, vn['A_STEER']]) -Fry*par['lr'] + col_wrenches[:, :, 2])
     
     ddelta =  0*ddtheta
    

@@ -690,7 +690,9 @@ class DmarEnv:
                 self.states[:, :, [0, 1, 2, 6]], self.slip, self.drag_reduced, self.wheel_locations_world, self.interpolated_centers, self.interpolated_bounds, self.actions,
             )
         else:
-          pass
+          self.viewer_events = self.viewer.render(
+                self.states[:, :, [0, 1, 2, 6]], self.slip, self.drag_reduced, self.wheel_locations_world, self.interpolated_centers, self.interpolated_bounds, self.actions,
+            )
 
     def simulate(self) -> None:
         # run physics update
