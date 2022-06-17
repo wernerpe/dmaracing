@@ -31,7 +31,8 @@ def state_derivative_kinematic(state : torch.Tensor,
     dy = v_bax*torch.sin(state[:, :, vn['S_THETA']] + beta)
     
     
-    dtheta = v_bax*torch.tan(actions[:, :, vn['A_STEER']])*torch.cos(beta)/par['L']
+    dtheta = v_bax*torch.tan(actions
+    [:, :, vn['A_STEER']])*torch.cos(beta)/par['L']
     ddtheta = 0*ddx
     ddelta = 0*ddx
    
@@ -163,7 +164,7 @@ def step_cars( state: torch.Tensor,
     wheels_on_track_segments_concat = 1.0 * (
         torch.einsum("es, stc, eawc  -> eawt", active_track_mask, A_track, wheel_locations_world)
         - torch.einsum("es, st -> et", active_track_mask, b_track).view(num_envs, 1, 1, -1)
-        + 0.1
+        + 0.01
         >= 0
     )
     wheels_on_track_segments[:] = torch.einsum("jt, eawt -> eawj", S_track, wheels_on_track_segments_concat) >= 3.5

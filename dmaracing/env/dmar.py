@@ -397,7 +397,7 @@ class DmarEnv:
             self.states,
             self.ranks if self.num_agents>1 else None,
             self.is_collision,
-            self.reward_terms,
+            self.reward_terms, 
             self.num_agents,
             self.active_agents,
             self.dt
@@ -408,7 +408,7 @@ class DmarEnv:
         # self.reset_buf = torch.rand((self.num_envs, 1), device=self.device) < 0.00005
         self.reset_buf = self.time_off_track[:, self.trained_agent_slot].view(-1, 1) > self.offtrack_reset
         # self.reset_buf = torch.any(self.time_off_track[:, :] > self.offtrack_reset, dim = 1).view(-1,1)
-        self.time_out_buf = self.episode_length_buf > self.max_episode_length
+        self.time_out_buf |= self.episode_length_buf > self.max_episode_length
         self.reset_buf |= self.time_out_buf
 
     def reset(self) -> Tuple[torch.Tensor, Union[None, torch.Tensor]]:
