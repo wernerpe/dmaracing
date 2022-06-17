@@ -24,8 +24,8 @@ def play():
     print('###########################')
     while True:
         t1 = time.time()
-        actions[0 , ag, 1] = steer_cmd 
-        actions[0 , ag, 0] = vel_cmd
+        actions[0 , ag, 0] = steer_cmd 
+        actions[0 , ag, 1] = vel_cmd
         #actions[0 , ag, 2] = 0
         
         obs, _, rew, dones, info = env.step(actions)
@@ -97,7 +97,7 @@ if __name__ == "__main__":
     cfg, cfg_train, logdir = getcfg(path_cfg)
     cfg["viewer"]["logEvery"] = -1
     cfg["track"]['OFFTRACK_FRICTION_SCALE'] = 1.0
-    cfg['sim']['numEnv'] = 11
+    cfg['sim']['numEnv'] = 4
     cfg['sim']['numAgents'] = 1
     cfg['track']['num_tracks'] = 7
     #cfg['track']['num_tracks'] = 3

@@ -11,7 +11,7 @@ import math
 from scipy.sparse import coo_matrix
 import torch
 from torch._C import dtype
-
+import os
 
 def decimate_points(pts, pt_separation):
     theta = np.deg2rad(90)
@@ -146,12 +146,12 @@ def construct_poly_track_eqns(track_poly_verts, device):
 
 def get_single_track(device):
     # Load a centerline track, generate polygons and matricies
-    track_paths = ["maps/large_oval.csv", "maps/large_square_track.csv", "maps/sharp_turns_track.csv","maps/sharp_turns_track.csv", "maps/sharp_turns_track.csv", "maps/sharp_turns_track.csv", "maps/sharp_turns_track.csv"] #"maps/figure_8_track_top.csv","maps/large_oval.csv", "maps/large_square_track.csv", 
-    track_path = track_paths[np.random.randint(0, len(track_paths))]
+    track_paths = os.listdir("maps")
+    track_path = "maps/" + track_paths[np.random.randint(0, len(track_paths))]
     #track_path = track_paths[3]
     ccw = np.random.rand()<0.5
-    TRACK_POLYGON_SPACING = 0.5
-    TRACK_HALF_WIDTH = 0.45
+    TRACK_POLYGON_SPACING = 0.25
+    TRACK_HALF_WIDTH = 0.35
     path = []
     with open(track_path) as csv_file:
         csv_reader = csv.reader(csv_file, delimiter=',', quoting=csv.QUOTE_NONNUMERIC)

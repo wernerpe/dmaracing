@@ -15,7 +15,7 @@ if __name__ == "__main__":
     args.headless = False 
     path_cfg = os.getcwd() + '/cfg'
     cfg, cfg_train, logdir = getcfg(path_cfg)
-    # cfg['sim']['numAgents'] = 1
+    cfg['sim']['numEnvs'] = 1024
     cfg['sim']['collide'] = 0
     cfg['track']['num_tracks'] = 10
     cfg_train['runner']['policy_class_name'] = 'ActorCritic'
