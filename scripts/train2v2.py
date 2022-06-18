@@ -4,7 +4,7 @@ from dmaracing.utils.helpers import *
 from datetime import date, datetime
 import os
 import sys
-# os.environ['CUDA_VISIBLE_DEVICES'] = '1'
+os.environ['CUDA_VISIBLE_DEVICES'] = '1'
 
 def train():
     env = DmarEnv(cfg, args)
@@ -41,8 +41,8 @@ if __name__ == "__main__":
     #cfg['sim']['collide'] = 1
     if not args.headless:
         cfg['viewer']['logEvery'] = -1
-    cfg['sim']['numEnv'] = 16
-    cfg['track']['num_tracks'] = 2
+    # cfg['sim']['numEnv'] = 16
+    # cfg['track']['num_tracks'] = 2
     #cfg_train['policy']['teamsize'] = 2
     #cfg_train['policy']['numteams'] = 2
     cfg_train['runner']['policy_class_name'] = 'MultiTeamCMAAC' #MAActorCritic 

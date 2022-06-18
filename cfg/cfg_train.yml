@@ -23,7 +23,7 @@ runner:
   algorithm_class_name: JRMAPPO 
   num_steps_per_env: 128  # 64  # 32 # per iteration
   max_iterations: 50000 # number of policy updates
-  population_update_interval: 20  # 10  # 40 #number of iterations before the opponent policy is updated
+  population_update_interval: 40  # 10  # 40 #number of iterations before the opponent policy is updated
   # logging
   save_interval: 1000 # check for potential saves every this many iterations
   eval_interval: 20
@@ -36,13 +36,13 @@ runner:
   resume_path: None # updated from load_run and chkpt
 
 policy: 
-  actor_hidden_dims: [256, 256, 256]  # [512, 256, 32]
-  critic_hidden_dims: [512, 512, 512]  # [512, 256, 32]
-  encoder_hidden_dims: [256, 256]
+  actor_hidden_dims: [512, 256, 32]  # [512, 256, 32]
+  critic_hidden_dims: [512, 256, 32]  # [512, 256, 32]
+  encoder_hidden_dims: [32]  # [128, 32]  # [256, 256]
   activation: elu # can be elu, relu, selu, crelu, lrelu, tanh, sigmoid
-  init_noise_std: 1.0
+  init_noise_std: 0.5
   attentive: True
-  encoder_type: attention2  # attention{1, 2}
+  encoder_type: attention4  # attention{1, 2}
   teamsize: 2  #2
   numteams: 2
   numcritics: 5
