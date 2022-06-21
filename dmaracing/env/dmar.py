@@ -18,7 +18,7 @@ import sys
 
 #sys.path.insert(1, "/home/thomasbalch/tri_workspace/dynamics_model_learning/scripts")
 # Import Dynamics encoder from TRI dynamics library.
-from learn_dynamics import DynamicsEncoder
+from dynamics_lib.dynamics_encoder import DynamicsEncoder
 
 
 class DmarEnv:
@@ -36,11 +36,6 @@ class DmarEnv:
         set_dependent_params(self.modelParameters)
         self.simParameters = cfg["sim"]
 
-        # Import TRI dynamics model and weights
-        self.dyn_model = DynamicsEncoder.load_from_checkpoint(
-            #"/home/peter/git/dynamics_model_learning/sample_models/fixed_integration_current_v25.ckpt").to(self.device)
-            "dynamics_models/"+cfg['model']['dynamics_model_name']).to(self.device)
-
         # use bootstrapping on vf
         self.use_timeouts = cfg["learn"]["use_timeouts"]
 
@@ -55,6 +50,12 @@ class DmarEnv:
         self.num_envs = self.simParameters["numEnv"]
         self.collide = self.simParameters["collide"]
         self.decimation = self.simParameters["decimation"]
+
+        # Import TRI dynamics model and weights
+        self.dyn_model = DynamicsEncoder.load_from_checkpoint(
+            #"/home/peter/git/dynamics_model_learning/sample_models/fixed_integration_current_v25.ckpt").to(self.device)
+            "dynamics_models/"+cfg['model']['dynamics_model_name']).to(self.device)
+        self.dyn_model.integration_function.initialize_lstm_states(torch.zeros((self.num_envs * self.num_agents, 50, 6)).to(self.device))
 
         # gym stuff
         self.obs_space = spaces.Box(np.ones(self.num_obs) * -np.Inf, np.ones(self.num_obs) * np.Inf)
@@ -413,6 +414,7 @@ class DmarEnv:
         self.reset_buf |= self.time_out_buf
 
     def reset(self) -> Tuple[torch.Tensor, Union[None, torch.Tensor]]:
+        print("Resetting")
         env_ids = torch.arange(self.num_envs, dtype=torch.long)
         self.reset_envs(env_ids)
         self.post_physics_step()
@@ -729,6 +731,9 @@ class DmarEnv:
             self.track_S,  # how to sum
             self.dyn_model,
         )
+
+    def reset_lstm(self):
+        self.dyn_model.integration_function.initialize_lstm_states(torch.zeros((self.num_envs * self.num_agents, 50, 6)).to(self.device))
 
     def resample_track(self, env_ids) -> None:
         self.active_track_ids[env_ids] = torch.randint(
