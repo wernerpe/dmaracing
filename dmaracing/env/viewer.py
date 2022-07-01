@@ -410,7 +410,10 @@ class Viewer:
             scale = 3.
             heights_mean = self.values.mean(axis=0)
             heights_stdv = self.values.std(axis=0)
-            locs = self.value_bar_locations.copy()[:2*len(heights_mean)]
+            if len(self.values.shape) == 1:
+                locs = self.value_bar_locations.copy()[:2]
+            else:
+                locs = self.value_bar_locations.copy()[:2*len(heights_mean)]
             locs[1::2,1] -= (scale*heights_mean).astype(np.int32)
             locs = locs.reshape(heights_mean.shape[0],2,2)
             for idx, bar in enumerate(locs):

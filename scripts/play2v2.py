@@ -173,7 +173,7 @@ if __name__ == "__main__":
     cfg, cfg_train, logdir = getcfg(path_cfg)
 
     chkpts = [-1]*2
-    runs = ['22_05_18_14_57_25_no_dist_to_go_JRMAPPO_64']*2
+    runs = [-1]*2
     cfg['sim']['numEnv'] = 1 #500
     cfg['sim']['numAgents'] = 4
     cfg['sim']['collide'] = 1

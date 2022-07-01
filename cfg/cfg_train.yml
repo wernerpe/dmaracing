@@ -21,7 +21,7 @@ algorithm:
 runner:
   policy_class_name: MultiTeamCMAAC 
   algorithm_class_name: JRMAPPO 
-  num_steps_per_env: 128  # 64  # 32 # per iteration
+  num_steps_per_env: 64  # 32 # per iteration
   max_iterations: 50000 # number of policy updates
   population_update_interval: 20  # 10  # 40 #number of iterations before the opponent policy is updated
   # logging
