@@ -144,8 +144,9 @@ class Viewer:
             self.draw_string()
             self.draw_marked_agents()
             # self._draw_value_activation_team()
-            self._draw_value_moments()
+            #self._draw_value_moments()
             self._draw_ranks()
+            #self._draw_attention(state)
         
         #listen for keypressed events
         if not self._headless:
@@ -410,12 +411,13 @@ class Viewer:
             scale = 3.
             heights_mean = self.values.mean(axis=0)
             heights_stdv = self.values.std(axis=0)
-            if len(self.values.shape) == 1:
-                locs = self.value_bar_locations.copy()[:2]
-            else:
-                locs = self.value_bar_locations.copy()[:2*len(heights_mean)]
+            if len(self.values.shape):
+                heights_mean = np.array([heights_mean])
+                heights_stdv = np.array([heights_stdv])
+            locs = self.value_bar_locations.copy()[:2*len(heights_mean)]
             locs[1::2,1] -= (scale*heights_mean).astype(np.int32)
             locs = locs.reshape(heights_mean.shape[0],2,2)
+            
             for idx, bar in enumerate(locs):
                 self.img = cv.rectangle(self.img, tuple(bar[0]), tuple(bar[1]), (100,100,100), -1)
 
@@ -472,6 +474,24 @@ class Viewer:
         if self.first is not None:
           self.img = cv.putText(self.img, 'First: ' + f'{self.first}', (30, 70), self.font, 0.5, (0, 0, 0), 1, cv.LINE_AA)
         self.first = None
+
+    def update_attention(self, attention):
+        self.attention = attention[self.env_idx_render].detach().cpu().numpy()
+
+    def _draw_attention(self, states):
+        state = states[self.env_idx_render, :, 0:2].cpu().numpy()
+        for ado_id in range(self.num_agents-1):
+            endpoints = np.array([state[0], state[ado_id+1]])
+            if self.attention[ado_id].item() >= 0.01:
+                color = self.rgb_convert(self.attention[ado_id])
+                self.add_lines(endpoints=endpoints.squeeze(), color = color, thickness= int(3*self.attention[ado_id].item()))
+
+    def rgb_convert(self, value, minimum=0.0, maximum=1.0):
+        ratio = 2 * (value-minimum) / (maximum - minimum)
+        b = int(max(0, 255*(1 - ratio)))
+        r = int(max(0, 255*(ratio - 1)))
+        g = 255 - b - r
+        return r, g, b
 
     def save_uncertain_imgs(self,):
         while self.img_queue:

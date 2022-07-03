@@ -43,7 +43,7 @@ def play():
 
         for ado_id in range(num_agents-1):
             ado_ag_obs = obs_ado[..., ado_id::(num_agents-1)]
-            attention_tensor[:, ado_id]= attention_head(torch.cat((obs_ego, ado_ag_obs), dim=-1).detach())
+            attention_tensor[:, ado_id]= attention_head(torch.cat((obs_ego, ado_ag_obs), dim=-1).detach()).squeeze()
         return attention_tensor
 
     time_per_step = cfg['sim']['dt']*cfg['sim']['decimation']
@@ -174,7 +174,7 @@ if __name__ == "__main__":
 
     chkpts = [-1]*2
     runs = [-1]*2
-    cfg['sim']['numEnv'] = 1 #500
+    cfg['sim']['numEnv'] = 2 #500
     cfg['sim']['numAgents'] = 4
     cfg['sim']['collide'] = 1
     

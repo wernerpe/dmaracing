@@ -4,7 +4,7 @@ from dmaracing.utils.helpers import *
 from datetime import date, datetime
 import os
 import sys
-# os.environ['CUDA_VISIBLE_DEVICES'] = '1'
+#os.environ['CUDA_VISIBLE_DEVICES'] = '1'
 
 def train():
     env = DmarEnv(cfg, args)
@@ -35,7 +35,7 @@ if __name__ == "__main__":
     args.parse(sys.argv[1:])
     args.device = 'cuda:0'
     args.headless = True 
-    path_cfg = os.getcwd() + '/cfg'
+    path_cfg = os.getcwd() + '/cfg'#
     cfg, cfg_train, logdir_root = getcfg(path_cfg)
     #cfg['sim']['numAgents'] = 4
     #cfg['sim']['collide'] = 1
