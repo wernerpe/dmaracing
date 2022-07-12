@@ -8,10 +8,8 @@ import torch
 def train():
     env = DmarEnv(cfg, args)
     runner = get_mappo_runner(env, cfg_train, logdir, args.device)
-    
    
     if INIT_FROM_CHKPT:
-        
         #load active policies
         model_paths = []
         for run, chkpt in zip(runs, chkpts):
@@ -39,16 +37,19 @@ if __name__ == "__main__":
     print(torch.cuda.is_available())
     args = CmdLineArguments()
     args.device = 'cuda:0'
-    args.headless = True 
+    args.headless = False 
     path_cfg = os.getcwd() + '/cfg'
-    cfg, cfg_train, logdir_root = getcfg(path_cfg, postfix='_1v1_tuning')
+    cfg, cfg_train, logdir_root = getcfg(path_cfg, postfix='_straight_line')
     cfg['sim']['numAgents'] = 2
     cfg['sim']['collide'] = 1
-    cfg['sim']['numEnv'] = 16
-    cfg['track']['num_tracks'] = 2
-    cfg_train['runner']['experiment_name'] = '1v1_supercloud'
+    if not args.headless:
+        cfg['viewer']['logEvery'] = -1
+    #cfg['sim']['numEnv'] = 16
     #cfg['track']['num_tracks'] = 2
-    set_dependent_cfg_entries(cfg)
+    #cfg_train['runner']['experiment_name'] = '1v1_eval'
+    #cfg['track']['num_tracks'] = 2
+    args.override_cfg_with_args(cfg, cfg_train)
+    set_dependent_cfg_entries(cfg, cfg_train)
     now = datetime.now()
     timestamp = now.strftime("%y_%m_%d_%H_%M_%S")
     logdir = logdir_root+'/'+timestamp

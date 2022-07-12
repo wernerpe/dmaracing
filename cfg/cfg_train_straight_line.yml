@@ -45,5 +45,7 @@ policy:
   encoder_type: attention2  # attention{1, 2}
   teamsize: 2
   numteams: 2
+  numcritics: 1
   max_num_old_models: 40
   kl_save_threshold: 1.5
+  predict_stddev: False

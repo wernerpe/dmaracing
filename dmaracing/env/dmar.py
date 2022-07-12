@@ -340,8 +340,8 @@ class DmarEnv():
         
         
         self.obs_buf = torch.cat((self.vels_body*0.1, 
-                                  steer, 
-                                  gas, 
+                                  #steer, 
+                                  #gas, 
                                   # lookahead_scaled[:,:,:,0], 
                                   # lookahead_scaled[:,:,:,1], 
                                   lookahead_rbound_scaled[:,:,:,0], 
@@ -350,7 +350,7 @@ class DmarEnv():
                                   lookahead_lbound_scaled[:,:,:,1], 
                                   self.last_actions,
                                   self.ranks.view(-1, self.num_agents, 1),
-                                  self.teamranks.view(-1, self.num_agents, 1),
+                                  #self.teamranks.view(-1, self.num_agents, 1),
                                   distance_to_go_race.view(-1, self.num_agents, 1), 
                                   self.first_place_steps.view(-1, self.num_agents, 1),  # NOTE: added to check dense leader reward
                                   self.progress_other * 0.1, 
@@ -410,8 +410,8 @@ class DmarEnv():
         self.resample_track(env_ids)
         self.active_agents[env_ids, 1:] = torch.rand((len(env_ids),self.num_agents-1), device=self.device) > self.agent_dropout_prob
         tile_idx_env = (torch.rand((len(env_ids),1), device=self.device) * (0.5 *self.active_track_tile_counts[env_ids].view(-1,1))).to(dtype=torch.long)
-        #tile_idx_env = 47 + 0*torch.tile(tile_idx_env, (self.num_agents,))
-        tile_idx_env = torch.tile(tile_idx_env, (self.num_agents,))
+        tile_idx_env = 47 + 0*torch.tile(tile_idx_env, (self.num_agents,))
+        #tile_idx_env = torch.tile(tile_idx_env, (self.num_agents,))
         self.drag_reduction_points[env_ids,:,:] = 0.0
         self.drag_reduced[env_ids, :] = False
 
