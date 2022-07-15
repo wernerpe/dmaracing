@@ -24,7 +24,7 @@ runner:
   population_update_interval: 40 #number of iterations before the opponent policy is updated
   # logging
   save_interval: 50 # check for potential saves every this many iterations
-  experiment_name: 'tri_single_agent_dropout_dynamics'
+  experiment_name: 'tri_single_agent_hybrid_lowspeed'
   run_name: ''
   # load and resume
   resume: False

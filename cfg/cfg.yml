@@ -8,16 +8,16 @@ sim:
   #need to overwrite this everytime env gets initialized to the correct number
   #dependent on the lookaheadhorizon length and number of ado cars in an env
   #this is done in get_cfg directly
-  numObservations: -1 
-  numConstantObservations: 5 #vels, steer, gas, last actions, rank 
+  numObservations: -1
+  numConstantObservations: 5 #vels, steer, gas, last actions, rank
   numActions: 2
   collide: 1
   decimation: 4
   test_mode: False
   collisionstiffness: 280000.0
-  
+
 model:
-  dynamics_model_name: lstm_v2_epoch60.ckpt #plastic_wheels.ckpt #
+  dynamics_model_name: hybrid_lowspeed.ckpt #plastic_wheels.ckpt #
   SIZE: 0.02 #[px/m]
   BREAKFORCE: 100
   ENGINE_POWER_SCALE: 150000000
@@ -35,7 +35,7 @@ viewer:
   height: 1200  # 1200
   width_tb: 600  # 1200
   height_tb: 600  # 1200
-  
+
   scale: 12.0 #[m/width*px] indicates how wide the window is in pixels
   linethickness: 1
   multiagent: True
@@ -47,10 +47,10 @@ track:
   SCALE: 40.0  # Track scale
   TRACK_RAD: 420   # Track is heavily morphed circle with this radius
   CHECKPOINTS: 18
-  TRACK_DETAIL_STEP: 12 
+  TRACK_DETAIL_STEP: 12
   TRACK_TURN_RATE: 0.81
-  TRACK_WIDTH: 18 
-  BORDER: 4 
+  TRACK_WIDTH: 18
+  BORDER: 4
   BORDER_MIN_COUNT: 3
   verbose: False
   seed: 1
@@ -71,11 +71,11 @@ learn:
 
   progressRewardScale: 5.0
   offtrackRewardScale: -5.0
-  actionRateRewardScale: 0.1 
+  actionRateRewardScale: 0.1
   energyRewardScale: 0.00006
   rankRewardScale: 5.0
   collisionRewardScale: -300.0
   horizon: 15
-  
+
   timeout: 25.0 #[s]
   offtrack_reset: 1.3 #[s]
