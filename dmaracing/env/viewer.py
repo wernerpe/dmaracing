@@ -17,7 +17,6 @@ class Viewer:
                  track_border_poly_cols,
                  track_tile_counts,
                  active_track_ids,
-                 teams,
                  headless=True):
 
         self.device = 'cuda:0'
@@ -43,18 +42,17 @@ class Viewer:
         self.max_agents = self.cfg['viewer']['maxAgents']
         self.num_agents = self.cfg['sim']['numAgents']
         self.num_envs = self.cfg['sim']['numEnv']
-        self.teams = teams
         # self.value_bar_locations = np.array([[-100, 0],[-80, 0],[-40, 0],[-20, 0],[-100, 200],[-80, 200],[-40, 200],[-20, 200],])
         # self.value_bar_locations = np.array([[100, 0],[120, 0],[160, 0],[180, 0],[220, 200],[240, 200],[-40, 200],[-20, 200],])
         self.value_bar_locations = np.array([[100, 0],[120, 0],[160, 0],[180, 0],[220, 0],[240, 0],[280, 0],[300, 0],])
         self.value_bar_locations[:, 0] += 50  # 400  # 130
         self.value_bar_locations[:, 1] += 30 # 50  # 600
         self.value_bar_locations = self.value_bar_locations.astype(np.int32)
-        cols = [(255,0,0), (0,0,255), (0,255,0),(0,125,125), (125,125,0), (125,0,125)] 
-        self.teamcolors = []
-        for teamidx, team in enumerate(self.teams):
-            for _ in range(len(team)):
-                self.teamcolors.append(cols[teamidx])
+        self.colors = [(255,0,0), (0,0,255), (0,255,0),(0,125,125), (125,125,0), (125,0,125)] 
+        #self.teamcolors = []
+        #for teamidx, team in enumerate(self.teams):
+        #    for _ in range(len(team)):
+        #        self.teamcolors.append(cols[teamidx])
 
         if self.draw_multiagent:
             self.num_cars = self.num_agents
@@ -221,15 +219,15 @@ class Viewer:
 
             px_car_box_world = self.cords2px(car_box_world)
             px_car_heading_world = self.cords2px(car_heading_world)
-            px_car_cm_world = self.cords2px_np(transl[:,...].cpu().numpy())
+            #px_car_cm_world = self.cords2px_np(transl[:,...].cpu().numpy())
 
             for idx in range(self.num_cars):
                 px_x_number = (self.width/self.scale_x*transl[idx, 0] + self.width/2.0).cpu().numpy().astype(np.int32).item()
                 px_y_number = (-self.height/self.scale_y*transl[idx, 1] + self.height/2.0).cpu().numpy().astype(np.int32).item()
                 px_pts_car = px_car_box_world[..., idx].reshape(-1,1,2)
                 px_pts_heading = px_car_heading_world[..., idx].reshape(-1,1,2)
-                cv.polylines(self.img, [px_pts_car], isClosed = True, color = self.teamcolors[idx], thickness = self.thickness)
-                cv.fillPoly(self.car_img, [px_pts_car], color = self.teamcolors[idx])#)(255-int(self.colors[idx]),0,int(self.colors[idx]), 0.9))
+                cv.polylines(self.img, [px_pts_car], isClosed = True, color = self.colors[idx], thickness = self.thickness)
+                cv.fillPoly(self.car_img, [px_pts_car], color = self.colors[idx])#)(255-int(self.colors[idx]),0,int(self.colors[idx]), 0.9))
                 cv.polylines(self.img, [px_pts_heading], isClosed = True, color = (0, 0, 255), thickness = 2)
                 if self.drag_reduced[self.env_idx_render, idx]:
                     cv.putText(self.img, str(idx)+' dr', (px_x_number+ self.x_offset, px_y_number + self.y_offset-10), self.font, 0.5, (0,0,0), 1, cv.LINE_AA)   

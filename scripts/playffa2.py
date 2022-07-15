@@ -73,7 +73,7 @@ def play():
         uncertainty = 0.1 + 0*actions[:, 0, 0]
         if idx%100 == 0:
             uncertainty[3] = 0.95
-        obs, _, rew, dones, info = env.step_with_importance_sampling_check(actions, uncertainty)
+        obs, _, rew, dones, info = env.step(actions)
     
 
         attention_tensor = compute_linear_attention(obs[:,ag,:], attention_tensor)
@@ -174,10 +174,10 @@ if __name__ == "__main__":
     args.device = 'cuda:0'
     args.headless = False 
     path_cfg = os.getcwd() + '/cfg'
-    cfg, cfg_train, logdir_root = getcfg(path_cfg, straightline=False)
+    cfg, cfg_train, logdir_root = getcfg(path_cfg, postfix= '_straight_line')
     SOUND = False
 
-    chkpts = [-1, -3]
+    chkpts = [-1, -1]
     runs = [-1]*2
     cfg['sim']['numEnv'] = 4
     cfg['sim']['numAgents'] = 2
@@ -198,7 +198,7 @@ if __name__ == "__main__":
     #cfg['learn']['reset_tile_rand'] = 40
     #cfg['viewer']['logEvery'] = -1
     #cfg['track']['seed'] = 5
-    cfg['track']['num_tracks'] = 30
+    #cfg['track']['num_tracks'] = 30
     #cfg_train['policy']['teamsize'] = 2
     #cfg_train['policy']['numteams'] = 2
     #cfg['viewer']['multiagent'] = True

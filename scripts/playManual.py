@@ -5,7 +5,7 @@ import os
 import numpy as np
 
 def play():
-    #cfg['sim']['numEnv'] = 3
+    cfg['sim']['numEnv'] = 32
     #cfg['sim']['numAgents'] = 4
     #cfg['sim']['decimation'] = 4
     
@@ -15,7 +15,7 @@ def play():
     cfg['learn']['defaultactions'] = [0,0,0]
     cfg['learn']['actionscale'] = [1,1,1]
     #cfg['learn']['resetrand'] = [0.0]*7
-    #cfg['learn']['reset_tile_rand'] = 200
+    cfg['learn']['reset_tile_rand'] = 5
     #cfg['learn']['resetgrid'] = True
     
     #cfg['learn']['offtrack_reset'] = 10
@@ -48,8 +48,8 @@ def play():
         actions[0 , ag, 2] = brk_cmd
         
         obs, _, rew, dones, info = env.step(actions)
-        if 'ranking' in info:
-            print('info', info['ranking'])
+        #if 'ranking' in info:
+        #    print('info', info['ranking'])
         obsnp = obs[:,0,:].cpu().numpy()
         rewnp = rew[:, 0,0].cpu().numpy()
         cont = env.contouring_err.cpu().numpy()
@@ -79,7 +79,7 @@ def play():
                      #(f"""{'velother y:':>{10}}{' '}{vel_other[1]:.2f}"""),                     
                      (f"""{'lap:':>{10}}{' '}{env.lap_counter[0, ag]:.2f}"""),
                      (f"""{'rank ag 0 :':>{10}}{' '}{1+env.ranks[env.viewer.env_idx_render, ag].item():.2f}"""),
-                     (f"""{'trank ag 0 :':>{10}}{' '}{1+env.teamranks[env.viewer.env_idx_render, ag].item():.2f}"""),
+                     #(f"""{'trank ag 0 :':>{10}}{' '}{1+env.teamranks[env.viewer.env_idx_render, ag].item():.2f}"""),
                      ]
         #print(env.progress_other[0,0,:])
         env.viewer.x_offset = int(-env.viewer.width/env.viewer.scale_x*env.states[env.viewer.env_idx_render, ag, 0])
@@ -116,7 +116,11 @@ if __name__ == "__main__":
     args.device = 'cuda:0'
     args.headless = False 
     path_cfg = os.getcwd() + '/cfg'
-    cfg, cfg_train, logdir = getcfg(path_cfg, straightline=True)
+    cfg, cfg_train, logdir = getcfg(path_cfg, postfix='_straight_line')
     cfg["viewer"]["logEvery"] = -1
     cfg["track"]['OFFTRACK_FRICTION_SCALE'] = 1.0
+    cfg["learn"]['defaultactions'] = [0.,0.,0.0]
+    cfg["learn"]['offtrack_reset'] = 5
+    cfg["learn"]['timeout'] = 20.0
+    
     play()    

@@ -21,9 +21,9 @@ algorithm:
 runner:
   policy_class_name: MAActorCritic #MultiTeamCMAAC 
   algorithm_class_name:  IMAPPO #JRMAPPO 
-  num_steps_per_env: 32 # per iteration
+  num_steps_per_env: 64 # per iteration
   max_iterations: 50000 # number of policy updates
-  population_update_interval: 90 #number of iterations before the opponent policy is updated
+  population_update_interval: 75 #number of iterations before the opponent policy is updated
   # logging
   save_interval: 25 # check for potential saves every this many iterations
   eval_interval: 40
@@ -36,9 +36,9 @@ runner:
   resume_path: None # updated from load_run and chkpt
 
 policy: 
-  actor_hidden_dims: [512, 256, 32]
-  critic_hidden_dims: [512, 256, 32]
-  encoder_hidden_dims: [256, 256]
+  actor_hidden_dims: [256, 128]
+  critic_hidden_dims: [256, 128]
+  encoder_hidden_dims: [64]
   activation: elu # can be elu, relu, selu, crelu, lrelu, tanh, sigmoid
   init_noise_std: 1.0
   attentive: True

@@ -43,8 +43,6 @@ class DmarEnv():
         self.collide = self.simParameters['collide']
         self.decimation = self.simParameters['decimation']
 
-        self.teams_list = [[0,1], [2,3]] if self.num_agents == 4 else [[idx] for idx in range(self.num_agents)]
-
         #gym stuff
         self.obs_space = spaces.Box(np.ones(self.num_obs)*-np.Inf, np.ones(self.num_obs)*np.Inf)
         self.state_space = spaces.Box(np.ones(self.num_internal_states)*-np.Inf, np.ones(self.num_internal_states)*np.Inf)
@@ -81,13 +79,13 @@ class DmarEnv():
                               self.track_border_poly_cols,
                               self.track_tile_counts,
                               self.active_track_ids,
-                              self.teams_list,
                               self.headless)
         self.info = {}
         
         #allocate env tensors
         torch_zeros = lambda shape: torch.zeros(shape, device=self.device, dtype= torch.float, requires_grad=False)
         self.states = torch_zeros((self.num_envs, self.num_agents, self.num_internal_states))
+        
         # self.states_pre_uncertain = torch_zeros((self.num_envs, self.num_agents, self.num_internal_states))
         self.contact_wrenches = torch_zeros((self.num_envs, self.num_agents, 3))
         self.shove = torch_zeros((self.num_envs, self.num_agents, 3))
@@ -108,7 +106,7 @@ class DmarEnv():
         self.reward_scales['progress'] = cfg['learn']['progressRewardScale']*self.dt
         self.reward_scales['actionrate'] = cfg['learn']['actionRateRewardScale']*self.dt
         self.reward_scales['energy'] = cfg['learn']['energyRewardScale']*self.dt
-        self.reward_scales['teamrank'] = cfg['learn']['rankRewardScale']*self.dt
+        #self.reward_scales['teamrank'] = cfg['learn']['rankRewardScale']*self.dt
         self.reward_scales['collision'] = cfg['learn']['collisionRewardScale']*self.dt
         self.reward_scales['actions'] = cfg['learn']['actionRewardScale']*self.dt
         self.reward_scales['leader'] = cfg['learn']['leaderRewardScale']*self.dt
@@ -146,7 +144,7 @@ class DmarEnv():
                              'offtrack': torch_zeros((self.num_envs, self.num_agents)),
                              'actionrate': torch_zeros((self.num_envs, self.num_agents)),
                              'energy': torch_zeros((self.num_envs, self.num_agents)),
-                             'teamrank': torch_zeros((self.num_envs, self.num_agents)),
+                         #    'teamrank': torch_zeros((self.num_envs, self.num_agents)),
                              'collision': torch_zeros((self.num_envs, self.num_agents)),
                              'actions': torch_zeros((self.num_envs, self.num_agents)),
                              'leader': torch_zeros((self.num_envs, self.num_agents)),
@@ -158,8 +156,8 @@ class DmarEnv():
         self.lookahead_scaler = 1/(1*(1+torch.arange(self.horizon, device = self.device , requires_grad=False, dtype=torch.float))*self.tile_len)
         self.lookahead_scaler = self.lookahead_scaler.unsqueeze(0).unsqueeze(0).unsqueeze(3)
         self.ranks = torch.zeros((self.num_envs, self.num_agents), requires_grad=False, device=self.device, dtype = torch.int)
-        self.teamranks = torch.zeros((self.num_envs, self.num_agents), requires_grad=False, device=self.device, dtype = torch.int)
-        self.teams = [torch.tensor(team, dtype=torch.long, device = self.device) for team in self.teams_list]
+        #self.teamranks = torch.zeros((self.num_envs, self.num_agents), requires_grad=False, device=self.device, dtype = torch.int)
+        #self.teams = [torch.tensor(team, dtype=torch.long, device = self.device) for team in self.teams_list]
 
         self._global_step = 0
         if self.log_video_freq >= 0:
@@ -181,24 +179,24 @@ class DmarEnv():
         self.total_step = 0
 
         ###importance sampling
-        self.IS_active = cfg['learn']['IS_active']
+        # self.IS_active = cfg['learn']['IS_active']
 
-        if self.IS_active:
-            self.IS_storage_size = cfg['learn']['IS_storage_size']
-            self.IS_ptr = 0
-            self.IS_replay_ptr = 0
-            self.IS_state_buf = torch.zeros((self.IS_storage_size, 
-                                            self.states.shape[1], 
-                                            self.states.shape[2]), 
-                                            requires_grad= False, dtype=torch.float, device=self.device)
+        # if self.IS_active:
+        #     self.IS_storage_size = cfg['learn']['IS_storage_size']
+        #     self.IS_ptr = 0
+        #     self.IS_replay_ptr = 0
+        #     self.IS_state_buf = torch.zeros((self.IS_storage_size, 
+        #                                     self.states.shape[1], 
+        #                                     self.states.shape[2]), 
+        #                                     requires_grad= False, dtype=torch.float, device=self.device)
 
-            self.IS_track_buf = torch.zeros((self.IS_storage_size, ),
-                                            requires_grad=False, dtype = torch.long, device = self.device, )
+        #     self.IS_track_buf = torch.zeros((self.IS_storage_size, ),
+        #                                     requires_grad=False, dtype = torch.long, device = self.device, )
         
-            self.IS_threshold = cfg['learn']['IS_threshold']
-            self.IS_first_state_stored = False
-            self.IS_num_envs = int(cfg['learn']['IS_frac_is_envs']*self.num_envs)
-            self.IS_env_bool = torch.linspace(0, self.num_envs-1, self.num_envs, device=self.device) < self.IS_num_envs
+        #     self.IS_threshold = cfg['learn']['IS_threshold']
+        #     self.IS_first_state_stored = False
+        #     self.IS_num_envs = int(cfg['learn']['IS_frac_is_envs']*self.num_envs)
+        #     self.IS_env_bool = torch.linspace(0, self.num_envs-1, self.num_envs, device=self.device) < self.IS_num_envs
 
         self.viewer.center_cam(self.states)
         self.reset()
@@ -210,8 +208,8 @@ class DmarEnv():
 
 
     def compute_observations(self,) -> None:
-        steer =  self.states[:,:,self.vn['S_STEER']].unsqueeze(2)
-        gas = self.states[:,:,self.vn['S_GAS']].unsqueeze(2)
+        # steer =  self.states[:,:,self.vn['S_STEER']].unsqueeze(2)
+        # gas = self.states[:,:,self.vn['S_GAS']].unsqueeze(2)
         
         theta = self.states[:,:,2]
         vels = self.states[:,:,3:6].clone()
@@ -231,7 +229,7 @@ class DmarEnv():
         interpolated_lbound = self.interpolated_centers + self.track_halfwidth * trackdir_lookahead_lbound
         self.interpolated_bounds = torch.concat((interpolated_rbound, interpolated_lbound), dim=-1)
 
-        self.lookahead = (self.interpolated_centers - torch.tile(self.states[:,:,0:2].unsqueeze(2), (1,1,self.horizon, 1)))
+        #self.lookahead = (self.interpolated_centers - torch.tile(self.states[:,:,0:2].unsqueeze(2), (1,1,self.horizon, 1)))
 
         self.lookahead_rbound = (self.interpolated_bounds[..., [0, 1]] - torch.tile(self.states[:,:,0:2].unsqueeze(2), (1,1,self.horizon, 1)))
         self.lookahead_lbound = (self.interpolated_bounds[..., [2, 3]] - torch.tile(self.states[:,:,0:2].unsqueeze(2), (1,1,self.horizon, 1)))
@@ -241,8 +239,8 @@ class DmarEnv():
         self.R[:, :, 1, 0 ] = -torch.sin(theta)
         self.R[:, :, 1, 1 ] = torch.cos(theta)
         
-        self.lookahead_body = torch.einsum('eaij, eatj->eati', self.R, self.lookahead)
-        lookahead_scaled = self.lookahead_scaler*self.lookahead_body
+        #self.lookahead_body = torch.einsum('eaij, eatj->eati', self.R, self.lookahead)
+        #lookahead_scaled = self.lookahead_scaler*self.lookahead_body
 
         self.lookahead_rbound_body = torch.einsum('eaij, eatj->eati', self.R, self.lookahead_rbound)
         lookahead_rbound_scaled = self.lookahead_scaler*self.lookahead_rbound_body
@@ -266,37 +264,11 @@ class DmarEnv():
                 selfvel = self.states[:, agent, self.vn['S_DX']: self.vn['S_DY']+1].view(-1,1,2)
                 selfangvel = self.states[:, agent, self.vn['S_DTHETA']].view(-1,1,1)
                 
-                # otherpos = torch.cat((self.states[:, :agent, 0:2], self.states[:, agent+1:, 0:2]), dim = 1)
-                # otherpositions.append((otherpos - selfpos).view(-1, (self.num_agents-1), 2))    
-                
-                # selftrackprogress = self.track_progress_no_laps[:, agent].view(-1,1,1)
-                # oth_prog = torch.cat((self.track_progress_no_laps[:, :agent], self.track_progress_no_laps[:, agent+1:]), dim = 1).view(-1, 1, self.num_agents-1) - selftrackprogress
-                # oth_prog = oth_prog \
-                #           + 1.0*(oth_prog<-0.51*self.track_lengths[self.active_track_ids].view(-1,1,1)) * self.track_lengths[self.active_track_ids].view(-1,1,1)\
-                #           - 1.0*(oth_prog>0.51*self.track_lengths[self.active_track_ids].view(-1,1,1)) * self.track_lengths[self.active_track_ids].view(-1,1,1)
-                              
-
-                # other_progress.append(oth_prog)
-
-                # selfcontouringerr = self.contouring_err[:, agent]
-                # other_contouringerr.append(torch.cat((self.contouring_err[:, :agent], self.contouring_err[:, agent+1:]), dim = 1).view(-1, 1, self.num_agents-1) - selfcontouringerr.view(-1,1,1))
-                
-                # otherrotations.append(torch.cat((self.states[:, :agent, 2], self.states[:, agent+1:, 2]), dim = 1).view(-1, 1, self.num_agents-1) - selfrot)
-
-                # othervel = torch.cat((self.states[:, :agent, self.vn['S_DX']: self.vn['S_DY']+1], self.states[:, agent+1:, self.vn['S_DX']: self.vn['S_DY']+1]), dim = 1)
-                # othervelocities.append((othervel - selfvel).view(-1, (self.num_agents-1), 2))    
-                # otherangvel = torch.cat((self.states[:, :agent, self.vn['S_DTHETA']], self.states[:, agent+1:, self.vn['S_DTHETA']]), dim = 1).view(-1, 1, self.num_agents-1)
-                # otherangularvelocities.append(otherangvel - selfangvel)
-
-                ego_team = [member for team in self.teams_list for member in team if agent in team if agent != member]
-                ado_team = [member for team in self.teams_list for member in team if not agent in team]
-                opponents = torch.tensor(ego_team + ado_team, device=self.device)
-
-                otherpos = self.states[:, opponents, 0:2]
+                otherpos = torch.cat((self.states[:, :agent, 0:2], self.states[:, agent+1:, 0:2]), dim = 1)
                 otherpositions.append((otherpos - selfpos).view(-1, (self.num_agents-1), 2))    
                 
                 selftrackprogress = self.track_progress_no_laps[:, agent].view(-1,1,1)
-                oth_prog =self.track_progress_no_laps[:, opponents].view(-1, 1, self.num_agents-1) - selftrackprogress
+                oth_prog = torch.cat((self.track_progress_no_laps[:, :agent], self.track_progress_no_laps[:, agent+1:]), dim = 1).view(-1, 1, self.num_agents-1) - selftrackprogress
                 oth_prog = oth_prog \
                           + 1.0*(oth_prog<-0.51*self.track_lengths[self.active_track_ids].view(-1,1,1)) * self.track_lengths[self.active_track_ids].view(-1,1,1)\
                           - 1.0*(oth_prog>0.51*self.track_lengths[self.active_track_ids].view(-1,1,1)) * self.track_lengths[self.active_track_ids].view(-1,1,1)
@@ -305,14 +277,40 @@ class DmarEnv():
                 other_progress.append(oth_prog)
 
                 selfcontouringerr = self.contouring_err[:, agent]
-                other_contouringerr.append(self.contouring_err[:, opponents].view(-1, 1, self.num_agents-1) - selfcontouringerr.view(-1,1,1))
+                other_contouringerr.append(torch.cat((self.contouring_err[:, :agent], self.contouring_err[:, agent+1:]), dim = 1).view(-1, 1, self.num_agents-1) - selfcontouringerr.view(-1,1,1))
                 
-                otherrotations.append(self.states[:, opponents, 2].view(-1, 1, self.num_agents-1) - selfrot)
+                otherrotations.append(torch.cat((self.states[:, :agent, 2], self.states[:, agent+1:, 2]), dim = 1).view(-1, 1, self.num_agents-1) - selfrot)
 
-                othervel = self.states[:, opponents, self.vn['S_DX']: self.vn['S_DY']+1]
+                othervel = torch.cat((self.states[:, :agent, self.vn['S_DX']: self.vn['S_DY']+1], self.states[:, agent+1:, self.vn['S_DX']: self.vn['S_DY']+1]), dim = 1)
                 othervelocities.append((othervel - selfvel).view(-1, (self.num_agents-1), 2))    
-                otherangvel = self.states[:, opponents, self.vn['S_DTHETA']].view(-1, 1, self.num_agents-1)
+                otherangvel = torch.cat((self.states[:, :agent, self.vn['S_DTHETA']], self.states[:, agent+1:, self.vn['S_DTHETA']]), dim = 1).view(-1, 1, self.num_agents-1)
                 otherangularvelocities.append(otherangvel - selfangvel)
+
+                # ego_team = [member for team in self.teams_list for member in team if agent in team if agent != member]
+                # ado_team = [member for team in self.teams_list for member in team if not agent in team]
+                # opponents = torch.tensor(ego_team + ado_team, device=self.device)
+                
+                # otherpos = self.states[:, opponents, 0:2]
+                # otherpositions.append((otherpos - selfpos).view(-1, (self.num_agents-1), 2))    
+                
+                # selftrackprogress = self.track_progress_no_laps[:, agent].view(-1,1,1)
+                # oth_prog =self.track_progress_no_laps[:, opponents].view(-1, 1, self.num_agents-1) - selftrackprogress
+                # oth_prog = oth_prog \
+                #           + 1.0*(oth_prog<-0.51*self.track_lengths[self.active_track_ids].view(-1,1,1)) * self.track_lengths[self.active_track_ids].view(-1,1,1)\
+                #           - 1.0*(oth_prog>0.51*self.track_lengths[self.active_track_ids].view(-1,1,1)) * self.track_lengths[self.active_track_ids].view(-1,1,1)
+                              
+
+                # other_progress.append(oth_prog)
+
+                # selfcontouringerr = self.contouring_err[:, agent]
+                # other_contouringerr.append(self.contouring_err[:, opponents].view(-1, 1, self.num_agents-1) - selfcontouringerr.view(-1,1,1))
+                
+                # otherrotations.append(self.states[:, opponents, 2].view(-1, 1, self.num_agents-1) - selfrot)
+
+                # othervel = self.states[:, opponents, self.vn['S_DX']: self.vn['S_DY']+1]
+                # othervelocities.append((othervel - selfvel).view(-1, (self.num_agents-1), 2))    
+                # otherangvel = self.states[:, opponents, self.vn['S_DTHETA']].view(-1, 1, self.num_agents-1)
+                # otherangularvelocities.append(otherangvel - selfangvel)
 
 
 
@@ -351,8 +349,8 @@ class DmarEnv():
                                   self.last_actions,
                                   self.ranks.view(-1, self.num_agents, 1),
                                   #self.teamranks.view(-1, self.num_agents, 1),
-                                  distance_to_go_race.view(-1, self.num_agents, 1), 
-                                  self.first_place_steps.view(-1, self.num_agents, 1),  # NOTE: added to check dense leader reward
+                                  #distance_to_go_race.view(-1, self.num_agents, 1), 
+                                  #self.first_place_steps.view(-1, self.num_agents, 1),  # NOTE: added to check dense leader reward
                                   self.progress_other * 0.1, 
                                   self.contouring_err_other * 0.25, 
                                   rot_other,
@@ -426,7 +424,7 @@ class DmarEnv():
                     rands += signs * 3  # NOTE: added to keep agents apart
                 tile_idx_env[:, 1:] = torch.remainder(tile_idx_env[:, 1:] + rands, self.active_track_tile_counts[env_ids].view(-1,1))
             else:
-                tile_idx_env = tile_idx_env + 2 * torch.linspace(0, self.num_agents-1, self.num_agents, device=self.device).unsqueeze(0).to(dtype=torch.long)
+                tile_idx_env = tile_idx_env + 1 * torch.linspace(0, self.num_agents-1, self.num_agents, device=self.device).unsqueeze(0).to(dtype=torch.long)
                 tile_idx_env = torch.remainder(tile_idx_env, self.active_track_tile_counts[env_ids].view(-1,1))
         positions = torch.ones((len(env_ids), self.num_agents), device=self.device).multinomial(self.num_agents, replacement=False)
         #positions[:, 0] = 0
@@ -456,9 +454,9 @@ class DmarEnv():
             self.states[env_ids, agent, self.vn['S_STEER']] = rand(-self.reset_randomization[6], self.reset_randomization[6], (len(env_ids),), device=self.device)
             self.states[env_ids, agent, self.vn['S_W0']:self.vn['S_W3']+1] = (vels_long/self.modelParameters['WHEEL_R']).unsqueeze(1)
         
-        if self.IS_active:
-            where_is_reset = torch.where(env_ids<=self.IS_num_envs)[0]
-            self.IS_reset(env_ids[where_is_reset])
+        # if self.IS_active:
+        #     where_is_reset = torch.where(env_ids<=self.IS_num_envs)[0]
+        #     self.IS_reset(env_ids[where_is_reset])
 
         idx_inactive, idx2_inactive = torch.where(~self.active_agents[env_ids, :].view(len(env_ids), self.num_agents))
         if len(idx_inactive):
@@ -506,70 +504,70 @@ class DmarEnv():
           self.viewer._frames = []
           self._global_step += 1
 
-    def step_with_importance_sampling_check(self, actions, uncertainty):
-        if self.IS_active:
-            # is_interesting = self.IS_interesting_scenario(uncertainty)
-            # # is_interesting = torch.logical_and(is_interesting, torch.all(self.is_on_track_all, dim=-1))
-            # # is_interesting = torch.logical_and(is_interesting, ~self.IS_env_bool)
-            # interesting_state_idx = torch.where(is_interesting)[0]
-            # new_init_states = self.states[interesting_state_idx,...].clone()
-            # num_states_save = np.min([self.IS_storage_size-(self.IS_ptr%self.IS_storage_size)-1, len(new_init_states), 4])
-            # new_init_tracks = self.active_track_ids[interesting_state_idx].clone()
-            # self.IS_state_buf[self.IS_ptr % self.IS_storage_size : (self.IS_ptr+num_states_save ) % self.IS_storage_size, ...] = new_init_states[:num_states_save, ...]
-            # self.IS_track_buf[self.IS_ptr % self.IS_storage_size : (self.IS_ptr+num_states_save ) % self.IS_storage_size] = new_init_tracks[:num_states_save]
-            # self.IS_ptr = self.IS_ptr + num_states_save
-            # if self.IS_ptr > 0 and not self.IS_first_state_stored:
-            #     self.IS_first_state_stored = True
-            # if self.IS_storage_size-(self.IS_ptr%self.IS_storage_size)-1 == 0:
-            #     self.IS_ptr += 1
+    # def step_with_importance_sampling_check(self, actions, uncertainty):
+    #     if self.IS_active:
+    #         # is_interesting = self.IS_interesting_scenario(uncertainty)
+    #         # # is_interesting = torch.logical_and(is_interesting, torch.all(self.is_on_track_all, dim=-1))
+    #         # # is_interesting = torch.logical_and(is_interesting, ~self.IS_env_bool)
+    #         # interesting_state_idx = torch.where(is_interesting)[0]
+    #         # new_init_states = self.states[interesting_state_idx,...].clone()
+    #         # num_states_save = np.min([self.IS_storage_size-(self.IS_ptr%self.IS_storage_size)-1, len(new_init_states), 4])
+    #         # new_init_tracks = self.active_track_ids[interesting_state_idx].clone()
+    #         # self.IS_state_buf[self.IS_ptr % self.IS_storage_size : (self.IS_ptr+num_states_save ) % self.IS_storage_size, ...] = new_init_states[:num_states_save, ...]
+    #         # self.IS_track_buf[self.IS_ptr % self.IS_storage_size : (self.IS_ptr+num_states_save ) % self.IS_storage_size] = new_init_tracks[:num_states_save]
+    #         # self.IS_ptr = self.IS_ptr + num_states_save
+    #         # if self.IS_ptr > 0 and not self.IS_first_state_stored:
+    #         #     self.IS_first_state_stored = True
+    #         # if self.IS_storage_size-(self.IS_ptr%self.IS_storage_size)-1 == 0:
+    #         #     self.IS_ptr += 1
 
-            is_interesting = self.IS_interesting_scenario(uncertainty)
-            interesting_state_idx = torch.where(is_interesting)[0]
-            new_init_states = self.states[interesting_state_idx,...].clone()
-            num_states_save = np.min([self.IS_storage_size-(self.IS_ptr%self.IS_storage_size)-1, len(new_init_states), 5])
-            new_init_tracks = self.active_track_ids[interesting_state_idx].clone()
-            self.IS_state_buf[self.IS_ptr : (self.IS_ptr+num_states_save), ...] = new_init_states[:num_states_save, ...]
-            self.IS_track_buf[self.IS_ptr : (self.IS_ptr+num_states_save)] = new_init_tracks[:num_states_save]
-            self.IS_ptr = self.IS_ptr + num_states_save
-            if self.IS_ptr > 0 and not self.IS_first_state_stored:
-                self.IS_first_state_stored = True
-            if self.IS_storage_size-(self.IS_ptr+1) == 0:
-                self.IS_ptr += 1  # wrap around
-            self.IS_ptr = self.IS_ptr % self.IS_storage_size
+    #         is_interesting = self.IS_interesting_scenario(uncertainty)
+    #         interesting_state_idx = torch.where(is_interesting)[0]
+    #         new_init_states = self.states[interesting_state_idx,...].clone()
+    #         num_states_save = np.min([self.IS_storage_size-(self.IS_ptr%self.IS_storage_size)-1, len(new_init_states), 5])
+    #         new_init_tracks = self.active_track_ids[interesting_state_idx].clone()
+    #         self.IS_state_buf[self.IS_ptr : (self.IS_ptr+num_states_save), ...] = new_init_states[:num_states_save, ...]
+    #         self.IS_track_buf[self.IS_ptr : (self.IS_ptr+num_states_save)] = new_init_tracks[:num_states_save]
+    #         self.IS_ptr = self.IS_ptr + num_states_save
+    #         if self.IS_ptr > 0 and not self.IS_first_state_stored:
+    #             self.IS_first_state_stored = True
+    #         if self.IS_storage_size-(self.IS_ptr+1) == 0:
+    #             self.IS_ptr += 1  # wrap around
+    #         self.IS_ptr = self.IS_ptr % self.IS_storage_size
             
-        return self.step(actions)
+    #     return self.step(actions)
 
-    def IS_interesting_scenario(self, uncertainty):
-        interesting = uncertainty >= self.IS_threshold
-        #check if all cars are on track
-        interesting *= ~torch.any(~self.is_on_track_all, dim = 1)
-        #check if orientation is roughly correct for agent 0
-        angs_track = self.active_alphas[self.all_envs, self.active_track_tile[:, 0]]
-        angs_car = self.states[:, 0, 2]
-        ori_good = torch.remainder(torch.abs(angs_track - angs_car), 2*np.pi) < np.pi/2
-        interesting *= ori_good
-        interesting[:self.IS_num_envs] = False
-        return interesting
+    # def IS_interesting_scenario(self, uncertainty):
+    #     interesting = uncertainty >= self.IS_threshold
+    #     #check if all cars are on track
+    #     interesting *= ~torch.any(~self.is_on_track_all, dim = 1)
+    #     #check if orientation is roughly correct for agent 0
+    #     angs_track = self.active_alphas[self.all_envs, self.active_track_tile[:, 0]]
+    #     angs_car = self.states[:, 0, 2]
+    #     ori_good = torch.remainder(torch.abs(angs_track - angs_car), 2*np.pi) < np.pi/2
+    #     interesting *= ori_good
+    #     interesting[:self.IS_num_envs] = False
+    #     return interesting
     
-    def IS_reset(self, env_ids):
-        if self.IS_first_state_stored:
-            IS_checkpoint = self.IS_state_buf[self.IS_replay_ptr % self.IS_storage_size, ...].view(1, self.num_agents, -1)
-            IS_track_checkpoint = self.IS_track_buf[self.IS_replay_ptr % self.IS_storage_size]
-            self.states[env_ids, ...] = IS_checkpoint  # NOTE: consider different scenarios at the same time
+    # def IS_reset(self, env_ids):
+    #     if self.IS_first_state_stored:
+    #         IS_checkpoint = self.IS_state_buf[self.IS_replay_ptr % self.IS_storage_size, ...].view(1, self.num_agents, -1)
+    #         IS_track_checkpoint = self.IS_track_buf[self.IS_replay_ptr % self.IS_storage_size]
+    #         self.states[env_ids, ...] = IS_checkpoint  # NOTE: consider different scenarios at the same time
             
-            self.active_track_ids[env_ids] = IS_track_checkpoint
-            self.active_track_mask[env_ids, ...] = 0.0
-            self.active_track_mask[env_ids, self.active_track_ids[env_ids]] = 1.0
-            self.active_centerlines[env_ids,...] = self.track_centerlines[self.active_track_ids[env_ids]]
-            self.active_alphas[env_ids,...] = self.track_alphas[self.active_track_ids[env_ids]]
-            self.active_track_tile_counts[env_ids] = self.track_tile_counts[self.active_track_ids[env_ids]]
-            if self.viewer.env_idx_render in env_ids:
-                self.viewer.draw_track_reset()
+    #         self.active_track_ids[env_ids] = IS_track_checkpoint
+    #         self.active_track_mask[env_ids, ...] = 0.0
+    #         self.active_track_mask[env_ids, self.active_track_ids[env_ids]] = 1.0
+    #         self.active_centerlines[env_ids,...] = self.track_centerlines[self.active_track_ids[env_ids]]
+    #         self.active_alphas[env_ids,...] = self.track_alphas[self.active_track_ids[env_ids]]
+    #         self.active_track_tile_counts[env_ids] = self.track_tile_counts[self.active_track_ids[env_ids]]
+    #         if self.viewer.env_idx_render in env_ids:
+    #             self.viewer.draw_track_reset()
 
-            if self.IS_replay_ptr < self.IS_ptr-1:
-                self.IS_replay_ptr += 1
-        else:
-            print('[DMAR IMPORTANCE SAMPLING] No interesting scenario added yet')
+    #         if self.IS_replay_ptr < self.IS_ptr-1:
+    #             self.IS_replay_ptr += 1
+    #     else:
+    #         print('[DMAR IMPORTANCE SAMPLING] No interesting scenario added yet')
     
     def step(self, actions) -> Tuple[torch.Tensor, Union[None, torch.Tensor], torch.Tensor, Dict[str, float]] : 
         actions = actions.clone().to(self.device)
@@ -638,12 +636,12 @@ class DmarEnv():
         num_active_agents = torch.sum(1.0*self.active_agents, dim = 1)
         #only give raceend reward if the environment completes the race
         #if self.num_agents==4:
-        # self.rew_endrace = 1.0/self.num_agents*(num_active_agents.view(-1,1)/2.0-self.teamranks)*self.reward_scales['teamrank'] * (torch.remainder(self.episode_length_buf, self.race_lead_reward_interval)==0) #* ((torch.max(self.lap_counter, dim = 1)[0] == self.race_length_laps).view(-1,1))
+        #self.rew_endrace = 1.0/self.num_agents*(num_active_agents.view(-1,1)/2.0-self.teamranks)*self.reward_scales['teamrank'] * (torch.remainder(self.episode_length_buf, self.race_lead_reward_interval)==0) #* ((torch.max(self.lap_counter, dim = 1)[0] == self.race_length_laps).view(-1,1))
         # self.rew_endrace = self.reward_scales['teamrank'] * (-1)**((self.teamranks==0)+1)
         # NOTE: leading team gets bonus for finishing (no penalty for others)
-        self.rew_endrace = self.reward_scales['teamrank'] * 0.5 * (1.0 + (-1)**((self.teamranks==0)+1)) * ((torch.max(self.lap_counter, dim = 1)[0] == self.race_length_laps).view(-1,1))
+        self.rew_endrace = 0*self.ranks #self.reward_scales['teamrank'] * 0.5 * (1.0 + (-1)**((self.teamranks==0)+1)) * ((torch.max(self.lap_counter, dim = 1)[0] == self.race_length_laps).view(-1,1))
         
-        self.reward_terms['teamrank'] += self.rew_endrace
+        #self.reward_terms['teamrank'] += self.rew_endrace
         
         if len(env_ids):
             self.reset_envs(env_ids)
@@ -677,8 +675,8 @@ class DmarEnv():
         self.first_place_steps *= 1.0 * (self.ranks==0)
         self.first_place_steps += 1.0 * (self.ranks==0)
         
-        for team in self.teams:
-            self.teamranks[:, team] = torch.min(self.ranks[:, team], dim = 1)[0].reshape(-1,1).type(torch.int)
+        #for team in self.teams:
+        #    self.teamranks[:, team] = torch.min(self.ranks[:, team], dim = 1)[0].reshape(-1,1).type(torch.int)
 
         self.contouring_err = torch.einsum('eac, eac-> ea', self.trackperp, self.tile_car_vec)
 
@@ -788,7 +786,7 @@ def compute_rewards_jit(track_progress : torch.Tensor,
                         last_actions : torch.Tensor,
                         vn : Dict[str, int],
                         states : torch.Tensor,
-                        rew_racend : torch.Tensor,
+                        rew_racend :  torch.Tensor,
                         is_collision : torch.Tensor,
                         first_place_steps : torch.Tensor,
                         reward_terms : Dict[str, torch.Tensor],
@@ -820,6 +818,5 @@ def compute_rewards_jit(track_progress : torch.Tensor,
 
             reward_terms['leader'] += rew_leader
             
-            #reward_terms['teamrank'] += rew_racend
             reward_terms['collision'] += rew_collision
             return rew_buf, reward_terms
