@@ -106,7 +106,7 @@ class DmarEnv():
         self.reward_scales['progress'] = cfg['learn']['progressRewardScale']*self.dt
         self.reward_scales['actionrate'] = cfg['learn']['actionRateRewardScale']*self.dt
         self.reward_scales['energy'] = cfg['learn']['energyRewardScale']*self.dt
-        #self.reward_scales['teamrank'] = cfg['learn']['rankRewardScale']*self.dt
+        self.reward_scales['teamrank'] = cfg['learn']['rankRewardScale']*self.dt
         self.reward_scales['collision'] = cfg['learn']['collisionRewardScale']*self.dt
         self.reward_scales['actions'] = cfg['learn']['actionRewardScale']*self.dt
         self.reward_scales['leader'] = cfg['learn']['leaderRewardScale']*self.dt
@@ -144,7 +144,7 @@ class DmarEnv():
                              'offtrack': torch_zeros((self.num_envs, self.num_agents)),
                              'actionrate': torch_zeros((self.num_envs, self.num_agents)),
                              'energy': torch_zeros((self.num_envs, self.num_agents)),
-                         #    'teamrank': torch_zeros((self.num_envs, self.num_agents)),
+                             'teamrank': torch_zeros((self.num_envs, self.num_agents)),
                              'collision': torch_zeros((self.num_envs, self.num_agents)),
                              'actions': torch_zeros((self.num_envs, self.num_agents)),
                              'leader': torch_zeros((self.num_envs, self.num_agents)),
@@ -349,7 +349,7 @@ class DmarEnv():
                                   self.last_actions,
                                   self.ranks.view(-1, self.num_agents, 1),
                                   #self.teamranks.view(-1, self.num_agents, 1),
-                                  #distance_to_go_race.view(-1, self.num_agents, 1), 
+                                  distance_to_go_race.view(-1, self.num_agents, 1), 
                                   #self.first_place_steps.view(-1, self.num_agents, 1),  # NOTE: added to check dense leader reward
                                   self.progress_other * 0.1, 
                                   self.contouring_err_other * 0.25, 
@@ -636,10 +636,10 @@ class DmarEnv():
         num_active_agents = torch.sum(1.0*self.active_agents, dim = 1)
         #only give raceend reward if the environment completes the race
         #if self.num_agents==4:
-        #self.rew_endrace = 1.0/self.num_agents*(num_active_agents.view(-1,1)/2.0-self.teamranks)*self.reward_scales['teamrank'] * (torch.remainder(self.episode_length_buf, self.race_lead_reward_interval)==0) #* ((torch.max(self.lap_counter, dim = 1)[0] == self.race_length_laps).view(-1,1))
+        self.rew_endrace = 1.0/self.num_agents*(num_active_agents.view(-1,1)/2.0-self.ranks)*self.reward_scales['teamrank'] * (torch.remainder(self.episode_length_buf, self.race_lead_reward_interval)==0) #* ((torch.max(self.lap_counter, dim = 1)[0] == self.race_length_laps).view(-1,1))
         # self.rew_endrace = self.reward_scales['teamrank'] * (-1)**((self.teamranks==0)+1)
         # NOTE: leading team gets bonus for finishing (no penalty for others)
-        self.rew_endrace = 0*self.ranks #self.reward_scales['teamrank'] * 0.5 * (1.0 + (-1)**((self.teamranks==0)+1)) * ((torch.max(self.lap_counter, dim = 1)[0] == self.race_length_laps).view(-1,1))
+        #self.rew_endrace = self.reward_scales['teamrank'] * 0.5 * (1.0 + (-1)**((self.teamranks==0)+1)) * ((torch.max(self.lap_counter, dim = 1)[0] == self.race_length_laps).view(-1,1))
         
         #self.reward_terms['teamrank'] += self.rew_endrace
         
@@ -807,7 +807,6 @@ def compute_rewards_jit(track_progress : torch.Tensor,
             
             rew_collision = is_collision*reward_scales['collision']
             rew_buf[:,:, 0] = torch.clip(rew_progress + rew_collision + rew_on_track + rew_actions + rew_actionrate + rew_energy + rew_leader, min=0, max=None)
-            # rew_buf[:,:, 0] = rew_progress + rew_collision + rew_on_track + rew_actions + rew_actionrate + rew_energy
             rew_buf[:,:, 1] = torch.clip(rew_racend, min = 0, max= None)  # rew_racend  # torch.clip(rew_racend, min = 0, max= None) 
 
             reward_terms['progress'] += rew_progress
@@ -817,6 +816,6 @@ def compute_rewards_jit(track_progress : torch.Tensor,
             reward_terms['actions'] += rew_actions
 
             reward_terms['leader'] += rew_leader
-            
+            reward_terms['teamrank'] += rew_racend
             reward_terms['collision'] += rew_collision
             return rew_buf, reward_terms

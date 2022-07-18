@@ -10,7 +10,7 @@ sim:
   #dependent on the lookaheadhorizon length and number of ado cars in an env
   #this is done in get_cfg directly
   numObservations: -1 
-  numConstantObservations: 7 #vels, steer, gas, last actions, rank, ## disabled team_rank, distance to go 
+  numConstantObservations: 8 #vels, steer, gas, last actions, rank, ## disabled team_rank, distance to go 
   numActions: 3
   collide: 1
   decimation: 4
@@ -22,7 +22,7 @@ model:
   BREAKFORCE: 100
   ENGINE_POWER_SCALE: 150000000
   WHEEL_MOMENT_OF_INERTIA_SCALE: 2000
-  FRICTION_LIMIT_SCALE: 5000000
+  FRICTION_LIMIT_SCALE: 3000000
   OFFTRACK_FRICTION_SCALE: 0.2
   WHEEL_R_SCALE: 27
   LENGTH_SCALE: 200
@@ -75,7 +75,7 @@ learn:
   actionRateRewardScale: 0.1 
   energyRewardScale: 0.00006
   actionRewardScale: 0.0001
-  rankRewardScale: 50.0
+  rankRewardScale: 500.0
   leaderRewardScale: 2.0
   collisionRewardScale: -0.0
   horizon: 8  # 15

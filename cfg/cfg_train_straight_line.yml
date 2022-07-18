@@ -43,7 +43,7 @@ policy:
   init_noise_std: 1.0
   attentive: True
   encoder_type: attention2  # attention{1, 2}
-  teamsize: 2
+  teamsize: 1
   numteams: 2
   numcritics: 1
   max_num_old_models: 40
