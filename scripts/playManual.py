@@ -120,7 +120,7 @@ if __name__ == "__main__":
     cfg["viewer"]["logEvery"] = -1
     cfg["track"]['OFFTRACK_FRICTION_SCALE'] = 1.0
     cfg["learn"]['defaultactions'] = [0.,0.,0.0]
-    cfg["learn"]['offtrack_reset'] = 5
-    cfg["learn"]['timeout'] = 20.0
+    cfg["learn"]['offtrack_reset'] = 305
+    cfg["learn"]['timeout'] = 120.0
     
     play()    

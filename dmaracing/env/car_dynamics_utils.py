@@ -34,7 +34,7 @@ def allocate_car_dynamics_tensors(task):
                                             task.modelParameters['lr'] + task.modelParameters['lf'], 
                                             task.num_envs, 
                                             task.device)
-    L = task.modelParameters['L']
+    L = 0.6*task.modelParameters['L']
     W = task.modelParameters['W']
     task.wheel_locations = torch.zeros((4,2), device = task.device, dtype=torch.float, requires_grad=False)
     task.wheel_locations[0, 0] = L/2.0 
@@ -61,7 +61,7 @@ def set_dependent_params(mod_par):
     mod_par['FRICTION_LIMIT'] = mod_par['FRICTION_LIMIT_SCALE'] * SIZE * SIZE
     mod_par['WHEEL_R'] = SIZE*mod_par['WHEEL_R_SCALE']
     L = 160.0 *SIZE
-    W = L/2
+    W = L/2.5
     M = L*W *mod_par['MASS_SCALE']
     mod_par['M'] = M
     mod_par['L'] = L

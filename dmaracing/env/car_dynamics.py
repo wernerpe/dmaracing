@@ -9,7 +9,7 @@ def step_cars(state : torch.Tensor,
               actions : torch.Tensor,
               drag_reduced : torch.Tensor,
               wheel_locations: torch.Tensor,
-              R: torch.Tensor, 
+              R : torch.Tensor, 
               contact_wrenches : torch.Tensor,
               shove : torch.Tensor,  
               mod_par : Dict[str, float],  
@@ -107,7 +107,7 @@ def step_cars(state : torch.Tensor,
     
     #black magic             
     f_force = -vf + vr 
-    p_force = -vs*10.0
+    p_force = -vs*6.0
     f_force *= 245000 *mod_par['SIZE']**2
     p_force *= 205000 *mod_par['SIZE']**2
 

@@ -22,12 +22,12 @@ model:
   BREAKFORCE: 100
   ENGINE_POWER_SCALE: 150000000
   WHEEL_MOMENT_OF_INERTIA_SCALE: 2000
-  FRICTION_LIMIT_SCALE: 3000000
+  FRICTION_LIMIT_SCALE: 10000000
   OFFTRACK_FRICTION_SCALE: 0.2
   WHEEL_R_SCALE: 27
   LENGTH_SCALE: 200
   MASS_SCALE: 160
-  MOMENT_OF_INERTIA_SCALE: 7.0
+  MOMENT_OF_INERTIA_SCALE: 5.0
   drag_reduction: 1.8
 
 viewer:
@@ -61,8 +61,8 @@ track:
 learn:
   use_timeouts: True
   #[posx, posy, theta, vellong, vellat, dtheta, steer]
-  resetrand: [5.5, 0.5, 1.0, 5.1, 0.01,  0.0, 0.0]
-  reset_tile_rand: 20
+  resetrand: [0.0, 0.0, .0, 0., 0.00,  0.0, 0.0] #[5.5, 0.5, 1.0, 5.1, 0.01,  0.0, 0.0]
+  reset_tile_rand: 5 # 20
   resetgrid: True
   defaultactions: [0., 0.2, 0.0]
   actionscale: [0.2, 0.4, 0.2]
@@ -82,7 +82,7 @@ learn:
   
   race_lead_reward_interval: 1 #s
 
-  timeout: 20.0 #[s]
+  timeout: 120.0 #[s]
   offtrack_reset: 0.5 #[s]
   IS_active: False
   IS_storage_size: 100

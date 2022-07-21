@@ -174,7 +174,7 @@ if __name__ == "__main__":
     args.device = 'cuda:0'
     args.headless = False 
     path_cfg = os.getcwd() + '/cfg'
-    cfg, cfg_train, logdir_root = getcfg(path_cfg, postfix= '_straight_line')
+    cfg, cfg_train, logdir_root = getcfg(path_cfg, postfix= '_1v1_tuning')
     SOUND = False
 
     chkpts = [-1, -1]
@@ -196,9 +196,9 @@ if __name__ == "__main__":
     #cfg['sim']['test_mode'] = True
     #cfg['learn']['resetgrid'] = True
     #cfg['learn']['reset_tile_rand'] = 40
-    #cfg['viewer']['logEvery'] = -1
+    cfg['viewer']['logEvery'] = -1
     #cfg['track']['seed'] = 5
-    #cfg['track']['num_tracks'] = 30
+    cfg['track']['num_tracks'] = 30
     #cfg_train['policy']['teamsize'] = 2
     #cfg_train['policy']['numteams'] = 2
     #cfg['viewer']['multiagent'] = True
