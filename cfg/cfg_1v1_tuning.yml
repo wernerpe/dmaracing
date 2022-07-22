@@ -1,7 +1,7 @@
 logdir: ''
 
 sim:
-  numEnv: 16 #2048
+  numEnv: 2048
   #number of racing agents per env
   numAgents: 2  # 4
   dt: 0.01 #[s]
@@ -20,9 +20,9 @@ sim:
 model:
   SIZE: 0.02 #[px/m]
   BREAKFORCE: 100
-  ENGINE_POWER_SCALE: 150000000
+  ENGINE_POWER_SCALE: 90000000
   WHEEL_MOMENT_OF_INERTIA_SCALE: 2000
-  FRICTION_LIMIT_SCALE: 3000000
+  FRICTION_LIMIT_SCALE: 5000000
   OFFTRACK_FRICTION_SCALE: 0.2
   WHEEL_R_SCALE: 27
   LENGTH_SCALE: 200
