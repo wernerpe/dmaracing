@@ -36,15 +36,17 @@ def play():
         obs, _, rew, dones, info = env.step(actions)
         if env.num_agents>1:
             act = actions[env.viewer.env_idx_render, ag]
+            obsnp = obs.cpu().numpy()
         else:
             act = actions[env.viewer.env_idx_render]
+            obsnp = obs.cpu().numpy()
         #print(env.is_on_track[0,0])
         #print(states[env.viewer.env_idx_render,0, env.vn['S_W0']:env.vn['S_W3'] +1 ])
 
         #print(env.active_agents[env.viewer.env_idx_render])
         viewermsg = [
                      #(f"""{'rewards:':>{10}}{' '}{100*rewnp[env.viewer.env_idx_render]:.2f}"""   ),
-                     #(f"""{'velocity x:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 0]:.2f}"""),
+                     (f"""{'velocity x:':>{10}}{' '}{env.states[0, 0, 3].item():.2f}"""),
                      #(f"""{'velocity y:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 1]:.2f}"""),
                      #(f"""{'ang vel:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 2]:.2f}"""),
                      #(f"""{'steer:':>{10}}{' '}{states[env.viewer.env_idx_render, 0, env.vn['S_STEER']]:.2f}"""),
