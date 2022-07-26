@@ -17,7 +17,8 @@ sim:
   collisionstiffness: 280000.0
   
 model:
-  dynamics_model_name: higher_roll_loss.ckpt #plastic_wheels.ckpt #
+  dynamics_model_name: kinematic/checkpoints/kinematic.ckpt #higher_roll_loss.ckpt #plastic_wheels.ckpt #
+  hparams_path: kinematic/hparams.yaml
   SIZE: 0.02 #[px/m]
   BREAKFORCE: 100
   ENGINE_POWER_SCALE: 150000000

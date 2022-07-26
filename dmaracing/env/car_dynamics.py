@@ -7,7 +7,7 @@ from dmaracing.env.car_dynamics_utils import resolve_collsions
 import sys
 sys.path.insert(1, '/home/peter/git/dynamics_model_learning/scripts')
 # Import Dynamics encoder from TRI dynamics library.
-from learn_dynamics import DynamicsEncoder
+from dynamics_lib import DynamicsEncoder
 
 #@torch.jit.script
 def step_cars(

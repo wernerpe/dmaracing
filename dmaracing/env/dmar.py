@@ -1,9 +1,6 @@
-from unicodedata import decimal
 import torch
 from torch._C import device, dtype
-from gym import spaces
-from dmaracing.env.car_dynamics import step_cars
-from dmaracing.env.car_dynamics_utils import get_varnames, set_dependent_params, allocate_car_dynamics_tensors
+#from gym import spaces
 from dmaracing.env.viewer import Viewer
 from dmaracing.utils.helpers import rand
 from typing import Tuple, Dict, Union
@@ -15,10 +12,12 @@ import random
 
 # Add Dynamics directory to python path. Change this path to match that of your local system!
 import sys
-
+from gym import spaces
 #sys.path.insert(1, "/home/thomasbalch/tri_workspace/dynamics_model_learning/scripts")
 # Import Dynamics encoder from TRI dynamics library.
-from learn_dynamics import DynamicsEncoder
+from dmaracing.env.car_dynamics_utils import get_varnames, set_dependent_params, allocate_car_dynamics_tensors
+from dynamics_lib import DynamicsEncoder
+from dmaracing.env.car_dynamics import step_cars
 
 
 class DmarEnv:
@@ -39,7 +38,8 @@ class DmarEnv:
         # Import TRI dynamics model and weights
         self.dyn_model = DynamicsEncoder.load_from_checkpoint(
             #"/home/peter/git/dynamics_model_learning/sample_models/fixed_integration_current_v25.ckpt").to(self.device)
-            "dynamics_models/"+cfg['model']['dynamics_model_name']).to(self.device)
+            "dynamics_models/"+cfg['model']['dynamics_model_name'],
+             hparams_file="dynamics_models/"+cfg['model']['hparams_path']).to(self.device)
 
         # use bootstrapping on vf
         self.use_timeouts = cfg["learn"]["use_timeouts"]
