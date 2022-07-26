@@ -6,9 +6,9 @@ import numpy as np
 import time
 
 def play():
-    
-    
-    
+
+
+
     env = DmarEnv(cfg, args)
     obs = env.obs_buf
 
@@ -19,28 +19,28 @@ def play():
     brk_cmd = 0.0
     lastvel = 0
     ag = 0
-  
-        
+
+
     print('###########################')
     while True:
         t1 = time.time()
-        actions[0 , ag, 0] = 0#steer_cmd 
-        actions[0 , ag, 1] = 0#vel_cmd
-        env.states[0,0,0:3] = 0
-        env.states[0,0,0] = 2
-        env.states[0,0,0] = -0.05
-        env.states[0,0,2] = np.pi/2
-        
+        actions[0 , ag, 0] = steer_cmd
+        actions[0 , ag, 1] = vel_cmd
+        #env.states[0,0,0:3] = 0
+        #env.states[0,0,0] = 2
+        #env.states[0,0,0] = -0.05
+        #env.states[0,0,2] = np.pi/2
+
         #actions[0 , ag, 2] = 0
-        
+
         obs, _, rew, dones, info = env.step(actions)
         if env.num_agents>1:
             act = actions[env.viewer.env_idx_render, ag]
         else:
             act = actions[env.viewer.env_idx_render]
-        print(env.is_on_track[0,0])
+        #print(env.is_on_track[0,0])
         #print(states[env.viewer.env_idx_render,0, env.vn['S_W0']:env.vn['S_W3'] +1 ])
-       
+
         #print(env.active_agents[env.viewer.env_idx_render])
         viewermsg = [
                      #(f"""{'rewards:':>{10}}{' '}{100*rewnp[env.viewer.env_idx_render]:.2f}"""   ),
@@ -57,7 +57,7 @@ def play():
                      #(f"""{'omega mean:':>{10}}{' '}{om_mean:.2f}"""),
                      #(f"""{'omega mean:':>{10}}{' '}{om_mean:.2f}"""),
                      #(f"""{'velother x:':>{10}}{' '}{vel_other[0]:.2f}"""),
-                     #(f"""{'velother y:':>{10}}{' '}{vel_other[1]:.2f}"""),                     
+                     #(f"""{'velother y:':>{10}}{' '}{vel_other[1]:.2f}"""),
                      #(f"""{'lap:':>{10}}{' '}{env.lap_counter[0, ag]:.2f}"""),
                      #(f"""{'rank ag 0 :':>{10}}{' '}{1+env.ranks[env.viewer.env_idx_render, ag].item():.2f}"""),
                      ]
@@ -65,7 +65,7 @@ def play():
         env.viewer.x_offset = int(-env.viewer.width/env.viewer.scale_x*env.states[env.viewer.env_idx_render, ag, 0])
         env.viewer.y_offset = int(env.viewer.height/env.viewer.scale_y*env.states[env.viewer.env_idx_render, ag, 1])
         env.viewer.draw_track()
-        
+
         env.viewer.clear_markers()
         wheelloc = (env.wheel_locations_world[env.viewer.env_idx_render, 0, 1, :].view(1,2)).cpu().numpy()
         env.viewer.add_point(wheelloc, 2,(222,10,0), 2)
@@ -101,8 +101,8 @@ def play():
 if __name__ == "__main__":
     args = CmdLineArguments()
     args.device = 'cuda:0'
-    args.headless = False 
-    
+    args.headless = False
+
     path_cfg = os.getcwd() + '/cfg'
     cfg, cfg_train, logdir = getcfg(path_cfg)
     cfg["viewer"]["logEvery"] = -1
@@ -116,11 +116,11 @@ if __name__ == "__main__":
     cfg['learn']['actionscale'] = [1,1,1]
     cfg['learn']['resetrand'] = [0.0]*7
     cfg['learn']['reset_tile_rand'] = 200
-    
+
     cfg['learn']['offtrack_reset'] = 10
     cfg['learn']['timeout'] = 100
     cfg['model']['OFFTRACK_FRICTION_SCALE'] = 1
     cfg['model']['drag_reduction'] = 1.0
-    
+
     set_dependent_cfg_entries(cfg)
-    play()    
+    play()

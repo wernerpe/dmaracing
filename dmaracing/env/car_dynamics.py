@@ -4,8 +4,8 @@ import numpy as np
 
 from dmaracing.env.car_dynamics_utils import resolve_collsions
 # Add Dynamics directory to python path. Change this path to match that of your local system!
-import sys
-sys.path.insert(1, '/home/peter/git/dynamics_model_learning/scripts')
+# import sys
+# sys.path.insert(1, '/home/peter/git/dynamics_model_learning/scripts')
 # Import Dynamics encoder from TRI dynamics library.
 from dynamics_lib import DynamicsEncoder
 
@@ -59,10 +59,14 @@ def step_cars(
     #print('input to dynmod')
     #print(dyn_state[0,0,:])
     dyn_state[..., 3] = 0.0
-    new_state = dyn_model.dynamics_integrator.predict_and_integrate(
-        dyn_state.to(dyn_model.device), dyn_control.to(dyn_model.device)
+    dyn_state_shape = dyn_state.shape
+    input_state_shape = [dyn_state_shape[0] * dyn_state_shape[1], dyn_state_shape[2]]
+    dyn_control_shape = dyn_control.shape
+    input_control_shape = [dyn_control_shape[0] * dyn_control_shape[1], dyn_control_shape[2]]
+    new_state = dyn_model.dynamics_integrator.step_state(
+        dyn_state.reshape(input_state_shape).to(dyn_model.device), dyn_control.reshape(input_control_shape).to(dyn_model.device)
     )
-    #print('roll', dyn_state[0,0,3])
+    new_state = new_state.reshape(dyn_state_shape)
 
     new_state = torch.cat([new_state, torch.zeros(num_envs, state.shape[1], 5, device=new_state.device)], dim=2)
 

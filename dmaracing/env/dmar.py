@@ -56,6 +56,12 @@ class DmarEnv:
         self.collide = self.simParameters["collide"]
         self.decimation = self.simParameters["decimation"]
 
+        # Import TRI dynamics model and weights
+        self.dyn_model = DynamicsEncoder.load_from_checkpoint(
+            #"/home/peter/git/dynamics_model_learning/sample_models/fixed_integration_current_v25.ckpt").to(self.device)
+            "dynamics_models/"+cfg['model']['dynamics_model_name']).to(self.device)
+        self.dyn_model.integration_function.initialize_lstm_states(torch.zeros((self.num_envs * self.num_agents, 50, 6)).to(self.device))
+        self.dyn_model.dynamics_integrator.dyn_model.num_agents = self.num_agents
         # gym stuff
         self.obs_space = spaces.Box(np.ones(self.num_obs) * -np.Inf, np.ones(self.num_obs) * np.Inf)
         self.state_space = spaces.Box(
@@ -413,6 +419,7 @@ class DmarEnv:
         self.reset_buf |= self.time_out_buf
 
     def reset(self) -> Tuple[torch.Tensor, Union[None, torch.Tensor]]:
+        print("Resetting")
         env_ids = torch.arange(self.num_envs, dtype=torch.long)
         self.reset_envs(env_ids)
         self.post_physics_step()
@@ -593,7 +600,7 @@ class DmarEnv:
         self.active_track_tile = sort[1][:, :, 0]
 
         # check if any tire is off track
-        
+
         self.is_on_track = ~torch.any(~torch.any(self.wheels_on_track_segments, dim=3), dim=2)
         self.time_off_track += 1.0 * ~self.is_on_track
 
@@ -729,6 +736,9 @@ class DmarEnv:
             self.track_S,  # how to sum
             self.dyn_model,
         )
+
+    def reset_lstm(self):
+        self.dyn_model.integration_function.initialize_lstm_states(torch.zeros((self.num_envs * self.num_agents, 50, 6)).to(self.device))
 
     def resample_track(self, env_ids) -> None:
         self.active_track_ids[env_ids] = torch.randint(
