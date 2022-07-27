@@ -35,12 +35,6 @@ class DmarEnv:
         set_dependent_params(self.modelParameters)
         self.simParameters = cfg["sim"]
 
-        # Import TRI dynamics model and weights
-        self.dyn_model = DynamicsEncoder.load_from_checkpoint(
-            #"/home/peter/git/dynamics_model_learning/sample_models/fixed_integration_current_v25.ckpt").to(self.device)
-            "dynamics_models/"+cfg['model']['dynamics_model_name'],
-             hparams_file="dynamics_models/"+cfg['model']['hparams_path']).to(self.device)
-
         # use bootstrapping on vf
         self.use_timeouts = cfg["learn"]["use_timeouts"]
 
@@ -59,9 +53,14 @@ class DmarEnv:
         # Import TRI dynamics model and weights
         self.dyn_model = DynamicsEncoder.load_from_checkpoint(
             #"/home/peter/git/dynamics_model_learning/sample_models/fixed_integration_current_v25.ckpt").to(self.device)
-            "dynamics_models/"+cfg['model']['dynamics_model_name']).to(self.device)
+            "dynamics_models/"+cfg['model']['dynamics_model_name'],
+            hparams_file="dynamics_models/"+cfg['model']['hparams_path']).to(self.device)
         self.dyn_model.integration_function.initialize_lstm_states(torch.zeros((self.num_envs * self.num_agents, 50, 6)).to(self.device))
         self.dyn_model.dynamics_integrator.dyn_model.num_agents = self.num_agents
+        self.dyn_model.dynamics_integrator.dyn_model.init_noise_vec(self.num_envs, self.device)
+
+        self.noise_level = self.cfg['model']['noise_level']
+
         # gym stuff
         self.obs_space = spaces.Box(np.ones(self.num_obs) * -np.Inf, np.ones(self.num_obs) * np.Inf)
         self.state_space = spaces.Box(
@@ -124,6 +123,9 @@ class DmarEnv:
         self.actions = torch_zeros((self.num_envs, self.num_agents, self.num_actions))
         self.actions_means = torch_zeros((self.num_envs, self.num_agents, self.num_actions))
         self.last_actions = torch_zeros((self.num_envs, self.num_agents, self.num_actions))
+        self.last_steer = torch_zeros((self.num_envs, self.num_agents, 1))
+        self.last_last_steer = torch_zeros((self.num_envs, self.num_agents, 1))
+        
         self.obs_buf = torch_zeros((self.num_envs, self.num_agents, self.num_obs))
         self.rew_buf = torch_zeros(
             (
@@ -542,13 +544,17 @@ class DmarEnv:
         #        self.info['ranking'] = self.ranks[env_ids]
         #        self.info['percentage_max_episode_length'] = 1.0*self.episode_length_buf[env_ids]/(self.max_episode_length)
 
+        #dynamics randomization
+        self.dyn_model.dynamics_integrator.dyn_model.update_noise_vec(env_ids, self.noise_level) 
+
         self.lap_counter[env_ids, :] = 0
         self.episode_length_buf[env_ids] = 0.0
         self.old_track_progress[env_ids] = 0.0
         self.track_progress[env_ids] = 0.0
         self.time_off_track[env_ids, :] = 0.0
         self.last_actions[env_ids, :, :] = 0.0
-
+        self.last_steer[env_ids, :, :] = 0.0
+        self.last_last_steer[env_ids, :, :] = 0.0
         self.agent_left_track[env_ids, :] = False
 
         if 0 in env_ids and self.log_video_freq >= 0:
@@ -683,6 +689,8 @@ class DmarEnv:
         self.old_active_track_tile = self.active_track_tile
         self.old_track_progress = self.track_progress
         self.last_actions = self.actions.clone()
+        self.last_steer[:,:,0] = self.actions[..., self.vn['A_STEER']]
+        self.last_last_steer[:] = self.last_steer[:]
 
     def render(
         self,
@@ -701,6 +709,9 @@ class DmarEnv:
 
     def simulate(self) -> None:
         # run physics update
+        act = self.last_actions.clone()
+        act[..., self.vn['A_STEER']] = self.last_last_steer[..., 0]
+
         (
             self.states,
             self.contact_wrenches,
@@ -710,7 +721,7 @@ class DmarEnv:
             self.wheel_locations_world,
         ) = step_cars(
             self.states,
-            self.actions,
+            act,
             self.drag_reduced,
             self.wheel_locations,
             self.R,

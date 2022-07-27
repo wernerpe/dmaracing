@@ -41,7 +41,7 @@ def decimate_points(pts, pt_separation):
     pt0 = np.array(last_pt)
     pt1 = np.array(pts[0])
     dir_vec = pt1 - pt0
-    alpha = math.atan2(dir_vec[1], dir_vec[0])
+    alpha = math.atan2(dir_vec[1], dir_vec[0]) - np.pi/2
     alphas.append(alpha)
     perpendicular_unit_vec = np.dot(dir_vec, rot) / np.linalg.norm(dir_vec)
     normal_vecs.append(perpendicular_unit_vec)
@@ -150,7 +150,7 @@ def get_single_track(device):
     track_path = track_paths[np.random.randint(0, len(track_paths))]
     #track_path = track_paths[3]
     ccw = np.random.rand()<0.5
-    TRACK_POLYGON_SPACING = 0.5
+    TRACK_POLYGON_SPACING = 0.25
     TRACK_HALF_WIDTH = 0.35
     path = []
     with open(track_path) as csv_file:

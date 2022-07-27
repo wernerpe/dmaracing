@@ -24,11 +24,11 @@ def play():
     policy = runner.get_inference_policy(device=env.device)
     policy(obs)
     policy_jit = torch.jit.script(runner.alg.actor_critic.actor.to('cpu'))
-    policy_jit.save("logs/saved_models/kinematic.pt")
+    policy_jit.save("logs/saved_models/kinematic_adr_delays_3.pt")
     print("Done saving")
     time_per_step = cfg['sim']['dt']*cfg['sim']['decimation']
-
-    while True:
+    steer_commands = []
+    for idx in range(1000):
         t1 = time.time()
         actions = policy(obs)
         #actions[:,1:,1] *=0.0
@@ -37,6 +37,7 @@ def play():
         rewnp = rew.cpu().numpy()
         #cont = env.contuoring_err.cpu().numpy()
         act = env.actions.cpu().detach().numpy()
+        steer_commands.append(act[0,0,0])
         states = env.states.cpu().numpy()
         om_mean = np.mean(states[env.viewer.env_idx_render,0, env.vn['S_W0']:env.vn['S_W3'] +1 ])
 
@@ -45,6 +46,7 @@ def play():
                      (f"""{'velocity x:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 0]:.2f}"""),
                      (f"""{'velocity y:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 1]:.2f}"""),
                      (f"""{'ang vel:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 2]:.2f}"""),
+                     #(f"""{'steer:':>{10}}{' '}{act[env.viewer.env_idx_render, 0, env.vn['A_STEER']]:.2f}"""),                     
                      (f"""{'steer:':>{10}}{' '}{states[env.viewer.env_idx_render, 0, env.vn['S_STEER']]:.2f}"""),
                      (f"""{'gas:':>{10}}{' '}{states[env.viewer.env_idx_render, 0, env.vn['S_GAS']]:.2f}"""),
                     # (f"""{'brake:':>{10}}{' '}{act[env.viewer.env_idx_render, 0, env.vn['A_BRAKE']]:.2f}"""),
@@ -64,6 +66,11 @@ def play():
         if realtime < 0:
              time.sleep(-realtime)
 
+    steer = np.array(steer_commands)
+    import matplotlib.pyplot as plt
+    plt.figure()
+    plt.plot(steer)
+
 if __name__ == "__main__":
     args = CmdLineArguments()
     args.device = 'cuda:0'
@@ -78,6 +85,8 @@ if __name__ == "__main__":
     cfg['sim']['collide'] = 0
     cfg['sim']['numEnv'] = 3
     cfg['sim']['numAgents'] = 1
+    cfg['sim']['decimation'] = 4
+    
     cfg['track']['num_tracks'] = 10
     cfg['learn']['offtrack_reset'] = 10
     cfg['learn']['timeout'] = 100

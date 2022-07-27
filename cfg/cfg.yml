@@ -12,7 +12,7 @@ sim:
   numConstantObservations: 5 #vels, steer, gas, last actions, rank
   numActions: 2
   collide: 1
-  decimation: 2
+  decimation: 4
   test_mode: False
   collisionstiffness: 280000.0
 
@@ -30,6 +30,7 @@ model:
   MASS_SCALE: 40
   MOMENT_OF_INERTIA_SCALE: 7.0
   drag_reduction: 1.3
+  noise_level: 1.0
 
 viewer:
   width: 1200  # 1200
@@ -62,7 +63,7 @@ track:
 learn:
   use_timeouts: True
   #[posx, posy, theta, vellong, vellat, dtheta, steer]
-  resetrand: [0.05, 0.05, 0.1, 0.1, 0.01,  0.1, 0.0]
+  resetrand: [0.05, 0.05, 0.5, 0.2, 0.01,  0.1, 0.0]
   reset_tile_rand: 40
   resetgrid: False
   defaultactions: [0., 0.1, 0.0]
@@ -79,4 +80,4 @@ learn:
   horizon: 15
 
   timeout: 25.0 #[s]
-  offtrack_reset: 1.3 #[s]
+  offtrack_reset: 0.3 #[s]
