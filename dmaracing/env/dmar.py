@@ -51,16 +51,21 @@ class DmarEnv:
         self.decimation = self.simParameters["decimation"]
 
         # Import TRI dynamics model and weights
+        # self.dyn_model = DynamicsEncoder.load_from_checkpoint(
+        #     #"/home/peter/git/dynamics_model_learning/sample_models/fixed_integration_current_v25.ckpt").to(self.device)
+        #     "dynamics_models/"+cfg['model']['dynamics_model_name'],
+        #     hparams_file="dynamics_models/"+cfg['model']['hparams_path']).to(self.device)
         self.dyn_model = DynamicsEncoder.load_from_checkpoint(
-            #"/home/peter/git/dynamics_model_learning/sample_models/fixed_integration_current_v25.ckpt").to(self.device)
-            "dynamics_models/"+cfg['model']['dynamics_model_name'],
-            hparams_file="dynamics_models/"+cfg['model']['hparams_path']).to(self.device)
+            "dynamics_models/"+cfg['model']['dynamics_model_name']).to(self.device)
         self.dyn_model.integration_function.initialize_lstm_states(torch.zeros((self.num_envs * self.num_agents, 50, 6)).to(self.device))
         self.dyn_model.dynamics_integrator.dyn_model.num_agents = self.num_agents
         self.dyn_model.dynamics_integrator.dyn_model.init_noise_vec(self.num_envs, self.device)
 
-        self.noise_level = self.cfg['model']['noise_level']
+        # self.noise_level = self.cfg['model']['noise_level']
 
+        #     "dynamics_models/"+cfg['model']['dynamics_model_name']).to(self.device)
+        # self.dyn_model.integration_function.initialize_lstm_states(torch.zeros((self.num_envs * self.num_agents, 50, 6)).to(self.device))
+        # self.dyn_model.dynamics_integrator.dyn_model.num_agents = self.num_agents
         # gym stuff
         self.obs_space = spaces.Box(np.ones(self.num_obs) * -np.Inf, np.ones(self.num_obs) * np.Inf)
         self.state_space = spaces.Box(
@@ -504,7 +509,7 @@ class DmarEnv:
                 -self.reset_randomization[6], self.reset_randomization[6], (len(env_ids),), device=self.device
             )
             self.states[env_ids, agent, self.vn["S_W0"] : self.vn["S_W3"] + 1] = (
-                vels_long / self.modelParameters["WHEEL_R"]
+                vels_long * 0
             ).unsqueeze(1)
 
         idx_inactive, idx2_inactive = torch.where(~self.active_agents[env_ids, :].view(len(env_ids), self.num_agents))
@@ -748,8 +753,8 @@ class DmarEnv:
             self.dyn_model,
         )
 
-    def reset_lstm(self):
-        self.dyn_model.integration_function.initialize_lstm_states(torch.zeros((self.num_envs * self.num_agents, 50, 6)).to(self.device))
+    # def reset_lstm(self):
+    #     self.dyn_model.integration_function.initialize_lstm_states(torch.zeros((self.num_envs * self.num_agents, 50, 6)).to(self.device))
 
     def resample_track(self, env_ids) -> None:
         self.active_track_ids[env_ids] = torch.randint(
@@ -819,7 +824,7 @@ def compute_rewards_jit(
     act_diff = torch.square(actions - last_actions)
     act_diff[...,1] *= 20.0
     rew_actionrate = -torch.sum(act_diff, dim=2) * reward_scales["actionrate"]
-    rew_energy = -torch.sum(torch.square(states[:, :, vn["S_W0"] : vn["S_W3"] + 1]), dim=2) * reward_scales["energy"]
+    # rew_energy = -torch.sum(torch.square(states[:, :, vn["S_W0"] : vn["S_W3"] + 1]), dim=2) * reward_scales["energy"]
     num_active_agents = torch.sum(1.0 * active_agents, dim=1)
     if ranks is not None:
         rew_rank = 1.0 / num_agents * (num_active_agents.view(-1, 1) / 2.0 - ranks) * reward_scales["rank"]
@@ -827,20 +832,20 @@ def compute_rewards_jit(
         rew_collision = is_collision * reward_scales["collision"]
 
         rew_buf = torch.clip(
-            rew_progress + rew_on_track + rew_actionrate + rew_energy + rew_rank + rew_collision, min=0, max=None
+            rew_progress + rew_on_track + rew_actionrate + rew_rank + rew_collision, min=0, max=None
         )
     else:
         #needs to be a tensor
         rew_rank = 0*rew_on_track
         rew_collision = 0*rew_on_track
         rew_buf = torch.clip(
-            rew_progress + rew_on_track + rew_actionrate + rew_energy + 0.1*dt , min=0, max=None
+            rew_progress + rew_on_track + rew_actionrate + 0.1*dt , min=0, max=None
         )
 
     reward_terms["progress"] += rew_progress
     reward_terms["offtrack"] += rew_on_track
     reward_terms["actionrate"] += rew_actionrate
-    reward_terms["energy"] += rew_energy
+    # reward_terms["energy"] += rew_energy
     if ranks is not None:
         reward_terms["rank"] += rew_rank
         reward_terms["collision"] += rew_collision
