@@ -24,7 +24,7 @@ def play():
     policy = runner.get_inference_policy(device=env.device)
     policy(obs)
     policy_jit = torch.jit.script(runner.alg.actor_critic.actor.to('cpu'))
-    policy_jit.save("logs/saved_models/learned_car3.pt")
+    policy_jit.save("logs/saved_models/learned_variational.pt")
     print("Done saving")
     time_per_step = cfg['sim']['dt']*cfg['sim']['decimation']
     steer_commands = []

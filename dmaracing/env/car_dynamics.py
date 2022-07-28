@@ -7,7 +7,7 @@ from dmaracing.env.car_dynamics_utils import resolve_collsions
 # import sys
 # sys.path.insert(1, '/home/peter/git/dynamics_model_learning/scripts')
 # Import Dynamics encoder from TRI dynamics library.
-from dynamics_lib.dynamics_encoder import DynamicsEncoder
+from dynamics_lib.dynamics_encoder import DynamicsEncoder, DynamicsEncoderVariational
 
 #@torch.jit.script
 def step_cars(
@@ -36,7 +36,7 @@ def step_cars(
     A_track: torch.Tensor,
     b_track: torch.Tensor,
     S_track: torch.Tensor,
-    dyn_model: DynamicsEncoder,
+    dyn_model: DynamicsEncoderVariational,
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
 
     dyn_state, dyn_control, slip, wheel_locations_world = get_state_control_tensors(
@@ -65,7 +65,7 @@ def step_cars(
     input_control_shape = [dyn_control_shape[0] * dyn_control_shape[1], dyn_control_shape[2]]
     # Limit the gas above a fixed threshold
 
-    stepped_state = dyn_model.dynamics_integrator.step_state(
+    stepped_state, _ = dyn_model.dynamics_integrator.step_state(
         dyn_state.reshape(input_state_shape).to(dyn_model.device), dyn_control.reshape(input_control_shape).to(dyn_model.device)
     )
     stepped_state = stepped_state.reshape(dyn_state_shape)

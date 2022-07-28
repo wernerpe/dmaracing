@@ -146,7 +146,7 @@ def construct_poly_track_eqns(track_poly_verts, device):
 
 def get_single_track(device):
     # Load a centerline track, generate polygons and matricies
-    track_paths = ["maps/large_oval.csv", "maps/large_square_track.csv", "maps/sharp_turns_track.csv","maps/sharp_turns_track.csv", "maps/sharp_turns_track.csv", "maps/sharp_turns_track.csv", "maps/sharp_turns_track.csv"] #"maps/figure_8_track_top.csv","maps/large_oval.csv", "maps/large_square_track.csv", 
+    track_paths = ["maps/large_oval.csv", "maps/large_square_track.csv", "maps/sharp_turns_track.csv","maps/sharp_turns_track.csv", "maps/sharp_turns_track.csv", "maps/sharp_turns_track.csv", "maps/sharp_turns_track.csv"] #"maps/figure_8_track_top.csv","maps/large_oval.csv", "maps/large_square_track.csv",
     track_path = track_paths[np.random.randint(0, len(track_paths))]
     #track_path = track_paths[3]
     ccw = np.random.rand()<0.5
@@ -162,14 +162,14 @@ def get_single_track(device):
     As, b, S_mat = construct_poly_track_eqns(polygons, device)
     track_poly_verts = polygons
     track_tile_counts = len(polygons)
-    
+
     print(ccw)
-    if ccw:    
+    if ccw:
         track_poly_verts = np.array(track_poly_verts)
         alphas = np.array(alphas)
     else:
         track_poly_verts = np.array(track_poly_verts)[::-1]
-        alphas = np.array(alphas[::-1]) + np.pi 
+        alphas = np.array(alphas[::-1]) + np.pi
         track_pts = track_pts[::-1]
 
     return [track_pts, track_poly_verts, alphas, As, b, S_mat, [], []], TRACK_POLYGON_SPACING, track_tile_counts
@@ -184,7 +184,7 @@ def get_tri_track_ensemble(Ntracks, cfg, device):
     S_mats = []
     border_poly_verts =[]
     border_poly_cols =[]
-    
+
     num_tracks = 0
     it = 0
     while num_tracks < Ntracks:
@@ -193,7 +193,7 @@ def get_tri_track_ensemble(Ntracks, cfg, device):
         # cfg['track']['seed'] += it*10
         # return_val = get_track(cfg, device, ccw)
         return_val = get_single_track(device)
-        
+
         track, tile_len, track_num_tiles = return_val
         centerlines.append(track[0])
         poly_verts_tracks.append(track[1])
@@ -206,7 +206,7 @@ def get_tri_track_ensemble(Ntracks, cfg, device):
         track_tile_counts.append(track_num_tiles)
         num_tracks +=1
         it +=1
-    
+
     #size trackmatrices according to largest track, make redundant poly infeasible by default
     max_tile_count = np.max(track_tile_counts)
 

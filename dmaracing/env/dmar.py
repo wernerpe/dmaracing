@@ -16,7 +16,7 @@ from gym import spaces
 #sys.path.insert(1, "/home/thomasbalch/tri_workspace/dynamics_model_learning/scripts")
 # Import Dynamics encoder from TRI dynamics library.
 from dmaracing.env.car_dynamics_utils import get_varnames, set_dependent_params, allocate_car_dynamics_tensors
-from dynamics_lib.dynamics_encoder import DynamicsEncoder
+from dynamics_lib.dynamics_encoder import DynamicsEncoder, DynamicsEncoderVariational
 from dmaracing.env.car_dynamics import step_cars
 
 
@@ -55,8 +55,9 @@ class DmarEnv:
         #     #"/home/peter/git/dynamics_model_learning/sample_models/fixed_integration_current_v25.ckpt").to(self.device)
         #     "dynamics_models/"+cfg['model']['dynamics_model_name'],
         #     hparams_file="dynamics_models/"+cfg['model']['hparams_path']).to(self.device)
-        self.dyn_model = DynamicsEncoder.load_from_checkpoint(
+        self.dyn_model = DynamicsEncoderVariational.load_from_checkpoint(
             "dynamics_models/"+cfg['model']['dynamics_model_name']).to(self.device)
+        self.dyn_model.dynamics_integrator.noise_scale = 0.17
         # self.dyn_model.integration_function.initialize_lstm_states(torch.zeros((self.num_envs * self.num_agents, 50, 6)).to(self.device))
         # self.dyn_model.dynamics_integrator.dyn_model.num_agents = self.num_agents
         # self.dyn_model.dynamics_integrator.dyn_model.init_noise_vec(self.num_envs, self.device)
@@ -130,7 +131,7 @@ class DmarEnv:
         self.last_actions = torch_zeros((self.num_envs, self.num_agents, self.num_actions))
         self.last_steer = torch_zeros((self.num_envs, self.num_agents, 1))
         self.last_last_steer = torch_zeros((self.num_envs, self.num_agents, 1))
-        
+
         self.obs_buf = torch_zeros((self.num_envs, self.num_agents, self.num_obs))
         self.rew_buf = torch_zeros(
             (
@@ -550,7 +551,7 @@ class DmarEnv:
         #        self.info['percentage_max_episode_length'] = 1.0*self.episode_length_buf[env_ids]/(self.max_episode_length)
 
         #dynamics randomization
-        # self.dyn_model.dynamics_integrator.dyn_model.update_noise_vec(env_ids, self.noise_level) 
+        # self.dyn_model.dynamics_integrator.dyn_model.update_noise_vec(env_ids, self.noise_level)
 
         self.lap_counter[env_ids, :] = 0
         self.episode_length_buf[env_ids] = 0.0
