@@ -58,19 +58,34 @@ def step_cars(
     
     #print('input to dynmod')
     #print(dyn_state[0,0,:])
-    dyn_state[..., 3] = 0.0
+    # dyn_state[..., 3] = 0.0
     dyn_state_shape = dyn_state.shape
     input_state_shape = [dyn_state_shape[0] * dyn_state_shape[1], dyn_state_shape[2]]
     dyn_control_shape = dyn_control.shape
     input_control_shape = [dyn_control_shape[0] * dyn_control_shape[1], dyn_control_shape[2]]
-    new_state = dyn_model.dynamics_integrator.step_state(
+    # Limit the gas above a fixed threshold
+
+    stepped_state = dyn_model.dynamics_integrator.step_state(
         dyn_state.reshape(input_state_shape).to(dyn_model.device), dyn_control.reshape(input_control_shape).to(dyn_model.device)
     )
-    new_state = new_state.reshape(dyn_state_shape)
+    stepped_state = stepped_state.reshape(dyn_state_shape)
 
-    new_state = torch.cat([new_state, torch.zeros(num_envs, state.shape[1], 5, device=new_state.device)], dim=2)
+    new_state = torch.zeros_like(state)
+    new_state[..., vn["S_X"]] = stepped_state[...,0]
+    new_state[..., vn["S_Y"]] = stepped_state[...,1]
+    new_state[..., vn["S_THETA"]] = stepped_state[...,2]
+    new_state[..., vn["S_DX"]] = stepped_state[...,4]
+    new_state[..., vn["S_DY"]] = stepped_state[...,5]
+    new_state[..., vn["S_DTHETA"]] = stepped_state[...,6]
+    new_state[..., vn["S_W0"]] = stepped_state[...,3] # Roll
+    new_state[..., vn["S_STEER"]] = state[...,vn["S_STEER"]]
+    new_state[..., vn["S_GAS"]] = state[...,vn["S_GAS"]]
 
-    new_state = add_back_quaternion(state, vn, new_state)
+    # print(new_state[0,0,vn["S_W0"]])
+
+    # new_state = torch.cat([new_state, torch.zeros(num_envs, state.shape[1], 5, device=new_state.device)], dim=2)
+
+    # new_state = add_back_quaternion(state, vn, new_state)
     # new_state[:, :, vn["S_STEER"]] = dyn_control[:, :, 0]
     # new_state[:, :, vn["S_GAS"]] = dyn_control[:, :, 1]
 
@@ -158,8 +173,14 @@ def get_state_control_tensors(
     # state[:, :, vn["S_GAS"]] += torch.clip(diff, min=-0.1, max=0.06)
     # state[:, :, vn["S_GAS"]] = torch.clamp(state[:, :, vn["S_GAS"]], 0, 1)
     #state[:, :, vn["S_GAS"]] = torch.clip(actions[:, :, vn["A_GAS"]], -1, 0.8) 
-    state[:, :, vn["S_GAS"]] = torch.clip(actions[:, :, vn["A_GAS"]], 0, 5) 
-    
+    state[:, :, vn["S_GAS"]] = torch.clip(actions[:, :, vn["A_GAS"]], -1, 1)
+
+    # Clip the gas command if we are going too fast.
+    speed = torch.sqrt(state[:, :, vn["S_DX"]] * state[:, :, vn["S_DX"]] + state[:, :, vn["S_DY"]] * state[:, :, vn["S_DY"]])
+    fast_fwd = speed > 1.0
+    fast_bwd = -state[:, :, vn['S_DX']] > 0.01
+    gas = state[:, :, vn['A_GAS']]
+    state[:, :, vn['A_GAS']] = 1.0*fast_fwd*torch.clip(gas, -1,0) + 1.0*fast_bwd*torch.clip(gas, 0,1) + ~(fast_fwd|fast_bwd) *  torch.clip(gas, -1.0, 0.3)
     # drafting disabled
     # * (
         # 1.0 * ~drag_reduced + mod_par["drag_reduction"] * drag_reduced
@@ -260,12 +281,12 @@ def get_state_control_tensors(
     # state[:, :, vn['S_X']:vn['S_Y'] + 1] += shove[:,:,:2]
     # state[:, :, vn['S_THETA']] += shove[:,:,2]
     # state[:, :, vn['S_DX']:vn['S_DTHETA'] + 1] += sim_par['dt']*acc
-    q0 = state[:, :, vn["S_W0"]]
-    q1 = state[:, :, vn["S_W1"]]
-    q2 = state[:, :, vn["S_W2"]]
-    q3 = state[:, :, vn["S_W3"]]
+    # q0 = state[:, :, vn["S_W0"]]
+    # q1 = state[:, :, vn["S_W1"]]
+    # q2 = state[:, :, vn["S_W2"]]
+    # q3 = state[:, :, vn["S_W3"]]
     yaw = state[:, :, vn["S_THETA"]]  # atan2(2 * q1 * q2 + 2 * q0 * q3, q1 * q1 + q0 * q0 - q3 * q3 - q2 * q2)
-    roll = torch.atan2(2 * q2 * q3 + 2 * q0 * q1, q3 * q3 - q2 * q2 - q1 * q1 + q0 * q0)
+    roll = state[:, :, vn["S_W0"]]
     yaw_rate = state[:, :, vn["S_DTHETA"]]
 
     # x and y in world frame, dx and dy need to be rotated by theta to be in body frame
@@ -315,6 +336,7 @@ def add_back_quaternion(
     # Add back in quaternion and steer/gas values
     psi = new_state[..., 2]  # yaw
     phi = new_state[..., 3]  # roll
+    print (f"Roll:{phi[0,0]}")
     theta = torch.zeros(state.size()[0], 1, device=new_state.device)  # pitch
     q0 = torch.cos(phi / 2) * torch.cos(theta / 2) * torch.cos(psi / 2) + torch.sin(phi / 2) * torch.sin(
         theta / 2
