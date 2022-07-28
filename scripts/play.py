@@ -9,7 +9,7 @@ import time
 
 def play():
     chkpt = -1
-    
+
     env = DmarEnv(cfg, args)
     #env.viewer.mark_env(0)
     obs = env.obs_buf
@@ -24,7 +24,7 @@ def play():
     policy = runner.get_inference_policy(device=env.device)
     policy(obs)
     policy_jit = torch.jit.script(runner.alg.actor_critic.actor.to('cpu'))
-    policy_jit.save("logs/saved_models/kinematic_adr_delays_3.pt")
+    policy_jit.save("logs/saved_models/learned_car3.pt")
     print("Done saving")
     time_per_step = cfg['sim']['dt']*cfg['sim']['decimation']
     steer_commands = []
@@ -46,7 +46,7 @@ def play():
                      (f"""{'velocity x:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 0]:.2f}"""),
                      (f"""{'velocity y:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 1]:.2f}"""),
                      (f"""{'ang vel:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 2]:.2f}"""),
-                     #(f"""{'steer:':>{10}}{' '}{act[env.viewer.env_idx_render, 0, env.vn['A_STEER']]:.2f}"""),                     
+                     #(f"""{'steer:':>{10}}{' '}{act[env.viewer.env_idx_render, 0, env.vn['A_STEER']]:.2f}"""),
                      (f"""{'steer:':>{10}}{' '}{states[env.viewer.env_idx_render, 0, env.vn['S_STEER']]:.2f}"""),
                      (f"""{'gas:':>{10}}{' '}{states[env.viewer.env_idx_render, 0, env.vn['S_GAS']]:.2f}"""),
                     # (f"""{'brake:':>{10}}{' '}{act[env.viewer.env_idx_render, 0, env.vn['A_BRAKE']]:.2f}"""),
@@ -62,7 +62,7 @@ def play():
             env.viewer.add_string(msg)
         t2 = time.time()
         realtime = t2-t1-time_per_step
-        
+
         if realtime < 0:
              time.sleep(-realtime)
 
@@ -86,7 +86,7 @@ if __name__ == "__main__":
     cfg['sim']['numEnv'] = 3
     cfg['sim']['numAgents'] = 1
     cfg['sim']['decimation'] = 4
-    
+
     cfg['track']['num_tracks'] = 10
     cfg['learn']['offtrack_reset'] = 10
     cfg['learn']['timeout'] = 100
@@ -95,4 +95,4 @@ if __name__ == "__main__":
     cfg["viewer"]["logEvery"] = -1
     cfg['track']['num_tracks'] = 20
     set_dependent_cfg_entries(cfg)
-    play()    
+    play()

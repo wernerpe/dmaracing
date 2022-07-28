@@ -55,7 +55,7 @@ def step_cars(
         b_track,
         S_track,
     )
-    
+
     #print('input to dynmod')
     #print(dyn_state[0,0,:])
     # dyn_state[..., 3] = 0.0
@@ -81,6 +81,10 @@ def step_cars(
     new_state[..., vn["S_STEER"]] = state[...,vn["S_STEER"]]
     new_state[..., vn["S_GAS"]] = state[...,vn["S_GAS"]]
     new_state = new_state.detach().to(new_state.device)
+    # print(f"state in:{state[0,0,:]}")
+    # print(f"dyn_state in:{dyn_state[0,0,:]}")
+    # print("******")
+    # print(f"state out:{stepped_state[0,0,:]}")
 
     # print(new_state[0,0,vn["S_W0"]])
 
@@ -173,15 +177,18 @@ def get_state_control_tensors(
     # diff = actions[:, :, vn["A_GAS"]] - state[:, :, vn["S_GAS"]]
     # state[:, :, vn["S_GAS"]] += torch.clip(diff, min=-0.1, max=0.06)
     # state[:, :, vn["S_GAS"]] = torch.clamp(state[:, :, vn["S_GAS"]], 0, 1)
-    #state[:, :, vn["S_GAS"]] = torch.clip(actions[:, :, vn["A_GAS"]], -1, 0.8) 
-    state[:, :, vn["S_GAS"]] = torch.clip(actions[:, :, vn["A_GAS"]], -1, 1)
+    #state[:, :, vn["S_GAS"]] = torch.clip(actions[:, :, vn["A_GAS"]], -1, 0.8)
 
-    # Clip the gas command if we are going too fast.
+    # Clip the gas command. Only allow throttle below a max speed, and only allow brake if we are moving forward.
     speed = torch.sqrt(state[:, :, vn["S_DX"]] * state[:, :, vn["S_DX"]] + state[:, :, vn["S_DY"]] * state[:, :, vn["S_DY"]])
-    fast_fwd = speed > 1.0
-    fast_bwd = -state[:, :, vn['S_DX']] > 0.01
-    gas = state[:, :, vn['A_GAS']]
-    state[:, :, vn['A_GAS']] = 1.0*fast_fwd*torch.clip(gas, -1,0) + 1.0*fast_bwd*torch.clip(gas, 0,1) + ~(fast_fwd|fast_bwd) *  torch.clip(gas, -1.0, 0.3)
+    clipped_max = (state[:, :, vn["S_DX"]] < 1.5) * 1.0
+    clipped_min = (state[:, :, vn["S_DX"]] > 0.0) * -1.0
+    state[:, :, vn["S_GAS"]] = torch.clip(actions[:, :, vn["A_GAS"]], clipped_min, clipped_max)
+
+    # fast_fwd = speed > 1.0
+    # fast_bwd = -state[:, :, vn['S_DX']] > 0.01
+    # gas = state[:, :, vn['A_GAS']]
+    # state[:, :, vn['A_GAS']] = 1.0*fast_fwd*torch.clip(gas, -1,0) + 1.0*fast_bwd*torch.clip(gas, 0,1) + ~(fast_fwd|fast_bwd) *  torch.clip(gas, -1.0, 0.3)
     # drafting disabled
     # * (
         # 1.0 * ~drag_reduced + mod_par["drag_reduction"] * drag_reduced
@@ -337,7 +344,7 @@ def add_back_quaternion(
     # Add back in quaternion and steer/gas values
     psi = new_state[..., 2]  # yaw
     phi = new_state[..., 3]  # roll
-    print (f"Roll:{phi[0,0]}")
+    # print (f"Roll:{phi[0,0]}")
     theta = torch.zeros(state.size()[0], 1, device=new_state.device)  # pitch
     q0 = torch.cos(phi / 2) * torch.cos(theta / 2) * torch.cos(psi / 2) + torch.sin(phi / 2) * torch.sin(
         theta / 2

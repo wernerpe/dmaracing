@@ -12,7 +12,7 @@ def train():
 if __name__ == "__main__":
     args = CmdLineArguments()
     args.device = 'cuda:0'
-    args.headless = True 
+    args.headless = False
     path_cfg = os.getcwd() + '/cfg'
     cfg, cfg_train, logdir = getcfg(path_cfg)
     cfg['sim']['numAgents'] = 1
@@ -24,7 +24,7 @@ if __name__ == "__main__":
     timestamp = now.strftime("%y_%m_%d_%H_%M_%S")
     logdir = logdir+'/'+timestamp
     cfg["logdir"] = logdir
-    cfg["viewer"]["logEvery"] = -1
+    # cfg["viewer"]["logEvery"] = -1
     print("logevery")
     print(cfg["viewer"]["logEvery"])
     cfg['learn']['offtrack_reset'] = 0.3

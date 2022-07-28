@@ -17,7 +17,7 @@ sim:
   collisionstiffness: 280000.0
 
 model:
-  dynamics_model_name: ff_rotated_v108.ckpt #higher_roll_loss.ckpt #plastic_wheels.ckpt #
+  dynamics_model_name: ff_car3_v109.ckpt
   hparams_path: kinematic/hparams.yaml
   SIZE: 0.02 #[px/m]
   BREAKFORCE: 100
