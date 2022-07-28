@@ -16,7 +16,7 @@ from gym import spaces
 #sys.path.insert(1, "/home/thomasbalch/tri_workspace/dynamics_model_learning/scripts")
 # Import Dynamics encoder from TRI dynamics library.
 from dmaracing.env.car_dynamics_utils import get_varnames, set_dependent_params, allocate_car_dynamics_tensors
-from dynamics_lib import DynamicsEncoder
+from dynamics_lib.dynamics_encoder import DynamicsEncoder
 from dmaracing.env.car_dynamics import step_cars
 
 
@@ -57,9 +57,9 @@ class DmarEnv:
         #     hparams_file="dynamics_models/"+cfg['model']['hparams_path']).to(self.device)
         self.dyn_model = DynamicsEncoder.load_from_checkpoint(
             "dynamics_models/"+cfg['model']['dynamics_model_name']).to(self.device)
-        self.dyn_model.integration_function.initialize_lstm_states(torch.zeros((self.num_envs * self.num_agents, 50, 6)).to(self.device))
-        self.dyn_model.dynamics_integrator.dyn_model.num_agents = self.num_agents
-        self.dyn_model.dynamics_integrator.dyn_model.init_noise_vec(self.num_envs, self.device)
+        # self.dyn_model.integration_function.initialize_lstm_states(torch.zeros((self.num_envs * self.num_agents, 50, 6)).to(self.device))
+        # self.dyn_model.dynamics_integrator.dyn_model.num_agents = self.num_agents
+        # self.dyn_model.dynamics_integrator.dyn_model.init_noise_vec(self.num_envs, self.device)
 
         # self.noise_level = self.cfg['model']['noise_level']
 
@@ -550,7 +550,7 @@ class DmarEnv:
         #        self.info['percentage_max_episode_length'] = 1.0*self.episode_length_buf[env_ids]/(self.max_episode_length)
 
         #dynamics randomization
-        self.dyn_model.dynamics_integrator.dyn_model.update_noise_vec(env_ids, self.noise_level) 
+        # self.dyn_model.dynamics_integrator.dyn_model.update_noise_vec(env_ids, self.noise_level) 
 
         self.lap_counter[env_ids, :] = 0
         self.episode_length_buf[env_ids] = 0.0

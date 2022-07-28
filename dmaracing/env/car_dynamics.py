@@ -7,7 +7,7 @@ from dmaracing.env.car_dynamics_utils import resolve_collsions
 # import sys
 # sys.path.insert(1, '/home/peter/git/dynamics_model_learning/scripts')
 # Import Dynamics encoder from TRI dynamics library.
-from dynamics_lib import DynamicsEncoder
+from dynamics_lib.dynamics_encoder import DynamicsEncoder
 
 #@torch.jit.script
 def step_cars(
@@ -80,6 +80,7 @@ def step_cars(
     new_state[..., vn["S_W0"]] = stepped_state[...,3] # Roll
     new_state[..., vn["S_STEER"]] = state[...,vn["S_STEER"]]
     new_state[..., vn["S_GAS"]] = state[...,vn["S_GAS"]]
+    new_state = new_state.detach().to(new_state.device)
 
     # print(new_state[0,0,vn["S_W0"]])
 
