@@ -9,7 +9,7 @@ class CmdLineArguments:
 
 def set_dependent_cfg_entries(cfg):
     numObservations = cfg['sim']['numConstantObservations']
-    numObservations += cfg['learn']['horizon']*2 #lookaheadhorizon
+    numObservations += cfg['learn']['horizon']*4 #lookaheadhorizon
     numObservations += (2+1+1+2) * (cfg['sim']['numAgents']-1)
     cfg['sim']['numObservations'] = numObservations
 

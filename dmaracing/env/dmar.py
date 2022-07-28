@@ -70,9 +70,13 @@ class DmarEnv:
 
         # load track
         self.all_envs = torch.arange(self.num_envs, dtype=torch.long)
-        self.num_tracks = cfg["track"]["num_tracks"]
-        t, self.tile_len, self.track_tile_counts = get_tri_track_ensemble(self.num_tracks, cfg, self.device)
+        #self.num_tracks = cfg["track"]["num_tracks"]
+        self.track_half_width = cfg["track"]["track_half_width"]
+        self.track_poly_spacing = cfg["track"]["track_poly_spacing"]
+        t, self.tile_len, self.track_tile_counts, self.num_tracks = get_tri_track_ensemble(self.device, self.track_half_width, self.track_poly_spacing)
         self.track_lengths = torch.tensor(self.track_tile_counts, device=self.device) * self.tile_len
+        self.track_successes = torch.ones((self.num_tracks,1), device=self.device, dtype=torch.float, requires_grad=False)
+        
         (
             self.track_centerlines,
             self.track_poly_verts,
@@ -253,17 +257,32 @@ class DmarEnv:
             self.num_envs, self.num_agents, 1, 1
         )
 
+        trackdir_lookahead_rbound = torch.stack((torch.sin(angles_at_centers), -torch.cos(angles_at_centers)), dim = 3)        
+        trackdir_lookahead_lbound = torch.stack((-torch.sin(angles_at_centers), torch.cos(angles_at_centers)), dim = 3)        
+        interpolated_rbound = self.interpolated_centers + self.track_half_width * trackdir_lookahead_rbound
+        interpolated_lbound = self.interpolated_centers + self.track_half_width * trackdir_lookahead_lbound
+        self.interpolated_bounds = torch.concat((interpolated_rbound, interpolated_lbound), dim=-1)
+
         self.lookahead = self.interpolated_centers - torch.tile(
             self.states[:, :, 0:2].unsqueeze(2), (1, 1, self.horizon, 1)
         )
+        
+        self.lookahead_rbound = (self.interpolated_bounds[..., [0, 1]] - torch.tile(self.states[:,:,0:2].unsqueeze(2), (1,1,self.horizon, 1)))
+        self.lookahead_lbound = (self.interpolated_bounds[..., [2, 3]] - torch.tile(self.states[:,:,0:2].unsqueeze(2), (1,1,self.horizon, 1)))
 
         self.R[:, :, 0, 0] = torch.cos(theta)
         self.R[:, :, 0, 1] = torch.sin(theta)
         self.R[:, :, 1, 0] = -torch.sin(theta)
         self.R[:, :, 1, 1] = torch.cos(theta)
 
-        self.lookahead_body = torch.einsum("eaij, eatj->eati", self.R, self.lookahead)
-        lookahead_scaled = self.lookahead_scaler * self.lookahead_body
+        # self.lookahead_body = torch.einsum("eaij, eatj->eati", self.R, self.lookahead)
+        # lookahead_scaled = self.lookahead_scaler * self.lookahead_body
+
+        self.lookahead_rbound_body = torch.einsum('eaij, eatj->eati', self.R, self.lookahead_rbound)
+        lookahead_rbound_scaled = self.lookahead_scaler*self.lookahead_rbound_body
+        self.lookahead_lbound_body = torch.einsum('eaij, eatj->eati', self.R, self.lookahead_lbound)
+        lookahead_lbound_scaled = self.lookahead_scaler*self.lookahead_lbound_body
+
 
         self.vels_body = vels
         self.vels_body[..., :-1] = torch.einsum("eaij, eaj -> eai", self.R, vels[..., :-1])
@@ -276,6 +295,7 @@ class DmarEnv:
         other_contouringerr = []
 
         if self.num_agents > 1:
+            raise NotImplementedError
             for agent in range(self.num_agents):
                 selfpos = self.states[:, agent, 0:2].view(-1, 1, 2)
                 selfrot = self.states[:, agent, 2].view(-1, 1, 1)
@@ -384,8 +404,10 @@ class DmarEnv:
             self.obs_buf = torch.cat(
             (
                 self.vels_body * 0.1,
-                lookahead_scaled[:, :, :, 0],
-                lookahead_scaled[:, :, :, 1],
+                lookahead_rbound_scaled[:,:,:,0], 
+                lookahead_rbound_scaled[:,:,:,1], 
+                lookahead_lbound_scaled[:,:,:,0], 
+                lookahead_lbound_scaled[:,:,:,1], 
                 self.last_actions,
             ),
             dim=2,
@@ -700,11 +722,11 @@ class DmarEnv:
             self.viewer.mark_env(self.trained_agent_slot)
             if (self._global_step % self.log_video_freq == 0) and (self._global_step > 0):
                 self.viewer_events = self.viewer.render(
-                    self.states[:, :, [0, 1, 2, 10]], self.slip, self.drag_reduced, self.wheel_locations_world
+                    self.states[:, :, [0, 1, 2, 10]], self.slip, self.drag_reduced, self.wheel_locations_world, self.interpolated_centers, self.interpolated_bounds
                 )
         else:
             self.viewer_events = self.viewer.render(
-                self.states[:, :, [0, 1, 2, 10]], self.slip, self.drag_reduced, self.wheel_locations_world
+                self.states[:, :, [0, 1, 2, 10]], self.slip, self.drag_reduced, self.wheel_locations_world, self.interpolated_centers, self.interpolated_bounds
             )
 
     def simulate(self) -> None:
@@ -752,9 +774,15 @@ class DmarEnv:
         self.dyn_model.integration_function.initialize_lstm_states(torch.zeros((self.num_envs * self.num_agents, 50, 6)).to(self.device))
 
     def resample_track(self, env_ids) -> None:
-        self.active_track_ids[env_ids] = torch.randint(
-            0, self.num_tracks, (len(env_ids),), device=self.device, requires_grad=False, dtype=torch.long
-        )
+        success = self.episode_length_buf[env_ids]> 0.9*self.max_episode_length
+        self.track_successes[self.active_track_ids[env_ids]] += success
+        a = 1/self.track_successes
+        probs = a/torch.sum(a)
+        dist = torch.distributions.Categorical(probs.view(-1,))
+        self.active_track_ids[env_ids] = dist.sample((len(env_ids),))
+        # self.active_track_ids[env_ids] = torch.randint(
+        #     0, self.num_tracks, (len(env_ids),), device=self.device, requires_grad=False, dtype=torch.long
+        # )
         self.active_track_mask[env_ids, ...] = 0.0
         self.active_track_mask[env_ids, self.active_track_ids[env_ids]] = 1.0
         self.active_centerlines[env_ids, ...] = self.track_centerlines[self.active_track_ids[env_ids]]

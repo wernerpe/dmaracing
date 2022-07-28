@@ -58,8 +58,9 @@ track:
   seed: 1
   ccw: True
   draw_centerline: False
-  num_tracks: 400
-
+  num_tracks: 20
+  track_half_width: 0.35
+  track_poly_spacing: 0.25
 learn:
   use_timeouts: True
   #[posx, posy, theta, vellong, vellat, dtheta, steer]

@@ -24,11 +24,12 @@ def play():
     policy = runner.get_inference_policy(device=env.device)
     policy(obs)
     policy_jit = torch.jit.script(runner.alg.actor_critic.actor.to('cpu'))
-    policy_jit.save("logs/saved_models/kinematic_adr_delays_3.pt")
+    policy_jit.save("logs/saved_models/kinematic_adr_delays_complicatedtracks.pt")
     print("Done saving")
     time_per_step = cfg['sim']['dt']*cfg['sim']['decimation']
-    steer_commands = []
-    for idx in range(1000):
+    #steer_commands = []
+    # for idx in range(1000):
+    while True:
         t1 = time.time()
         actions = policy(obs)
         #actions[:,1:,1] *=0.0
@@ -37,7 +38,7 @@ def play():
         rewnp = rew.cpu().numpy()
         #cont = env.contuoring_err.cpu().numpy()
         act = env.actions.cpu().detach().numpy()
-        steer_commands.append(act[0,0,0])
+        #steer_commands.append(act[0,0,0])
         states = env.states.cpu().numpy()
         om_mean = np.mean(states[env.viewer.env_idx_render,0, env.vn['S_W0']:env.vn['S_W3'] +1 ])
 
@@ -53,23 +54,32 @@ def play():
                      #(f"""{'cont err:':>{10}}{' '}{cont[env.viewer.env_idx_render, 0]:.2f}"""),
                      (f"""{'omega mean:':>{10}}{' '}{om_mean:.2f}"""),
                      ]
-        env.viewer.clear_markers()
-        closest_point_marker = env.interpolated_centers[env.viewer.env_idx_render, 0, :, :].cpu().numpy()
-        env.viewer.add_point(closest_point_marker, 2,(222,10,0), 2)
+        env.viewer.x_offset = int(-env.viewer.width/env.viewer.scale_x*env.states[env.viewer.env_idx_render, 0, 0])
+        env.viewer.y_offset = int(env.viewer.height/env.viewer.scale_y*env.states[env.viewer.env_idx_render, 0, 1])
+        env.viewer.draw_track()
+        #env.viewer.clear_markers()
+        #closest_point_marker = env.interpolated_centers[env.viewer.env_idx_render, 0, :, :].cpu().numpy()
+        #env.viewer.add_point(closest_point_marker, 2,(222,10,0), 2)
         #print(env.is_on_track[env.viewer.env_idx_render])
         env.viewer.clear_string()
         for msg in viewermsg:
             env.viewer.add_string(msg)
+        
+        evt = env.viewer_events
+        if evt == 121:
+            print("env ", env.viewer.env_idx_render, " reset")
+            env.episode_length_buf[env.viewer.env_idx_render] = 1e9
+        
         t2 = time.time()
         realtime = t2-t1-time_per_step
         
         if realtime < 0:
              time.sleep(-realtime)
 
-    steer = np.array(steer_commands)
-    import matplotlib.pyplot as plt
-    plt.figure()
-    plt.plot(steer)
+    # steer = np.array(steer_commands)
+    # import matplotlib.pyplot as plt
+    # plt.figure()
+    # plt.plot(steer)
 
 if __name__ == "__main__":
     args = CmdLineArguments()
@@ -85,7 +95,7 @@ if __name__ == "__main__":
     cfg['sim']['collide'] = 0
     cfg['sim']['numEnv'] = 3
     cfg['sim']['numAgents'] = 1
-    cfg['sim']['decimation'] = 4
+    cfg['sim']['decimation'] = 1
     
     cfg['track']['num_tracks'] = 10
     cfg['learn']['offtrack_reset'] = 10

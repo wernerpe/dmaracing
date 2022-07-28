@@ -144,14 +144,13 @@ def construct_poly_track_eqns(track_poly_verts, device):
     S_mat = torch.kron(S_mat, tmp)
     return A, b, S_mat
 
-def get_single_track(device):
-    # Load a centerline track, generate polygons and matricies
-    track_paths = ["maps/large_oval.csv", "maps/large_square_track.csv", "maps/sharp_turns_track.csv","maps/sharp_turns_track.csv", "maps/sharp_turns_track.csv", "maps/sharp_turns_track.csv", "maps/sharp_turns_track.csv"] #"maps/figure_8_track_top.csv","maps/large_oval.csv", "maps/large_square_track.csv", 
-    track_path = track_paths[np.random.randint(0, len(track_paths))]
+def get_single_track(device, track_path, track_half_width, track_poly_spacing):
+     #"maps/figure_8_track_top.csv","maps/large_oval.csv", "maps/large_square_track.csv", 
+    #track_path = track_paths[np.random.randint(0, len(track_paths))]
     #track_path = track_paths[3]
     ccw = np.random.rand()<0.5
-    TRACK_POLYGON_SPACING = 0.25
-    TRACK_HALF_WIDTH = 0.35
+    TRACK_POLYGON_SPACING = track_poly_spacing
+    TRACK_HALF_WIDTH = track_half_width
     path = []
     with open(track_path) as csv_file:
         csv_reader = csv.reader(csv_file, delimiter=',', quoting=csv.QUOTE_NONNUMERIC)
@@ -174,7 +173,26 @@ def get_single_track(device):
 
     return [track_pts, track_poly_verts, alphas, As, b, S_mat, [], []], TRACK_POLYGON_SPACING, track_tile_counts
 
-def get_tri_track_ensemble(Ntracks, cfg, device):
+def get_tri_track_ensemble(device, track_half_width, track_poly_spacing):
+    # Load a centerline track, generate polygons and matricies
+    track_paths = [#"maps/large_oval.csv", 
+                   #"maps/large_square_track.csv", 
+                   #"maps/sharp_turns_track.csv", 
+                   #"maps/c1.csv", 
+                   "maps/c2.csv", 
+                   #"maps/c3.csv", 
+                   #"maps/c4.csv", 
+                   #"maps/circle.csv", 
+                   "maps/lump.csv", 
+                   #"maps/lots_of_wiggles.csv", 
+                   #"maps/one_wiggle.csv", 
+                   #"maps/pinch.csv", 
+                   #"maps/sharp corners.csv", 
+                   "maps/sharp_turns_track.csv",
+                   "maps/slider.csv",
+                   #"maps/h_track.csv",
+                   ]
+    Ntracks = len(track_paths)
     track_tile_counts =[]
     centerlines = []
     poly_verts_tracks = []
@@ -185,14 +203,14 @@ def get_tri_track_ensemble(Ntracks, cfg, device):
     border_poly_verts =[]
     border_poly_cols =[]
     
-    num_tracks = 0
+    #num_tracks = 0
     it = 0
-    while num_tracks < Ntracks:
+    for path in track_paths :
         print(it)
         #ccw = np.random.rand()<0.5
         # cfg['track']['seed'] += it*10
         # return_val = get_track(cfg, device, ccw)
-        return_val = get_single_track(device)
+        return_val = get_single_track(device, path, track_half_width, track_poly_spacing)
         
         track, tile_len, track_num_tiles = return_val
         centerlines.append(track[0])
@@ -204,8 +222,8 @@ def get_tri_track_ensemble(Ntracks, cfg, device):
         border_poly_verts.append(track[6])
         border_poly_cols.append(track[7])
         track_tile_counts.append(track_num_tiles)
-        num_tracks +=1
-        it +=1
+        #num_tracks +=1
+        #it +=1
     
     #size trackmatrices according to largest track, make redundant poly infeasible by default
     max_tile_count = np.max(track_tile_counts)
@@ -222,7 +240,7 @@ def get_tri_track_ensemble(Ntracks, cfg, device):
         centerline[idx, :len(centerlines[idx]), :] = torch.tensor(centerlines[idx].copy(), device = device, dtype=torch.float, requires_grad = False)
         alpha[idx, :len(centerlines[idx])] = torch.tensor(alphas_tracks[idx].copy(), device = device, dtype=torch.float, requires_grad = False)
     #[centerline, track_poly_verts, alphas, A, b, S_mat, border_poly_verts, border_poly_col]
-    return [centerline, poly_verts_tracks, alpha, A, b, S_mat, np.ones([Ntracks,0]), np.ones([Ntracks,0])] ,tile_len , track_tile_counts
+    return [centerline, poly_verts_tracks, alpha, A, b, S_mat, np.ones([Ntracks,0]), np.ones([Ntracks,0])] ,tile_len , track_tile_counts, Ntracks
 
 
 

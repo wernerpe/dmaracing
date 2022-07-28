@@ -91,7 +91,7 @@ class Viewer:
         return None
         
 
-    def render(self, state, slip, drag_reduced, wheel_locs):
+    def render(self, state, slip, drag_reduced, wheel_locs, lookahead, bounds):
         self.state = state.clone()
         self.slip = slip.clone()
         self.wheel_locs = wheel_locs.clone()
@@ -105,6 +105,7 @@ class Viewer:
                 self.add_slip_markers()
                 self.draw_slip_markers()
                 self.draw_multiagent_rep(state)
+                self.draw_lookahead_markers(lookahead, bounds)
             else:
                 self.draw_singleagent_rep(state[:self.num_cars])
             cv.putText(self.img, "env:" + str(self.env_idx_render), (50, 50), self.font, 2, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
@@ -341,3 +342,24 @@ class Viewer:
 
     def save_frame(self, path):
         cv.imwrite(path, self.img)
+    
+    def draw_lookahead_markers(self, lookahead, bounds):
+        points = lookahead[self.env_idx_render, 0, :, :].cpu().numpy()
+
+        #project into camera frame%
+        points = self.cords2px_np(points)
+        scale =  int(50/(self.scale_x))
+        for point in points:
+            self.img = cv.circle(self.img, (point[0], point[1]), scale, (255, 0,0), -1)
+
+        rbounds = bounds[self.env_idx_render, 0, :, [0, 1]].cpu().numpy()
+        #project into camera frame%
+        rbounds = self.cords2px_np(rbounds)
+        for rbound in rbounds:
+            self.img = cv.circle(self.img, (rbound[0], rbound[1]), scale, (0, 0, 0), -1)
+
+        lbounds = bounds[self.env_idx_render, 0, :, [2, 3]].cpu().numpy()
+        #project into camera frame%
+        lbounds = self.cords2px_np(lbounds)
+        for lbound in lbounds:
+            self.img = cv.circle(self.img, (lbound[0], lbound[1]), scale, (0, 0, 0), -1)
