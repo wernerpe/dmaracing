@@ -438,6 +438,7 @@ class DmarEnv:
         # dithering step
         # self.reset_buf = torch.rand((self.num_envs, 1), device=self.device) < 0.00005
         self.reset_buf = self.time_off_track[:, self.trained_agent_slot].view(-1, 1) > self.offtrack_reset
+        self.reset_buf |= torch.abs(self.track_progress[:,0] - self.old_track_progress[:,0]).view(-1,1) > 5.0
         # self.reset_buf = torch.any(self.time_off_track[:, :] > self.offtrack_reset, dim = 1).view(-1,1)
         self.time_out_buf = self.episode_length_buf > self.max_episode_length
         self.reset_buf |= self.time_out_buf
@@ -654,21 +655,6 @@ class DmarEnv:
         self.drag_reduced[:] = False
         self.drag_reduced = dists <= 3.0
 
-        # get env_ids to reset
-        self.time_out_buf *= False
-        self.check_termination()
-
-        env_ids = torch.where(self.reset_buf)[0]
-        self.info = {}
-        self.agent_left_track |= self.time_off_track[:, :] > self.offtrack_reset
-        # ids_report = torch.where(self.rank_reporting_active * (~all_agents_on_track|self.reset_buf))[0]
-        # self.rank_reporting_active *= all_agents_on_track
-        # if len(ids_report):
-        #    self.info['ranking'] = [torch.mean(1.0*self.ranks[ids_report, :], dim = 0), 1.0*len(ids_report)/(1.0*len(self.reset_buf))]
-
-        if len(env_ids):
-            self.reset_envs(env_ids)
-
         self.info["agent_active"] = self.active_agents
 
         # compute closest point on centerline
@@ -694,6 +680,21 @@ class DmarEnv:
         self.ranks = torch.sort(self.ranks, dim=1)[1]
 
         self.contouring_err = torch.einsum("eac, eac-> ea", self.trackperp, self.tile_car_vec)
+        
+        # get env_ids to reset
+        self.time_out_buf *= False
+        self.check_termination()
+
+        env_ids = torch.where(self.reset_buf)[0]
+        self.info = {}
+        self.agent_left_track |= self.time_off_track[:, :] > self.offtrack_reset
+        # ids_report = torch.where(self.rank_reporting_active * (~all_agents_on_track|self.reset_buf))[0]
+        # self.rank_reporting_active *= all_agents_on_track
+        # if len(ids_report):
+        #    self.info['ranking'] = [torch.mean(1.0*self.ranks[ids_report, :], dim = 0), 1.0*len(ids_report)/(1.0*len(self.reset_buf))]
+
+        if len(env_ids):
+            self.reset_envs(env_ids)
 
         self.active_obs_template[...] = 1.0
         idx_1, idx_2 = torch.where(~self.active_agents)

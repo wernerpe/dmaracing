@@ -59,7 +59,7 @@ track:
   ccw: True
   draw_centerline: False
   num_tracks: 20
-  track_half_width: 0.35
+  track_half_width: 0.45
   track_poly_spacing: 0.25
 learn:
   use_timeouts: True
@@ -81,4 +81,4 @@ learn:
   horizon: 15
 
   timeout: 25.0 #[s]
-  offtrack_reset: 0.3 #[s]
+  offtrack_reset: 0.8 #[s]

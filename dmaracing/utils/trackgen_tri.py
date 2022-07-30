@@ -144,11 +144,11 @@ def construct_poly_track_eqns(track_poly_verts, device):
     S_mat = torch.kron(S_mat, tmp)
     return A, b, S_mat
 
-def get_single_track(device, track_path, track_half_width, track_poly_spacing):
+def get_single_track(device, track_path, track_half_width, track_poly_spacing, ccw = False):
      #"maps/figure_8_track_top.csv","maps/large_oval.csv", "maps/large_square_track.csv", 
     #track_path = track_paths[np.random.randint(0, len(track_paths))]
     #track_path = track_paths[3]
-    ccw = np.random.rand()<0.5
+    #ccw = np.random.rand()<0.5
     TRACK_POLYGON_SPACING = track_poly_spacing
     TRACK_HALF_WIDTH = track_half_width
     path = []
@@ -179,20 +179,23 @@ def get_tri_track_ensemble(device, track_half_width, track_poly_spacing):
                    #"maps/large_square_track.csv", 
                    #"maps/sharp_turns_track.csv", 
                    #"maps/c1.csv", 
-                   "maps/c2.csv", 
+                   #"maps/c2.csv", 
                    #"maps/c3.csv", 
                    #"maps/c4.csv", 
                    #"maps/circle.csv", 
-                   "maps/lump.csv", 
+                   #"maps/lump.csv", 
                    #"maps/lots_of_wiggles.csv", 
                    #"maps/one_wiggle.csv", 
                    #"maps/pinch.csv", 
                    #"maps/sharp corners.csv", 
                    "maps/sharp_turns_track.csv",
-                   "maps/slider.csv",
+                   "maps/oval_diag.csv",
+                   "maps/triangle.csv",
+                   "maps/wiggle.csv",
+                   #"maps/slider.csv",
                    #"maps/h_track.csv",
                    ]
-    Ntracks = len(track_paths)
+    Ntracks = len(track_paths)*2
     track_tile_counts =[]
     centerlines = []
     poly_verts_tracks = []
@@ -205,12 +208,25 @@ def get_tri_track_ensemble(device, track_half_width, track_poly_spacing):
     
     #num_tracks = 0
     it = 0
-    for path in track_paths :
+    for path in track_paths:
         print(it)
         #ccw = np.random.rand()<0.5
         # cfg['track']['seed'] += it*10
         # return_val = get_track(cfg, device, ccw)
-        return_val = get_single_track(device, path, track_half_width, track_poly_spacing)
+        return_val = get_single_track(device, path, track_half_width, track_poly_spacing, ccw = True)
+        
+        track, tile_len, track_num_tiles = return_val
+        centerlines.append(track[0])
+        poly_verts_tracks.append(track[1])
+        alphas_tracks.append(track[2])
+        A_tracks.append(track[3])
+        b_tracks.append(track[4])
+        S_mats.append(track[5])
+        border_poly_verts.append(track[6])
+        border_poly_cols.append(track[7])
+        track_tile_counts.append(track_num_tiles)
+
+        return_val = get_single_track(device, path, track_half_width, track_poly_spacing, ccw = False)
         
         track, tile_len, track_num_tiles = return_val
         centerlines.append(track[0])

@@ -22,9 +22,9 @@ def play():
     runner.load(model_path)
 
     policy = runner.get_inference_policy(device=env.device)
-    policy(obs)
-    policy_jit = torch.jit.script(runner.alg.actor_critic.actor.to('cpu'))
-    policy_jit.save("logs/saved_models/kinematic_adr_delays_complicatedtracks.pt")
+    # policy(obs)
+    # policy_jit = torch.jit.script(runner.alg.actor_critic.actor.to('cpu'))
+    # policy_jit.save("logs/saved_models/kinematic_adr_delays_complicatedtracks.pt")
     print("Done saving")
     time_per_step = cfg['sim']['dt']*cfg['sim']['decimation']
     #steer_commands = []
@@ -47,6 +47,7 @@ def play():
                      (f"""{'velocity x:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 0]:.2f}"""),
                      (f"""{'velocity y:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 1]:.2f}"""),
                      (f"""{'ang vel:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 2]:.2f}"""),
+                     (f"""{'trackprogress:':>{10}}{' '}{env.track_progress[env.viewer.env_idx_render,0].item():.2f}"""),
                      #(f"""{'steer:':>{10}}{' '}{act[env.viewer.env_idx_render, 0, env.vn['A_STEER']]:.2f}"""),                     
                      (f"""{'steer:':>{10}}{' '}{states[env.viewer.env_idx_render, 0, env.vn['S_STEER']]:.2f}"""),
                      (f"""{'gas:':>{10}}{' '}{states[env.viewer.env_idx_render, 0, env.vn['S_GAS']]:.2f}"""),
