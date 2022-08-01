@@ -68,7 +68,7 @@ learn:
   reset_tile_rand: 40
   resetgrid: False
   defaultactions: [0., 0.1, 0.0]
-  actionscale: [0.3, 0.1, 0.2]
+  actionscale: [0.3, 1.0, 0.2]
   agent_dropout_prob: 0.2
   distance_obs_cutoff: 100 #[m]
 

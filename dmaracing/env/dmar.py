@@ -600,6 +600,7 @@ class DmarEnv:
             self.actions[:, 0, 0] = self.action_scales[0] * actions[..., 0] + self.default_actions[0]
             self.actions[:, 0, 1] = self.action_scales[1] * actions[..., 1] + self.default_actions[1]
         #    self.actions[:, 0, 2] = self.action_scales[2] * actions[..., 2] + self.default_actions[2]
+            #self.actions = torch.clamp(self.actions, min = -1, max = 1)        
         else:
             self.actions[:, :, 0] = self.action_scales[0] * actions[..., 0] + self.default_actions[0]
             self.actions[:, :, 1] = self.action_scales[1] * actions[..., 1] + self.default_actions[1]

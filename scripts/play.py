@@ -24,15 +24,16 @@ def play():
     policy = runner.get_inference_policy(device=env.device)
     # policy(obs)
     # policy_jit = torch.jit.script(runner.alg.actor_critic.actor.to('cpu'))
-    # policy_jit.save("logs/saved_models/kinematic_adr_delays_complicatedtracks.pt")
+    # policy_jit.save("logs/saved_models/kinematic_adr_delays_resetting_3ms.pt")
     print("Done saving")
     time_per_step = cfg['sim']['dt']*cfg['sim']['decimation']
     #steer_commands = []
     # for idx in range(1000):
+    obs = env.obs_buf.clone().view(-1, env.num_obs)
     while True:
         t1 = time.time()
         actions = policy(obs)
-        #actions[:,1:,1] *=0.0
+        #actions[:, 1] = 1.0
         obs,_, rew, dones, info = env.step(actions)
         obsnp = obs.cpu().numpy()
         rewnp = rew.cpu().numpy()
