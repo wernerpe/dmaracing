@@ -61,6 +61,7 @@ track:
   num_tracks: 20
   track_half_width: 0.45
   track_poly_spacing: 0.25
+  
 learn:
   use_timeouts: True
   #[posx, posy, theta, vellong, vellat, dtheta, steer]

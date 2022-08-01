@@ -22,9 +22,9 @@ def play():
     runner.load(model_path)
 
     policy = runner.get_inference_policy(device=env.device)
-    # policy(obs)
-    # policy_jit = torch.jit.script(runner.alg.actor_critic.actor.to('cpu'))
-    # policy_jit.save("logs/saved_models/kinematic_adr_delays_resetting_3ms.pt")
+    #policy(obs)
+    policy_jit = torch.jit.script(runner.alg.actor_critic.actor.to('cpu'))
+    policy_jit.save("logs/saved_models/kinematic_adr_delays_resetting_2ms.pt")
     print("Done saving")
     time_per_step = cfg['sim']['dt']*cfg['sim']['decimation']
     #steer_commands = []
@@ -33,7 +33,7 @@ def play():
     while True:
         t1 = time.time()
         actions = policy(obs)
-        #actions[:, 1] = 1.0
+        actions[:, 1] = 2.0
         obs,_, rew, dones, info = env.step(actions)
         obsnp = obs.cpu().numpy()
         rewnp = rew.cpu().numpy()
@@ -45,8 +45,8 @@ def play():
 
         viewermsg = [(f"""{'policy chckpt '+str(chkpt)}"""),
                      (f"""{'rewards:':>{10}}{' '}{100*rewnp[env.viewer.env_idx_render]:.2f}"""   ),
-                     (f"""{'velocity x:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 0]:.2f}"""),
-                     (f"""{'velocity y:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 1]:.2f}"""),
+                     (f"""{'velocity x:':>{10}}{' '}{10*obsnp[env.viewer.env_idx_render, 0]:.2f}"""),
+                     (f"""{'velocity y:':>{10}}{' '}{10*obsnp[env.viewer.env_idx_render, 1]:.2f}"""),
                      (f"""{'ang vel:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 2]:.2f}"""),
                      (f"""{'trackprogress:':>{10}}{' '}{env.track_progress[env.viewer.env_idx_render,0].item():.2f}"""),
                      #(f"""{'steer:':>{10}}{' '}{act[env.viewer.env_idx_render, 0, env.vn['A_STEER']]:.2f}"""),                     
