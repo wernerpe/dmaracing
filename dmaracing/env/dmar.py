@@ -401,6 +401,9 @@ class DmarEnv:
                 dim=2,
             )
         else:
+            last_raw_actions = self.last_actions 
+            last_raw_actions[:,:, 0 ] = (last_raw_actions[:,:, 0 ] - self.default_actions[0])/self.action_scales[0]  
+            last_raw_actions[:,:, 1] = (last_raw_actions[:,:, 1] - self.default_actions[1])/self.action_scales[1]  
             self.obs_buf = torch.cat(
             (
                 self.vels_body * 0.1,

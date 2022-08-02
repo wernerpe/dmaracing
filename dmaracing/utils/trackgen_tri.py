@@ -178,7 +178,7 @@ def get_tri_track_ensemble(device, track_half_width, track_poly_spacing):
     track_paths = [#"maps/large_oval.csv", 
                    #"maps/large_square_track.csv", 
                    #"maps/sharp_turns_track.csv", 
-                   #"maps/c1.csv", 
+                   "maps/c1.csv", 
                    #"maps/c2.csv", 
                    #"maps/c3.csv", 
                    #"maps/c4.csv", 

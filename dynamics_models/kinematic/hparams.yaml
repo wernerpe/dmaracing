@@ -1,6 +1,6 @@
 ACCFORCE: 30.0
 Iz: 0.03
-MAXVEL: 2.5
+MAXVEL: 2.0
 accelerator: null
 accumulate_grad_batches: null
 amp_backend: native

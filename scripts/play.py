@@ -24,7 +24,7 @@ def play():
     policy = runner.get_inference_policy(device=env.device)
     #policy(obs)
     # policy_jit = torch.jit.script(runner.alg.actor_critic.actor.to('cpu'))
-    # policy_jit.save("logs/saved_models/tw_45_maxv_2.5_lh_15_dfa_0_0.1_as_0.3_1.0.pt")
+    # policy_jit.save("logs/saved_models/tw_45_maxv_2.0_lh_15_dfa_0_0.1_as_0.3_1.0.pt")
     # print("Done saving")
     time_per_step = cfg['sim']['dt']*cfg['sim']['decimation']
     #steer_commands = []
@@ -33,7 +33,7 @@ def play():
     while True:
         t1 = time.time()
         actions = policy(obs)
-        actions[:, 1] = 2.0
+        #actions[:, 1] = 2.0
         obs,_, rew, dones, info = env.step(actions)
         obsnp = obs.cpu().numpy()
         rewnp = rew.cpu().numpy()
