@@ -23,9 +23,9 @@ def play():
 
     policy = runner.get_inference_policy(device=env.device)
     #policy(obs)
-    policy_jit = torch.jit.script(runner.alg.actor_critic.actor.to('cpu'))
-    policy_jit.save("logs/saved_models/kinematic_adr_delays_resetting_2ms.pt")
-    print("Done saving")
+    # policy_jit = torch.jit.script(runner.alg.actor_critic.actor.to('cpu'))
+    # policy_jit.save("logs/saved_models/tw_45_maxv_2.5_lh_15_dfa_0_0.1_as_0.3_1.0.pt")
+    # print("Done saving")
     time_per_step = cfg['sim']['dt']*cfg['sim']['decimation']
     #steer_commands = []
     # for idx in range(1000):
@@ -49,7 +49,7 @@ def play():
                      (f"""{'velocity y:':>{10}}{' '}{10*obsnp[env.viewer.env_idx_render, 1]:.2f}"""),
                      (f"""{'ang vel:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 2]:.2f}"""),
                      (f"""{'trackprogress:':>{10}}{' '}{env.track_progress[env.viewer.env_idx_render,0].item():.2f}"""),
-                     #(f"""{'steer:':>{10}}{' '}{act[env.viewer.env_idx_render, 0, env.vn['A_STEER']]:.2f}"""),                     
+                     (f"""{'maxvel:':>{10}}{' '}{env.dyn_model.dynamics_integrator.dyn_model.max_vel_vec[env.viewer.env_idx_render,0].item():.2f}"""),                     
                      (f"""{'steer:':>{10}}{' '}{states[env.viewer.env_idx_render, 0, env.vn['S_STEER']]:.2f}"""),
                      (f"""{'gas:':>{10}}{' '}{states[env.viewer.env_idx_render, 0, env.vn['S_GAS']]:.2f}"""),
                     # (f"""{'brake:':>{10}}{' '}{act[env.viewer.env_idx_render, 0, env.vn['A_BRAKE']]:.2f}"""),
