@@ -164,6 +164,8 @@ class DmarEnv:
         self.max_episode_length = int(self.timeout_s / (self.decimation * self.dt))
         self.agent_dropout_prob = cfg["learn"]["agent_dropout_prob"]
 
+        self.obs_noise_lvl = cfg["learn"]["obs_noise_lvl"]
+
         self.lap_counter = torch.zeros(
             (self.num_envs, self.num_agents), requires_grad=False, device=self.device, dtype=torch.int
         )
@@ -245,7 +247,7 @@ class DmarEnv:
         theta = self.states[:, :, 2]
         vels = self.states[:, :, 3:6].clone()
         tile_idx_unwrapped = self.active_track_tile.unsqueeze(2) + (
-            1 * torch.arange(self.horizon, device=self.device, dtype=torch.long)
+            2 * torch.arange(self.horizon, device=self.device, dtype=torch.long)
         ).unsqueeze(0).unsqueeze(0)
         tile_idx = torch.remainder(tile_idx_unwrapped, self.active_track_tile_counts.view(-1, 1, 1))
         centers = self.active_centerlines[:, tile_idx, :]
@@ -414,7 +416,10 @@ class DmarEnv:
                 self.last_actions,
             ),
             dim=2,
-        )
+            )
+
+            if self.obs_noise_lvl>0:
+                self.obs_buf
 
 
     def compute_rewards(
