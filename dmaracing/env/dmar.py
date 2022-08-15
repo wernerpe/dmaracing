@@ -27,7 +27,7 @@ class DmarEnv:
         self.device = args.device
         self.rl_device = args.device
         self.headless = args.headless
-
+        self.test_mode = cfg.get('test', False)
         # variable names and indices
         self.vn = get_varnames()
         self.cfg = cfg
@@ -54,8 +54,9 @@ class DmarEnv:
         self.dyn_model = DynamicsEncoder.load_from_checkpoint(
             #"/home/peter/git/dynamics_model_learning/sample_models/fixed_integration_current_v25.ckpt").to(self.device)
             "dynamics_models/"+cfg['model']['dynamics_model_name'],
-            hparams_file="dynamics_models/"+cfg['model']['hparams_path']).to(self.device)
+            hparams_file="dynamics_models/"+cfg['model']['hparams_path'], strict=False).to(self.device)
         self.dyn_model.integration_function.initialize_lstm_states(torch.zeros((self.num_envs * self.num_agents, 50, 6)).to(self.device))
+        self.dyn_model.dynamics_integrator.dyn_model.set_test_mode()
         self.dyn_model.dynamics_integrator.dyn_model.num_agents = self.num_agents
         self.dyn_model.dynamics_integrator.dyn_model.init_noise_vec(self.num_envs, self.device)
 

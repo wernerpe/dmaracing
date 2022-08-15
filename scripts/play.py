@@ -24,7 +24,7 @@ def play():
     policy = runner.get_inference_policy(device=env.device)
     #policy(obs)
     policy_jit = torch.jit.script(runner.alg.actor_critic.actor.to('cpu'))
-    policy_jit.save("logs/saved_models/tw_45_maxv_2.0_lh_15_dfa_0_0.1_as_0.3_1.0_steermodel.pt")
+    policy_jit.save("logs/saved_models/tw_45_maxv_3.0_lh_15_dfa_0_0.1_as_0.3_1.0_gpmodel.pt")
     print("Done saving")
     time_per_step = cfg['sim']['dt']*cfg['sim']['decimation']
     #steer_commands = []
@@ -106,5 +106,6 @@ if __name__ == "__main__":
     cfg['model']['drag_reduction'] = 1.0
     cfg["viewer"]["logEvery"] = -1
     cfg['track']['num_tracks'] = 20
+    cfg['test'] = True
     set_dependent_cfg_entries(cfg)
     play()    
