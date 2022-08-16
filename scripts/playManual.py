@@ -110,7 +110,7 @@ if __name__ == "__main__":
     cfg["viewer"]["logEvery"] = -1
     cfg["track"]['OFFTRACK_FRICTION_SCALE'] = 1.0
     cfg['sim']['numEnv'] = 3
-    cfg['sim']['numAgents'] = 4
+    cfg['sim']['numAgents'] = 3
     #cfg['track']['num_tracks'] = 7
     #cfg['track']['num_tracks'] = 3
     cfg['viewer']['multiagent'] = True

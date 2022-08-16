@@ -176,6 +176,37 @@ def build_col_poly_eqns(w,
     return P_tot, D_tot, S_mat, Rep_froce_dir, Depth_selector
 
 @torch.jit.script
+def transform_vel_verts(rel_vel_global : torch.Tensor, 
+                        theta_A : torch.Tensor, 
+                        theta_B : torch.Tensor, 
+                        verts: torch.Tensor,
+                        zero_pad: torch.Tensor,
+                        R: torch.Tensor) ->torch.Tensor:
+    '''
+    collider -> (B) Vertex rep
+    collidee -> (A) Poly rep
+    input: 
+    rel_vels_global (num_envs, 2) :relative velocities pB-pA in global frame 
+    theta_A (num_envs) : relative rotation of A to world
+    theta_B (num_envs) : relative rotation of B to world
+    verts : vertex tensor (numenvs, 4 car vertices, 2 cords)
+    R: allocated rot mat (numenvs, 2, 2) 
+    output:
+    vel_verts_rot_shift (num_envs, 4 car vertices, 2): velocities of vertices of B in A frame
+    '''
+    omega = torch.cat((zero_pad[:,0,:], zero_pad[:,0,:], rel_vel_global[..., -1].reshape(-1,1)), dim =-1)
+    vel_verts_global = torch.cross(torch.tile(omega.unsqueeze(1), (1,4,1)), torch.cat((verts, zero_pad), dim = 2))[..., 0:2] + rel_vel_global[..., 0:2].reshape(-1,1,2) 
+    
+    theta_rel = theta_B - theta_A
+    R[:, 0, 0 ] = torch.cos(theta_rel)
+    R[:, 0, 1 ] = -torch.sin(theta_rel)
+    R[:, 1, 0 ] = torch.sin(theta_rel)
+    R[:, 1, 1 ] = torch.cos(theta_rel)
+    vel_verts_Aframe = torch.einsum('kij, klj->kli', R, vel_verts_global)
+   
+    return vel_verts_Aframe
+
+@torch.jit.script
 def transform_col_verts(rel_trans_global : torch.Tensor, 
                         theta_A : torch.Tensor, 
                         theta_B : torch.Tensor, 
@@ -246,6 +277,7 @@ def get_contact_wrenches(P_tot : torch.Tensor,
                          Repf_mat : torch.Tensor, 
                          Depth_selector : List[int],
                          verts_tf : torch.Tensor,
+                         rel_vels : torch.Tensor,
                          num_envs : int,
                          zero_pad : torch.Tensor,
                          stiffness : float) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -256,6 +288,14 @@ def get_contact_wrenches(P_tot : torch.Tensor,
     in_poly = torch.einsum('ij, lkj -> lki', S_mat, 1.0*(vert_poly_dists+1e-4>=0)) > 3 #watch for numerics here #!$W%!$#!
     #inpoly (numenvs, num_verts, num_poly) Repforcedir (num_envs, num_poly, coords) -> num_env, num_verts, forcecoords
     force_dir = torch.einsum('ijk, ikl -> ijl', 1.0*in_poly, Repf_mat)
+    tangential_force_dir =torch.einsum('ijk, ikl -> ijl', 1.0*in_poly, Repf_mat[:,[2,3,1,0], :]) 
+    
+    #relative velocity projected onto tangential direction
+    fric_vels = torch.einsum('evd, evd -> ev', tangential_force_dir, rel_vels).view(-1,4,1)
+    pos_fric_vels = 1.0*(fric_vels>0)
+    neg_fric_vels = -1.0*(fric_vels<0)
+    
+    fric_forces = -tangential_force_dir*(pos_fric_vels + neg_fric_vels)*0.2
     #inpoly (numenvs, num_verts, num_poly) #vert_poly_dists[:,:, Ds] (num_env, num_verts, num_polygons)
     #use fact that we precomputed all distances to polygon walls
     depths = torch.einsum('ijk, ijk -> ij', 1.0*in_poly, vert_poly_dists[:,:, Depth_selector])
@@ -263,6 +303,7 @@ def get_contact_wrenches(P_tot : torch.Tensor,
     forces = force_dir
     forces[:, :, 0] *= magnitude
     forces[:, :, 1] *= magnitude
+    forces += fric_forces
 
     dirs_vert = torch.cat((verts_tf - torch.tile(torch.mean(verts_tf, dim = 1).unsqueeze(1), (1,4,1)), zero_pad ), dim = 2)
     dirs_force = torch.cat((forces[:, :, :], zero_pad), dim = 2)
@@ -307,19 +348,28 @@ def resolve_collsions(contact_wrenches : torch.Tensor,
                 states_A = states[idx_comp, colp[0], 0:3]
                 states_B = states[idx_comp, colp[1], 0:3]
 
+                vels_A = states[idx_comp, colp[0], 3:6]
+                vels_B = states[idx_comp, colp[1], 3:6]
+
                 #get contact wrenches for collision pair candidate
                 rel_trans = states_B[:,:2] -states_A[:,:2]
+                rel_vels = vels_B - vels_A
+
                 verts_tf = transform_col_verts(rel_trans, states_A[:,2], states_B[:,2], collision_verts[idx_comp, :, :], R[idx_comp,:,:])
+                vels_verts_tf = transform_vel_verts(rel_vels, states_A[:,2], states_B[:,2], collision_verts[idx_comp, :, :], zero_pad[idx_comp, :, :], R[idx_comp,:,:])
+
                 force_B_0, torque_A_0, torque_B_0 = get_contact_wrenches(P_tot, 
                                                                          D_tot, 
                                                                          S_mat, 
                                                                          Repf_mat[idx_comp, ...],
                                                                          Ds,
                                                                          verts_tf,
+                                                                         vels_verts_tf,
                                                                          len(idx_comp),
                                                                          zero_pad[idx_comp, ...],
                                                                          stiffness
                                                                          )
+
 
                 #rotate forces into global frame from frame A
                 force_B_0 = rotate_vec(force_B_0, states_A[:, 2], R[idx_comp,:,:])
@@ -332,9 +382,15 @@ def resolve_collsions(contact_wrenches : torch.Tensor,
                 states_A = states[idx_comp, colp[1], 0:3]
                 states_B = states[idx_comp, colp[0], 0:3]
 
+                vels_A = states[idx_comp, colp[1], 3:6]
+                vels_B = states[idx_comp, colp[0], 3:6]
+
                 #get contact wrenches for collision pair candidate
                 rel_trans = states_B[:,:2] - states_A[:,:2]
+                rel_vels = vels_B - vels_A
+
                 verts_tf = transform_col_verts(rel_trans, states_A[:,2], states_B[:,2], collision_verts[idx_comp, :, :], R[idx_comp,:,:])
+                vels_verts_tf = transform_vel_verts(rel_vels, states_A[:,2], states_B[:,2], collision_verts[idx_comp, :, :], zero_pad[idx_comp, :, :], R[idx_comp,:,:])
 
                 force_B_1, torque_A_1, torque_B_1 = get_contact_wrenches(P_tot, 
                                                                          D_tot, 
@@ -342,10 +398,12 @@ def resolve_collsions(contact_wrenches : torch.Tensor,
                                                                          Repf_mat[idx_comp, ...],
                                                                          Ds,
                                                                          verts_tf,
+                                                                         vels_verts_tf,
                                                                          len(idx_comp),
                                                                          zero_pad[idx_comp, ...],
                                                                          stiffness
                                                                          )
+
 
                 #rotate forces into global frame from frame A
                 col_active = torch.abs(contact_wrenches[ idx_comp, colp[1], 2]) > 0.01
