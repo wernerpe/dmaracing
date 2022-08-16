@@ -56,10 +56,11 @@ class DmarEnv:
             "dynamics_models/"+cfg['model']['dynamics_model_name'],
             hparams_file="dynamics_models/"+cfg['model']['hparams_path'], strict=False).to(self.device)
         self.dyn_model.integration_function.initialize_lstm_states(torch.zeros((self.num_envs * self.num_agents, 50, 6)).to(self.device))
+        
         self.dyn_model.dynamics_integrator.dyn_model.set_test_mode()
         self.dyn_model.dynamics_integrator.dyn_model.num_agents = self.num_agents
         self.dyn_model.dynamics_integrator.dyn_model.init_noise_vec(self.num_envs, self.device)
-
+        self.dyn_model.integration_function.dyn_model.init_col_switch(self.num_envs, self.cfg['model']['col_decay_time'], self.device)
         self.noise_level = self.cfg['model']['noise_level']
 
         # gym stuff
@@ -298,7 +299,7 @@ class DmarEnv:
         other_contouringerr = []
 
         if self.num_agents > 1:
-            raise NotImplementedError
+            
             for agent in range(self.num_agents):
                 selfpos = self.states[:, agent, 0:2].view(-1, 1, 2)
                 selfrot = self.states[:, agent, 2].view(-1, 1, 1)
@@ -391,8 +392,10 @@ class DmarEnv:
             self.obs_buf = torch.cat(
                 (
                     self.vels_body * 0.1,
-                    lookahead_scaled[:, :, :, 0],
-                    lookahead_scaled[:, :, :, 1],
+                    lookahead_rbound_scaled[:,:,:,0], 
+                    lookahead_rbound_scaled[:,:,:,1], 
+                    lookahead_lbound_scaled[:,:,:,0], 
+                    lookahead_lbound_scaled[:,:,:,1], 
                     self.last_actions,
                     self.progress_other * 0.1,
                     self.contouring_err_other * 0.25,
@@ -460,6 +463,9 @@ class DmarEnv:
         return self.obs_buf, self.privileged_obs
 
     def reset_envs(self, env_ids) -> None:
+        
+        self.dyn_model.integration_function.dyn_model.reset(env_ids)
+
         self.resample_track(env_ids)
         self.active_agents[env_ids, 1:] = (
             torch.rand((len(env_ids), self.num_agents - 1), device=self.device) > self.agent_dropout_prob
@@ -518,10 +524,10 @@ class DmarEnv:
                 )
             else:
                 self.states[env_ids, agent, self.vn["S_X"]] = (
-                    startpos[:, 0] - dir_y * (-1) ** (positions[:, agent] + 1) * 2
+                    startpos[:, 0] - dir_y * (-1) ** (positions[:, agent] + 1) * 0.1
                 )
                 self.states[env_ids, agent, self.vn["S_Y"]] = (
-                    startpos[:, 1] + dir_x * (-1) ** (positions[:, agent] + 1) * 2
+                    startpos[:, 1] + dir_x * (-1) ** (positions[:, agent] + 1) * 0.1
                 )
             self.states[env_ids, agent, self.vn["S_THETA"]] = angs + rand(
                 -self.reset_randomization[2], self.reset_randomization[2], (len(env_ids),), device=self.device

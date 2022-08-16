@@ -361,7 +361,7 @@ def resolve_collsions(contact_wrenches : torch.Tensor,
                 
                 #shove[idx_comp, colp[0], :2] += 0.6*contact_wrenches[ idx_comp, colp[0], :2]/stiffness
                 #shove[idx_comp, colp[1], :2] += 0.6*contact_wrenches[ idx_comp, colp[1], :2]/stiffness
-    shove[:,:,:2] = 0.6*contact_wrenches[:,:,:2]/stiffness
-    shove[:,:,2]  = 1000.0*contact_wrenches[:,:,2]/(stiffness*Iz)          
+    shove[:,:,:2] = 1.*contact_wrenches[:,:,:2]/stiffness
+    shove[:,:,2]  = .1*contact_wrenches[:,:,2]/(stiffness*Iz)          
     return contact_wrenches, shove
 

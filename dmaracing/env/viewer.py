@@ -300,7 +300,7 @@ class Viewer:
         current_markers = []
         for markergroup in self.slip_markers:
             current_markers.append(self.cords2px_np_copy(markergroup))
-        scale =  int(500/(self.scale_x))
+        scale =  int(50/(self.scale_x))
         for group in current_markers:
             for loc in group.tolist():
                 self.img = cv.circle(self.img, (loc[0], loc[1]), scale, (30,30,30), -1)

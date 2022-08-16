@@ -52,9 +52,9 @@ def play():
                      #(f"""{'steer:':>{10}}{' '}{states[env.viewer.env_idx_render, 0, env.vn['S_STEER']]:.2f}"""),
                      #(f"""{'gas:':>{10}}{' '}{states[env.viewer.env_idx_render, 0, env.vn['S_GAS']]:.2f}"""),
                      #(f"""{'gas state:':>{10}}{' '}{states[env.viewer.env_idx_render, ag, env.vn['S_GAS']]:.2f}"""),
-                     (f"""{'gas act:':>{10}}{' '}{act[0, env.vn['A_GAS']]:.2f}"""),
-                     (f"""{'steer act:':>{10}}{' '}{act[0, env.vn['A_STEER']]:.2f}"""),
-                     (f"""{'gas:':>{10}}{' '}{env.states[env.viewer.env_idx_render,0, env.vn['S_GAS']].item():.2f}"""),
+                     (f"""{'gas act:':>{10}}{' '}{act[env.vn['A_GAS']]:.2f}"""),
+                     (f"""{'steer act:':>{10}}{' '}{act[ env.vn['A_STEER']]:.2f}"""),
+                     (f"""{'gas:':>{10}}{' '}{env.states[env.viewer.env_idx_render, ag, env.vn['S_GAS']].item():.2f}"""),
                      #(f"""{'cont err:':>{10}}{' '}{cont[env.viewer.env_idx_render, 0]:.2f}"""),
                      #(f"""{'omega mean:':>{10}}{' '}{om_mean:.2f}"""),
                      #(f"""{'omega mean:':>{10}}{' '}{om_mean:.2f}"""),
@@ -69,7 +69,7 @@ def play():
         env.viewer.draw_track()
 
         env.viewer.clear_markers()
-        wheelloc = (env.wheel_locations_world[env.viewer.env_idx_render, 0, 1, :].view(1,2)).cpu().numpy()
+        wheelloc = (env.wheel_locations_world[env.viewer.env_idx_render, ag, 1, :].view(1,2)).cpu().numpy()
         env.viewer.add_point(wheelloc, 2,(222,10,0), 2)
         #env.track_centerlines
 
@@ -86,9 +86,9 @@ def play():
             vel_cmd -= 0.03
             print('vel_cmd', vel_cmd, env.states[0,0,env.vn['S_DX']])
         elif evt == 106:
-            steer_cmd += 0.02 * (steer_cmd < 1)
+            steer_cmd += 0.05 * (steer_cmd < 1)
         elif evt == 108:
-            steer_cmd -= 0.02* (steer_cmd> -1)
+            steer_cmd -= 0.05* (steer_cmd> -1)
         elif evt == 121:
             print("env ", env.viewer.env_idx_render, " reset")
             env.episode_length_buf[env.viewer.env_idx_render] = 1e9
@@ -109,9 +109,9 @@ if __name__ == "__main__":
     cfg, cfg_train, logdir = getcfg(path_cfg)
     cfg["viewer"]["logEvery"] = -1
     cfg["track"]['OFFTRACK_FRICTION_SCALE'] = 1.0
-    cfg['sim']['numEnv'] = 11
-    cfg['sim']['numAgents'] = 1
-    cfg['track']['num_tracks'] = 7
+    cfg['sim']['numEnv'] = 3
+    cfg['sim']['numAgents'] = 4
+    #cfg['track']['num_tracks'] = 7
     #cfg['track']['num_tracks'] = 3
     cfg['viewer']['multiagent'] = True
     cfg['learn']['defaultactions'] = [0,0,0]
