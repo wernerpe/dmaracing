@@ -19,7 +19,7 @@ def play():
     brk_cmd = 0.0
     lastvel = 0
     ag = 0
-
+    time_per_step = cfg['sim']['dt']*cfg['sim']['decimation']
 
     print('###########################')
     while True:
@@ -55,7 +55,7 @@ def play():
                      (f"""{'gas act:':>{10}}{' '}{act[env.vn['A_GAS']]:.2f}"""),
                      (f"""{'steer act:':>{10}}{' '}{act[ env.vn['A_STEER']]:.2f}"""),
                      (f"""{'gas:':>{10}}{' '}{env.states[env.viewer.env_idx_render, ag, env.vn['S_GAS']].item():.2f}"""),
-                     #(f"""{'cont err:':>{10}}{' '}{cont[env.viewer.env_idx_render, 0]:.2f}"""),
+                     (f"""{'ctorque:':>{10}}{' '}{env.contact_wrenches[env.viewer.env_idx_render, ag, 2].item():.2f}"""),
                      #(f"""{'omega mean:':>{10}}{' '}{om_mean:.2f}"""),
                      #(f"""{'omega mean:':>{10}}{' '}{om_mean:.2f}"""),
                      #(f"""{'velother x:':>{10}}{' '}{vel_other[0]:.2f}"""),
@@ -99,6 +99,10 @@ def play():
         t2 = time.time()
 
         #print('dt ', t2-t1)
+        realtime = t2-t1-time_per_step
+        
+        if realtime < 0:
+             time.sleep(-realtime)
 
 if __name__ == "__main__":
     args = CmdLineArguments()
@@ -123,6 +127,6 @@ if __name__ == "__main__":
     cfg['learn']['timeout'] = 100
     cfg['model']['OFFTRACK_FRICTION_SCALE'] = 1
     cfg['model']['drag_reduction'] = 1.0
-
-    set_dependent_cfg_entries(cfg)
+    cfg['test'] = True
+    set_dependent_cfg_entries(cfg, cfg_train)
     play()

@@ -42,18 +42,18 @@ def step_cars(
     dyn_state, dyn_control, slip, wheel_locations_world = get_state_control_tensors(
         state,
         actions,
-        drag_reduced,
+        #drag_reduced,
         wheel_locations,
         R,
-        mod_par,
-        sim_par,
+        #mod_par,
+        #sim_par,
         vn,
-        num_envs,
+        #num_envs,
         wheels_on_track_segments,
-        active_track_mask,
-        A_track,
-        b_track,
-        S_track,
+        #active_track_mask,
+        #A_track,
+        #b_track,
+        #S_track,
     )
     
     dyn_state_shape = dyn_state.shape
@@ -91,7 +91,7 @@ def step_cars(
             shove,
             new_state,
             collision_pairs,
-            dyn_model.dynamics_integrator.dyn_model.lf,
+            mod_par['lf'],
             collision_verts,
             R[:, 0, :, :],
             P_tot,
@@ -106,23 +106,23 @@ def step_cars(
 
     return new_state, contact_wrenches, shove, wheels_on_track_segments, slip, wheel_locations_world
 
-
+@torch.jit.script
 def get_state_control_tensors(
     state: torch.Tensor,
     actions: torch.Tensor,
-    drag_reduced: torch.Tensor,
+    #drag_reduced: torch.Tensor,
     wheel_locations: torch.Tensor,
     R: torch.Tensor,
-    mod_par: Dict[str, float],
-    sim_par: Dict[str, float],
+    #mod_par: Dict[str, float],
+    #sim_par: Dict[str, float],
     vn: Dict[str, int],
-    num_envs: int,
+    #num_envs: int,
     wheels_on_track_segments: torch.Tensor,
-    active_track_mask: torch.Tensor,
-    A_track: torch.Tensor,
-    b_track: torch.Tensor,
-    S_track: torch.Tensor,
-) -> Tuple[torch.Tensor, torch.Tensor]:
+    #active_track_mask: torch.Tensor,
+    #A_track: torch.Tensor,
+    #b_track: torch.Tensor,
+    #S_track: torch.Tensor,
+) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
 
     # set steering angle
     # dir = torch.sign(actions[:, :, vn['A_STEER']] - state[:, :, vn['S_STEER']])
@@ -192,64 +192,64 @@ def get_state_control_tensors(
     #    1.0 * (0.9 >= actions[:, :, vn["A_BRAKE"]]).unsqueeze(2) * state[:, :, vn["S_W0"] : vn["S_W3"] + 1]
     #)
     #state[:, :, vn["S_W0"] : vn["S_W3"] + 1] = torch.clip(state[:, :, vn["S_W0"] : vn["S_W3"] + 1], min=-100, max=100)
-    vr = 0#state[:, :, vn["S_W0"] : vn["S_W3"] + 1] * mod_par["WHEEL_R"]
-    omega_body = torch.nn.functional.pad(state[:, :, vn["S_DTHETA"]].unsqueeze(2), (2, 0))
+    # vr = 0#state[:, :, vn["S_W0"] : vn["S_W3"] + 1] * mod_par["WHEEL_R"]
+    # omega_body = torch.nn.functional.pad(state[:, :, vn["S_DTHETA"]].unsqueeze(2), (2, 0))
 
-    wheel_vels_fl = (
-        state[:, :, vn["S_DX"] : vn["S_DY"] + 1]
-        - torch.cross(wheel_locations_bodycentric_world[:, :, 0, :], omega_body, dim=2)[:, :, 0:2]
-    )
-    wheel_vels_fr = (
-        state[:, :, vn["S_DX"] : vn["S_DY"] + 1]
-        - torch.cross(wheel_locations_bodycentric_world[:, :, 1, :], omega_body, dim=2)[:, :, 0:2]
-    )
-    wheel_vels_br = (
-        state[:, :, vn["S_DX"] : vn["S_DY"] + 1]
-        - torch.cross(wheel_locations_bodycentric_world[:, :, 2, :], omega_body, dim=2)[:, :, 0:2]
-    )
-    wheel_vels_bl = (
-        state[:, :, vn["S_DX"] : vn["S_DY"] + 1]
-        - torch.cross(wheel_locations_bodycentric_world[:, :, 3, :], omega_body, dim=2)[:, :, 0:2]
-    )
-    wheel_vels = torch.cat(
-        (
-            wheel_vels_fl.unsqueeze(2),
-            wheel_vels_fr.unsqueeze(2),
-            wheel_vels_br.unsqueeze(2),
-            wheel_vels_bl.unsqueeze(2),
-        ),
-        dim=2,
-    )
+    # wheel_vels_fl = (
+    #     state[:, :, vn["S_DX"] : vn["S_DY"] + 1]
+    #     - torch.cross(wheel_locations_bodycentric_world[:, :, 0, :], omega_body, dim=2)[:, :, 0:2]
+    # )
+    # wheel_vels_fr = (
+    #     state[:, :, vn["S_DX"] : vn["S_DY"] + 1]
+    #     - torch.cross(wheel_locations_bodycentric_world[:, :, 1, :], omega_body, dim=2)[:, :, 0:2]
+    # )
+    # wheel_vels_br = (
+    #     state[:, :, vn["S_DX"] : vn["S_DY"] + 1]
+    #     - torch.cross(wheel_locations_bodycentric_world[:, :, 2, :], omega_body, dim=2)[:, :, 0:2]
+    # )
+    # wheel_vels_bl = (
+    #     state[:, :, vn["S_DX"] : vn["S_DY"] + 1]
+    #     - torch.cross(wheel_locations_bodycentric_world[:, :, 3, :], omega_body, dim=2)[:, :, 0:2]
+    # )
+    # wheel_vels = torch.cat(
+    #     (
+    #         wheel_vels_fl.unsqueeze(2),
+    #         wheel_vels_fr.unsqueeze(2),
+    #         wheel_vels_br.unsqueeze(2),
+    #         wheel_vels_bl.unsqueeze(2),
+    #     ),
+    #     dim=2,
+    # )
 
-    # wheel vels (num_env, num_agnt, 4, 2) wheel_dir (num_env, num_agnt, 4, 2) -> wheel force proj (num_env, num_agnt, 4, )
-    vf = torch.einsum("ijkl, ijkl -> ijk", wheel_vels, wheel_dirs_forward)
-    vs = torch.einsum("ijkl, ijkl -> ijk", wheel_vels, wheel_dirs_side)
-
-    # black magic
-    f_force = -vf + vr
-    p_force = -vs * 10.0
-    f_force *= 245000 * mod_par["SIZE"] ** 2
-    p_force *= 205000 * mod_par["SIZE"] ** 2
+    # # wheel vels (num_env, num_agnt, 4, 2) wheel_dir (num_env, num_agnt, 4, 2) -> wheel force proj (num_env, num_agnt, 4, )
+    # vf = torch.einsum("ijkl, ijkl -> ijk", wheel_vels, wheel_dirs_forward)
+    # vs = torch.einsum("ijkl, ijkl -> ijk", wheel_vels, wheel_dirs_side)
+    slip = 0*wheels_on_track_segments[..., 0] < 10000
+    # # black magic
+    # f_force = -vf + vr
+    # p_force = -vs * 10.0
+    # f_force *= 245000 * mod_par["SIZE"] ** 2
+    # p_force *= 205000 * mod_par["SIZE"] ** 2
 
     # check which tires are on track
     # Multi track A_track [ntracks, polygon = 4*300, coords = 2]
     # single track A_track [polygon = 4*300, coords = 2]
 
-    wheels_on_track_segments_concat = 1.0 * (
-        torch.einsum("es, stc, eawc  -> eawt", active_track_mask, A_track, wheel_locations_world)
-        - torch.einsum("es, st -> et", active_track_mask, b_track).view(num_envs, 1, 1, -1)
-        + 0.01
-        >= 0
-    )
-    wheels_on_track_segments[:] = torch.einsum("jt, eawt -> eawj", S_track, wheels_on_track_segments_concat) >= 3.5
-    wheel_on_track = torch.any(wheels_on_track_segments, dim=3)
+    # wheels_on_track_segments_concat = 1.0 * (
+    #     torch.einsum("es, stc, eawc  -> eawt", active_track_mask, A_track, wheel_locations_world)
+    #     - torch.einsum("es, st -> et", active_track_mask, b_track).view(num_envs, 1, 1, -1)
+    #     + 0.01
+    #     >= 0
+    # )
+    #wheels_on_track_segments[:] = torch.einsum("jt, eawt -> eawj", S_track, wheels_on_track_segments_concat) >= 3.5
+    #wheel_on_track = torch.any(wheels_on_track_segments, dim=3)
 
-    f_tot = torch.sqrt(torch.square(f_force) + torch.square(p_force)) + 1e-9
+    #f_tot = torch.sqrt(torch.square(f_force) + torch.square(p_force)) + 1e-9
     #f_lim = ((1 - mod_par["OFFTRACK_FRICTION_SCALE"]) * mod_par["FRICTION_LIMIT"]) * wheel_on_track + mod_par[
     #    "OFFTRACK_FRICTION_SCALE"
     #] * mod_par["FRICTION_LIMIT"]
     #trival true
-    slip = 0*f_tot < 10
+    
     #f_force = slip * (0.9 * f_lim * torch.div(f_force, f_tot)) + ~slip * f_force
     #p_force = slip * (0.9 * f_lim * torch.div(p_force, f_tot)) + ~slip * p_force
 

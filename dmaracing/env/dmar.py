@@ -57,7 +57,8 @@ class DmarEnv:
             hparams_file="dynamics_models/"+cfg['model']['hparams_path'], strict=False).to(self.device)
         self.dyn_model.integration_function.initialize_lstm_states(torch.zeros((self.num_envs * self.num_agents, 50, 6)).to(self.device))
         
-        self.dyn_model.dynamics_integrator.dyn_model.set_test_mode()
+        if self.cfg['test']:
+            self.dyn_model.dynamics_integrator.dyn_model.set_test_mode()
         self.dyn_model.dynamics_integrator.dyn_model.num_agents = self.num_agents
         self.dyn_model.dynamics_integrator.dyn_model.init_noise_vec(self.num_envs, self.device)
         self.dyn_model.integration_function.dyn_model.init_col_switch(self.num_envs, self.cfg['model']['col_decay_time'], self.device)
@@ -137,6 +138,7 @@ class DmarEnv:
             (
                 self.num_envs,
                 self.num_agents,
+                2
             )
         )
         self.time_out_buf = torch_zeros((self.num_envs, 1)) > 1
@@ -185,7 +187,7 @@ class DmarEnv:
             (self.num_envs, self.num_agents), dtype=torch.long, device=self.device, requires_grad=False
         )
         self.old_active_track_tile = torch.zeros_like(self.active_track_tile)
-        self.old_track_progress = torch.zeros_like(self.rew_buf)
+        self.old_track_progress = torch.zeros_like(self.time_off_track)
         self.reward_terms = {
             "progress": torch_zeros((self.num_envs, self.num_agents)),
             "offtrack": torch_zeros((self.num_envs, self.num_agents)),
@@ -430,6 +432,7 @@ class DmarEnv:
         self,
     ) -> None:
         self.rew_buf, self.reward_terms = compute_rewards_jit(
+            self.rew_buf,
             self.track_progress,
             self.old_track_progress,
             self.is_on_track,
@@ -450,7 +453,7 @@ class DmarEnv:
         # dithering step
         # self.reset_buf = torch.rand((self.num_envs, 1), device=self.device) < 0.00005
         self.reset_buf = self.time_off_track[:, self.trained_agent_slot].view(-1, 1) > self.offtrack_reset
-        self.reset_buf |= torch.abs(self.track_progress[:,0] - self.old_track_progress[:,0]).view(-1,1) > 5.0
+        self.reset_buf |= (torch.abs(self.track_progress[:,0] - self.old_track_progress[:,0]).view(-1,1) > 5.0)*(self.episode_length_buf > 2)
         # self.reset_buf = torch.any(self.time_off_track[:, :] > self.offtrack_reset, dim = 1).view(-1,1)
         self.time_out_buf = self.episode_length_buf > self.max_episode_length
         self.reset_buf |= self.time_out_buf
@@ -463,9 +466,7 @@ class DmarEnv:
         return self.obs_buf, self.privileged_obs
 
     def reset_envs(self, env_ids) -> None:
-        
         self.dyn_model.integration_function.dyn_model.reset(env_ids)
-
         self.resample_track(env_ids)
         self.active_agents[env_ids, 1:] = (
             torch.rand((len(env_ids), self.num_agents - 1), device=self.device) > self.agent_dropout_prob
@@ -493,7 +494,7 @@ class DmarEnv:
                     tile_idx_env[:, 1:] + rands, self.active_track_tile_counts[env_ids].view(-1, 1)
                 )
             else:
-                tile_idx_env = tile_idx_env + 1 * torch.linspace(
+                tile_idx_env = tile_idx_env + 3 * torch.linspace(
                     0, self.num_agents - 1, self.num_agents, device=self.device
                 ).unsqueeze(0).to(dtype=torch.long)
                 tile_idx_env = torch.remainder(tile_idx_env, self.active_track_tile_counts[env_ids].view(-1, 1))
@@ -524,10 +525,10 @@ class DmarEnv:
                 )
             else:
                 self.states[env_ids, agent, self.vn["S_X"]] = (
-                    startpos[:, 0] - dir_y * (-1) ** (positions[:, agent] + 1) * 0.1
+                    startpos[:, 0] - dir_y * (-1) ** (positions[:, agent] + 1) * 0.2
                 )
                 self.states[env_ids, agent, self.vn["S_Y"]] = (
-                    startpos[:, 1] + dir_x * (-1) ** (positions[:, agent] + 1) * 0.1
+                    startpos[:, 1] + dir_x * (-1) ** (positions[:, agent] + 1) * 0.2
                 )
             self.states[env_ids, agent, self.vn["S_THETA"]] = angs + rand(
                 -self.reset_randomization[2], self.reset_randomization[2], (len(env_ids),), device=self.device
@@ -649,27 +650,27 @@ class DmarEnv:
         self.is_on_track = ~torch.any(~torch.any(self.wheels_on_track_segments, dim=3), dim=2)
         self.time_off_track += 1.0 * ~self.is_on_track
 
-        # update drag_reduction
-        self.drag_reduction_points[
-            :, self.drag_reduction_write_idx : self.drag_reduction_write_idx + self.num_agents, :
-        ] = self.states[:, :, 0:2]
-        self.drag_reduction_write_idx = (
-            self.drag_reduction_write_idx + self.num_agents
-        ) % self.drag_reduction_points.shape[1]
-        leading_pts = self.states[:, :, 0:2] + 5 * torch.cat(
-            (
-                torch.cos(self.states[:, :, 2].view(self.num_envs, self.num_agents, 1)),
-                torch.sin(self.states[:, :, 2].view(self.num_envs, self.num_agents, 1)),
-            ),
-            dim=2,
-        )
+        # # update drag_reduction
+        # self.drag_reduction_points[
+        #     :, self.drag_reduction_write_idx : self.drag_reduction_write_idx + self.num_agents, :
+        # ] = self.states[:, :, 0:2]
+        # self.drag_reduction_write_idx = (
+        #     self.drag_reduction_write_idx + self.num_agents
+        # ) % self.drag_reduction_points.shape[1]
+        # leading_pts = self.states[:, :, 0:2] + 5 * torch.cat(
+        #     (
+        #         torch.cos(self.states[:, :, 2].view(self.num_envs, self.num_agents, 1)),
+        #         torch.sin(self.states[:, :, 2].view(self.num_envs, self.num_agents, 1)),
+        #     ),
+        #     dim=2,
+        # )
 
-        dists = leading_pts.view(self.num_envs, self.num_agents, 1, 2) - self.drag_reduction_points.view(
-            self.num_envs, 1, -1, 2
-        )
-        dists = torch.min(torch.norm(dists, dim=3), dim=2)[0]
-        self.drag_reduced[:] = False
-        self.drag_reduced = dists <= 3.0
+        # dists = leading_pts.view(self.num_envs, self.num_agents, 1, 2) - self.drag_reduction_points.view(
+        #     self.num_envs, 1, -1, 2
+        # )
+        # dists = torch.min(torch.norm(dists, dim=3), dim=2)[0]
+        # self.drag_reduced[:] = False
+        # self.drag_reduced = dists <= 3.0
 
         self.info["agent_active"] = self.active_agents
 
@@ -843,6 +844,7 @@ class DmarEnv:
 ### jit functions
 @torch.jit.script
 def compute_rewards_jit(
+    rew_buf: torch.Tensor,
     track_progress: torch.Tensor,
     old_track_progress: torch.Tensor,
     is_on_track: torch.Tensor,
@@ -871,7 +873,7 @@ def compute_rewards_jit(
 
         rew_collision = is_collision * reward_scales["collision"]
 
-        rew_buf = torch.clip(
+        rew_buf[..., 0] = torch.clip(
             rew_progress + rew_on_track + rew_actionrate + rew_energy + rew_rank + rew_collision, min=0, max=None
         )
     else:

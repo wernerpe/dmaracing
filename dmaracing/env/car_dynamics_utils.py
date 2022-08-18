@@ -26,12 +26,12 @@ def get_varnames()->Dict[str, int]:
 
 def allocate_car_dynamics_tensors(task):
     task.R = torch.zeros((task.num_envs, task.num_agents, 2, 2), dtype = torch.float, device = task.device, requires_grad=False)
-    task.zero_pad = torch.zeros((task.num_envs,4,1), device =task.device, requires_grad=False) 
+    task.zero_pad = torch.zeros((task.num_envs, 5,1), device =task.device, requires_grad=False) 
 
-    task.P_tot, task.D_tot, task.S_mat, task.Repf_mat, task.Ds = build_col_poly_eqns(1.05*task.modelParameters['W'], 1.05*(task.modelParameters['lr'] + task.modelParameters['lf']), task.device, task.num_envs)
+    task.P_tot, task.D_tot, task.S_mat, task.Repf_mat, task.Ds = build_col_poly_eqns(1.1*task.modelParameters['W'], 1.1*(task.modelParameters['lr'] + task.modelParameters['lf']), task.device, task.num_envs)
     task.collision_pairs = get_collision_pairs(task.num_agents)
     task.collision_verts = get_car_vert_mat(task.modelParameters['W'], 
-                                            task.modelParameters['lr'] + task.modelParameters['lf'], 
+                                            task.modelParameters['lf']+task.modelParameters['lr'], 
                                             task.num_envs, 
                                             task.device)
     L = task.modelParameters['L']
@@ -60,8 +60,8 @@ def set_dependent_params(mod_par):
     mod_par['WHEEL_MOMENT_OF_INERTIA'] = mod_par['WHEEL_MOMENT_OF_INERTIA_SCALE']*SIZE**2
     mod_par['FRICTION_LIMIT'] = mod_par['FRICTION_LIMIT_SCALE'] * SIZE * SIZE
     mod_par['WHEEL_R'] = SIZE*mod_par['WHEEL_R_SCALE']
-    L = 0.35
-    W = L/2
+    L = 0.58
+    W = 0.35
     M = L*W *mod_par['MASS_SCALE']
     mod_par['M'] = M
     mod_par['L'] = L
@@ -72,7 +72,7 @@ def set_dependent_params(mod_par):
     
 #only used for collsion checking, only one car per env needed for pairwise checking
 def get_car_vert_mat(w, l, num_envs, device):
-    verts = torch.zeros((num_envs, 4, 2), device=device, dtype=torch.float, requires_grad=False)
+    verts = torch.zeros((num_envs, 5, 2), device=device, dtype=torch.float, requires_grad=False)
     #top lft , ccw
     # 3 x-------x 0
     #   |       |
@@ -88,6 +88,8 @@ def get_car_vert_mat(w, l, num_envs, device):
     verts[:, 2, 1] = -w/2
     verts[:, 3, 0] = -l/2
     verts[:, 3, 1] = w/2
+    verts[:, 4, 0] = l/2
+    verts[:, 4, 1] = 0
     return verts
 
 def get_collision_pairs(num_agents):
@@ -195,7 +197,7 @@ def transform_vel_verts(rel_vel_global : torch.Tensor,
     vel_verts_rot_shift (num_envs, 4 car vertices, 2): velocities of vertices of B in A frame
     '''
     omega = torch.cat((zero_pad[:,0,:], zero_pad[:,0,:], rel_vel_global[..., -1].reshape(-1,1)), dim =-1)
-    vel_verts_global = torch.cross(torch.tile(omega.unsqueeze(1), (1,4,1)), torch.cat((verts, zero_pad), dim = 2))[..., 0:2] + rel_vel_global[..., 0:2].reshape(-1,1,2) 
+    vel_verts_global = torch.cross(torch.tile(omega.unsqueeze(1), (1,5,1)), torch.cat((verts, zero_pad), dim = 2))[..., 0:2] + rel_vel_global[..., 0:2].reshape(-1,1,2) 
     
     theta_rel = theta_B - theta_A
     R[:, 0, 0 ] = torch.cos(theta_rel)
@@ -244,6 +246,8 @@ def transform_col_verts(rel_trans_global : torch.Tensor,
     verts_rot_shift[:,1,:] += trans_rot[:]
     verts_rot_shift[:,2,:] += trans_rot[:]
     verts_rot_shift[:,3,:] += trans_rot[:]
+    verts_rot_shift[:,4,:] += trans_rot[:]
+    
     return verts_rot_shift
 
 @torch.jit.script
@@ -283,7 +287,7 @@ def get_contact_wrenches(P_tot : torch.Tensor,
                          stiffness : float) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
 
     #evaluate polygon equations on vertices of collider in bodyframe of collidee
-    vert_poly_dists = torch.einsum('ij, lkj->lki', P_tot, verts_tf) + torch.tile(D_tot.squeeze(), (num_envs, 4, 1)) 
+    vert_poly_dists = torch.einsum('ij, lkj->lki', P_tot, verts_tf) + torch.tile(D_tot.squeeze(), (num_envs, 5, 1)) 
     #check if in polygon
     in_poly = torch.einsum('ij, lkj -> lki', S_mat, 1.0*(vert_poly_dists+1e-4>=0)) > 3 #watch for numerics here #!$W%!$#!
     #inpoly (numenvs, num_verts, num_poly) Repforcedir (num_envs, num_poly, coords) -> num_env, num_verts, forcecoords
@@ -291,11 +295,11 @@ def get_contact_wrenches(P_tot : torch.Tensor,
     tangential_force_dir =torch.einsum('ijk, ikl -> ijl', 1.0*in_poly, Repf_mat[:,[2,3,1,0], :]) 
     
     #relative velocity projected onto tangential direction
-    fric_vels = torch.einsum('evd, evd -> ev', tangential_force_dir, rel_vels).view(-1,4,1)
+    fric_vels = torch.einsum('evd, evd -> ev', tangential_force_dir, rel_vels).view(-1, 5,1)
     pos_fric_vels = 1.0*(fric_vels>0)
     neg_fric_vels = -1.0*(fric_vels<0)
     
-    fric_forces = -tangential_force_dir*(pos_fric_vels + neg_fric_vels)*0.2
+    fric_forces = -tangential_force_dir*(pos_fric_vels + neg_fric_vels)*0.05
     #inpoly (numenvs, num_verts, num_poly) #vert_poly_dists[:,:, Ds] (num_env, num_verts, num_polygons)
     #use fact that we precomputed all distances to polygon walls
     depths = torch.einsum('ijk, ijk -> ij', 1.0*in_poly, vert_poly_dists[:,:, Depth_selector])
@@ -305,7 +309,7 @@ def get_contact_wrenches(P_tot : torch.Tensor,
     forces[:, :, 1] *= magnitude
     forces += fric_forces
 
-    dirs_vert = torch.cat((verts_tf - torch.tile(torch.mean(verts_tf, dim = 1).unsqueeze(1), (1,4,1)), zero_pad ), dim = 2)
+    dirs_vert = torch.cat((verts_tf - torch.tile(torch.mean(verts_tf, dim = 1).unsqueeze(1), (1,5,1)), zero_pad ), dim = 2)
     dirs_force = torch.cat((forces[:, :, :], zero_pad), dim = 2)
 
     torque_B = torch.sum(torch.cross(dirs_vert, dirs_force, dim = 2)[:,:, 2], dim = 1)
@@ -342,7 +346,7 @@ def resolve_collsions(contact_wrenches : torch.Tensor,
     if len(collision_pairs):
         for id, colp in enumerate(collision_pairs):
             #colp = [colp[switch[id]*1], colp[~switch[id]*1]]
-            idx_comp = torch.where(torch.norm(states[:, colp[0], 0:2] -  states[:, colp[1], 0:2], dim =1)<=2.3*lf)[0]
+            idx_comp = torch.where(torch.norm(states[:, colp[0], 0:2] -  states[:, colp[1], 0:2], dim =1)<=2.4*lf)[0]
             
             if  len(idx_comp):
                 states_A = states[idx_comp, colp[0], 0:3]
@@ -419,7 +423,7 @@ def resolve_collsions(contact_wrenches : torch.Tensor,
                 
                 #shove[idx_comp, colp[0], :2] += 0.6*contact_wrenches[ idx_comp, colp[0], :2]/stiffness
                 #shove[idx_comp, colp[1], :2] += 0.6*contact_wrenches[ idx_comp, colp[1], :2]/stiffness
-    shove[:,:,:2] = 1.*contact_wrenches[:,:,:2]/stiffness
-    shove[:,:,2]  = .1*contact_wrenches[:,:,2]/(stiffness*Iz)          
+    shove[:, :, :2] = 1.0 * contact_wrenches[:,:,:2] / stiffness
+    shove[:, :, 2]  = .5 * contact_wrenches[:,:,2] / (stiffness*Iz)          
     return contact_wrenches, shove
 

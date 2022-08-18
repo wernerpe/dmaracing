@@ -1,5 +1,6 @@
+test: False
 sim:
-  numEnv: 2048
+  numEnv: 512
   #number of racing agents per env
   numAgents: 4
   dt: 0.02 #[s] # If using this with TRI dynamics model, this must be 0.02 to match the refresh frequency of the model
@@ -33,6 +34,7 @@ model:
   noise_level: 1.0
   col_decay_time: 0.5
 
+
 viewer:
   width: 1200  # 1200
   height: 1200  # 1200
@@ -60,7 +62,7 @@ track:
   ccw: True
   draw_centerline: False
   num_tracks: 20
-  track_half_width: 0.45
+  track_half_width: 0.6
   track_poly_spacing: 0.25
   
 learn:
@@ -69,7 +71,7 @@ learn:
   resetrand: [0.05, 0.05, 0.5, 0.2, 0.01,  0.1, 0.0]
   reset_tile_rand: 40
   resetgrid: True
-  defaultactions: [0., 0.1, 0.0]
+  defaultactions: [0., 0.5, 0.0]
   actionscale: [0.3, 1.0, 0.2]
   agent_dropout_prob: 0.0
   distance_obs_cutoff: 100 #[m]
@@ -77,9 +79,9 @@ learn:
   progressRewardScale: 5.0
   offtrackRewardScale: -5.0
   actionRateRewardScale: 0.45
-  energyRewardScale: 0.00006
-  rankRewardScale: 5.0
-  collisionRewardScale: -300.0
+  energyRewardScale: 0.00000
+  rankRewardScale: 0.0
+  collisionRewardScale: 0.0 #-300.0
   horizon: 15
 
   timeout: 25.0 #[s]

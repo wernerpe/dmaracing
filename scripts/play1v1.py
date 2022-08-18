@@ -29,28 +29,26 @@ def play():
 
     num_races = 0
     num_agent_0_wins = 0
-    skill_ag0 = [policy_infos[0]['trueskill']['mu'], policy_infos[0]['trueskill']['sigma']]
-    skill_ag1 = [policy_infos[1]['trueskill']['mu'], policy_infos[1]['trueskill']['sigma']]
+    #skill_ag0 = [policy_infos[0]['trueskill']['mu'], policy_infos[0]['trueskill']['sigma']]
+    #skill_ag1 = [policy_infos[1]['trueskill']['mu'], policy_infos[1]['trueskill']['sigma']]
     #predicted win percentage
     #ratings = [trueskill.Rating(mu=skill_ag0), trueskill.Rating(mu=skill_ag1)]
-    print("matchup trueskill: ag0: ", skill_ag0,', ag1: ', skill_ag0)
-    mu_match = skill_ag0[0] - skill_ag1[0]
-    var_match = skill_ag0[1]**2 + skill_ag1[1]**2
-    win_prob = 1 - norm.cdf((0-mu_match)/(np.sqrt(2*var_match)))
-    print("win probability agent 0: ", win_prob, "var match: ", var_match)
+    #print("matchup trueskill: ag0: ", skill_ag0,', ag1: ', skill_ag0)
+    # mu_match = skill_ag0[0] - skill_ag1[0]
+    # var_match = skill_ag0[1]**2 + skill_ag1[1]**2
+    # win_prob = 1 - norm.cdf((0-mu_match)/(np.sqrt(2*var_match)))
+    # print("win probability agent 0: ", win_prob, "var match: ", var_match)
     idx = 0 
     
     while True:
         t1 = time.time()
         actions = policy(obs)
         #actions[:,1:,1] *=0.9
-        obs,_, rew, dones, info = env.step(actions)
-
-        
+        obs, _, rew, dones, info = env.step(actions)
         dones_idx = torch.unique(torch.where(dones)[0])
         if len(dones_idx):
             num_races += len(dones_idx)
-            num_agent_0_wins += torch.sum(info['ranking'][:,1], dim = 0).item()
+            #num_agent_0_wins += torch.sum(info['ranking'][:,1], dim = 0).item()
         if idx %300 ==0:
             print("wins_0 / races: ", num_agent_0_wins, '/', num_races, '=', num_agent_0_wins*1.0/(num_races+0.001))
         obsnp = obs[:,0,:].cpu().numpy()
@@ -60,10 +58,10 @@ def play():
         states = env.states.cpu().numpy()
         om_mean = np.mean(states[env.viewer.env_idx_render,0, env.vn['S_W0']:env.vn['S_W3'] +1 ])
 
-        viewermsg = [(f"""{'p0 '+str(modelnrs[0])}{' ts: '}{policy_infos[0]['trueskill']['mu']:.1f}"""),
-                     (f"""{'p1 '+str(modelnrs[1])}{' ts: '}{policy_infos[1]['trueskill']['mu']:.1f}"""),
-                     (f"""{'Win prob p0 : ':>{10}}{win_prob:.3f}"""),
-                     (f"""{'rewards:':>{10}}{' '}{100*rewnp[env.viewer.env_idx_render]:.2f}"""   ),
+        viewermsg = [#(f"""{'p0 '+str(modelnrs[0])}{' ts: '}{policy_infos[0]['trueskill']['mu']:.1f}"""),
+                     #(f"""{'p1 '+str(modelnrs[1])}{' ts: '}{policy_infos[1]['trueskill']['mu']:.1f}"""),
+                     #(f"""{'Win prob p0 : ':>{10}}{win_prob:.3f}"""),
+                     (f"""{'rewards:':>{10}}{' '}{100*rewnp[env.viewer.env_idx_render, 0]:.2f}"""   ),
                      (f"""{'velocity x:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 0]:.2f}"""),
                      #(f"""{'velocity y:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 1]:.2f}"""),
                      #(f"""{'ang vel:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 2]:.2f}"""),
@@ -88,7 +86,6 @@ def play():
             env.viewer.add_string(msg)
 
         idx +=1
-        
         evt = env.viewer_events
 
         if evt == 121:
@@ -107,17 +104,17 @@ if __name__ == "__main__":
     args.test = True
     path_cfg = os.getcwd() + '/cfg'
 
-    cfg, cfg_train, logdir = getcfg(path_cfg)
+    cfg, cfg_train, logdir = getcfg(path_cfg, postfix='_1v1')
 
     chkpts = [-1, -1]
-    runs = [-1, -2]
+    runs = [-1, -1]
     cfg['sim']['numEnv'] = 1
     cfg['sim']['numAgents'] = 2
     cfg['learn']['timeout'] = 300
     cfg['learn']['offtrack_reset'] = 4.0
     cfg['learn']['reset_tile_rand'] = 5
     cfg['sim']['test_mode'] = True
-    
+    cfg['test'] = True
     cfg['track']['seed'] = 12
     cfg['track']['num_tracks'] = 20
     #cfg['track']['CHECKPOINTS'] = 20
@@ -125,7 +122,8 @@ if __name__ == "__main__":
     #cfg['track']['CHECKPOINTS'] = 3
     #cfg['track']['TRACK_RAD'] = 800
     cfg['viewer']['multiagent'] = True
-
-    set_dependent_cfg_entries(cfg)
+    if not args.headless:
+        cfg['viewer']['logEvery'] = -1
+    set_dependent_cfg_entries(cfg, cfg_train)
 
     play()    
