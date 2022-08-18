@@ -16,7 +16,7 @@ from gym import spaces
 #sys.path.insert(1, "/home/thomasbalch/tri_workspace/dynamics_model_learning/scripts")
 # Import Dynamics encoder from TRI dynamics library.
 from dmaracing.env.car_dynamics_utils import get_varnames, set_dependent_params, allocate_car_dynamics_tensors
-from dynamics_lib.dynamics_encoder import DynamicsEncoder
+from dynamics_lib.dynamics_encoder import DynamicsEncoder, DynamicsEncoderKinematic
 from dmaracing.env.car_dynamics import step_cars
 
 
@@ -51,14 +51,13 @@ class DmarEnv:
         self.decimation = self.simParameters["decimation"]
 
         # Import TRI dynamics model and weights
-        self.dyn_model = DynamicsEncoder.load_from_checkpoint(
+        self.dyn_model = DynamicsEncoderKinematic.load_from_checkpoint(
             #"/home/peter/git/dynamics_model_learning/sample_models/fixed_integration_current_v25.ckpt").to(self.device)
-            "dynamics_models/"+cfg['model']['dynamics_model_name'],
-            hparams_file="dynamics_models/"+cfg['model']['hparams_path'], strict=False).to(self.device)
+            "dynamics_models/"+cfg['model']['dynamics_model_name'], strict=True).to(self.device)
         # self.dyn_model.integration_function.initialize_lstm_states(torch.zeros((self.num_envs * self.num_agents, 50, 6)).to(self.device))
         # self.dyn_model.dynamics_integrator.dyn_model.set_test_mode()
         # self.dyn_model.dynamics_integrator.dyn_model.num_agents = self.num_agents
-        # self.dyn_model.dynamics_integrator.dyn_model.init_noise_vec(self.num_envs, self.device)
+        self.dyn_model.init_noise_vec(self.num_envs, self.device)
 
         self.noise_level = self.cfg['model']['noise_level']
 
@@ -577,7 +576,7 @@ class DmarEnv:
         #        self.info['percentage_max_episode_length'] = 1.0*self.episode_length_buf[env_ids]/(self.max_episode_length)
 
         #dynamics randomization
-        # self.dyn_model.dynamics_integrator.dyn_model.update_noise_vec(env_ids, self.noise_level) 
+        self.dyn_model.update_noise_vec(env_ids, self.noise_level) 
 
         self.lap_counter[env_ids, :] = 0
         self.episode_length_buf[env_ids] = 0.0

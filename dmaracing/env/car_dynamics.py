@@ -55,16 +55,16 @@ def step_cars(
         b_track,
         S_track,
     )
-    
+
     dyn_state_shape = dyn_state.shape
     input_state_shape = [dyn_state_shape[0] * dyn_state_shape[1], dyn_state_shape[2]]
     dyn_control_shape = dyn_control.shape
     input_control_shape = [dyn_control_shape[0] * dyn_control_shape[1], dyn_control_shape[2]]
-    stepped_state = dyn_model.dynamics_integrator.step_state(
-        dyn_state.reshape(input_state_shape).to(dyn_model.device), dyn_control.reshape(input_control_shape).to(dyn_model.device)
-    )
-    stepped_state = stepped_state.reshape(dyn_state_shape)
-    
+    stepped_state = dyn_model.step_state(
+        dyn_state, dyn_control)#.reshape(input_state_shape).to(dyn_model.device), dyn_control.reshape(input_control_shape).to(dyn_model.device)
+    #)
+    #stepped_state = stepped_state.reshape(dyn_state_shape)
+
     new_state = torch.zeros_like(state)
     new_state[..., vn["S_X"]] = stepped_state[...,0]
     new_state[..., vn["S_Y"]] = stepped_state[...,1]
@@ -73,8 +73,8 @@ def step_cars(
     new_state[..., vn["S_DY"]] = stepped_state[...,5]
     new_state[..., vn["S_DTHETA"]] = stepped_state[...,6]
     new_state[..., vn["S_W0"]] = stepped_state[...,3] # Roll
-    new_state[..., vn["S_STEER"]] = state[...,vn["S_STEER"]]
-    new_state[..., vn["S_GAS"]] = state[...,vn["S_GAS"]]
+    new_state[..., vn["S_STEER"]] = dyn_control[...,vn["A_STEER"]]
+    new_state[..., vn["S_GAS"]] = dyn_control[...,vn["A_GAS"]]
     new_state = new_state.detach().to(new_state.device)
 
     if collide:
@@ -160,11 +160,11 @@ def get_state_control_tensors(
     # diff = actions[:, :, vn["A_GAS"]] - state[:, :, vn["S_GAS"]]
     # state[:, :, vn["S_GAS"]] += torch.clip(diff, min=-0.1, max=0.06)
     # state[:, :, vn["S_GAS"]] = torch.clamp(state[:, :, vn["S_GAS"]], 0, 1)
-    #state[:, :, vn["S_GAS"]] = torch.clip(actions[:, :, vn["A_GAS"]], -1, 0.8) 
+    #state[:, :, vn["S_GAS"]] = torch.clip(actions[:, :, vn["A_GAS"]], -1, 0.8)
     speed = torch.sqrt(state[:, :, vn["S_DX"]] * state[:, :, vn["S_DX"]] + state[:, :, vn["S_DY"]] * state[:, :, vn["S_DY"]])
     # 5 is the max speed we allow the car to achieve due to model data, this could be changed.
-    clipped_max = (state[:, :, vn["S_DX"]] < 5.0) * 1.0
-    clipped_min = (state[:, :, vn["S_DX"]] > 0.0) * -1.0
+    clipped_max = (state[:, :, vn["S_DX"]] < mod_par["max_speed"]) * 0.5
+    clipped_min = (state[:, :, vn["S_DX"]] > 0.0) * -0.5
     state[:, :, vn["S_GAS"]] = torch.clip(actions[:, :, vn["A_GAS"]], clipped_min, clipped_max)
 
     # drafting disabled
