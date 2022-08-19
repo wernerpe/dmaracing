@@ -48,12 +48,12 @@ def step_cars(
         #mod_par,
         #sim_par,
         vn,
-        #num_envs,
+        num_envs,
         wheels_on_track_segments,
-        #active_track_mask,
-        #A_track,
-        #b_track,
-        #S_track,
+        active_track_mask,
+        A_track,
+        b_track,
+        S_track,
     )
     
     dyn_state_shape = dyn_state.shape
@@ -116,12 +116,12 @@ def get_state_control_tensors(
     #mod_par: Dict[str, float],
     #sim_par: Dict[str, float],
     vn: Dict[str, int],
-    #num_envs: int,
+    num_envs: int,
     wheels_on_track_segments: torch.Tensor,
-    #active_track_mask: torch.Tensor,
-    #A_track: torch.Tensor,
-    #b_track: torch.Tensor,
-    #S_track: torch.Tensor,
+    active_track_mask: torch.Tensor,
+    A_track: torch.Tensor,
+    b_track: torch.Tensor,
+    S_track: torch.Tensor,
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
 
     # set steering angle
@@ -235,13 +235,13 @@ def get_state_control_tensors(
     # Multi track A_track [ntracks, polygon = 4*300, coords = 2]
     # single track A_track [polygon = 4*300, coords = 2]
 
-    # wheels_on_track_segments_concat = 1.0 * (
-    #     torch.einsum("es, stc, eawc  -> eawt", active_track_mask, A_track, wheel_locations_world)
-    #     - torch.einsum("es, st -> et", active_track_mask, b_track).view(num_envs, 1, 1, -1)
-    #     + 0.01
-    #     >= 0
-    # )
-    #wheels_on_track_segments[:] = torch.einsum("jt, eawt -> eawj", S_track, wheels_on_track_segments_concat) >= 3.5
+    wheels_on_track_segments_concat = 1.0 * (
+        torch.einsum("es, stc, eawc  -> eawt", active_track_mask, A_track, wheel_locations_world)
+        - torch.einsum("es, st -> et", active_track_mask, b_track).view(num_envs, 1, 1, -1)
+        + 0.01
+        >= 0
+    )
+    wheels_on_track_segments[:] = torch.einsum("jt, eawt -> eawj", S_track, wheels_on_track_segments_concat) >= 3.5
     #wheel_on_track = torch.any(wheels_on_track_segments, dim=3)
 
     #f_tot = torch.sqrt(torch.square(f_force) + torch.square(p_force)) + 1e-9

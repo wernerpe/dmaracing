@@ -29,6 +29,8 @@ class CmdLineArguments:
         overridestring_env = ''
         for override_key, override_value in zip(self.override_keys, self.override_values):
             print(override_key)
+            if override_key == 'headless':
+                self.headless = type(self.headless)(override_value)
             for key, val in cfg_train.items():
                 if key == override_key:
                     #typecast from string into type in dict

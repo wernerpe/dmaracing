@@ -43,7 +43,7 @@ def play():
     while True:
         t1 = time.time()
         actions = policy(obs)
-        #actions[:,1:,1] *=0.9
+        #actions[:,:,1] =0.5
         obs, _, rew, dones, info = env.step(actions)
         dones_idx = torch.unique(torch.where(dones)[0])
         if len(dones_idx):
@@ -62,11 +62,12 @@ def play():
                      #(f"""{'p1 '+str(modelnrs[1])}{' ts: '}{policy_infos[1]['trueskill']['mu']:.1f}"""),
                      #(f"""{'Win prob p0 : ':>{10}}{win_prob:.3f}"""),
                      (f"""{'rewards:':>{10}}{' '}{100*rewnp[env.viewer.env_idx_render, 0]:.2f}"""   ),
-                     (f"""{'velocity x:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 0]:.2f}"""),
+                     (f"""{'velocity x:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 0]*10:.2f}"""),
                      #(f"""{'velocity y:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 1]:.2f}"""),
                      #(f"""{'ang vel:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 2]:.2f}"""),
                      #(f"""{'steer:':>{10}}{' '}{states[env.viewer.env_idx_render, 0, env.vn['S_STEER']]:.2f}"""),
-                     #(f"""{'gas:':>{10}}{' '}{states[env.viewer.env_idx_render, 0, env.vn['S_GAS']]:.2f}"""),
+                     (f"""{'gas 0:':>{10}}{' '}{actions[env.viewer.env_idx_render, 0, env.vn['A_GAS']].item():.2f}"""),
+                     (f"""{'gas 1:':>{10}}{' '}{actions[env.viewer.env_idx_render, 1, env.vn['A_GAS']].item():.2f}"""),
                      #(f"""{'brake:':>{10}}{' '}{act[env.viewer.env_idx_render, env.vn['A_BRAKE']]:.2f}"""),
                      (f"""{'om_mean:':>{10}}{' '}{om_mean:.2f}"""),
                      (f"""{'collision:':>{10}}{' '}{env.is_collision[0,0].item():.2f}"""),
@@ -92,10 +93,10 @@ def play():
             print("env ", env.viewer.env_idx_render, " reset")
             env.episode_length_buf[env.viewer.env_idx_render] = 1e9
         
-        #t2 = time.time()
-        #realtime = t2-t1-time_per_step
-        #if realtime < 0:
-        #     time.sleep(-realtime)
+        t2 = time.time()
+        realtime = t2-t1-time_per_step
+        if realtime < 0:
+            time.sleep(-realtime)
 
 if __name__ == "__main__":
     args = CmdLineArguments()
@@ -108,7 +109,7 @@ if __name__ == "__main__":
 
     chkpts = [-1, -1]
     runs = [-1, -1]
-    cfg['sim']['numEnv'] = 1
+    cfg['sim']['numEnv'] = 3
     cfg['sim']['numAgents'] = 2
     cfg['learn']['timeout'] = 300
     cfg['learn']['offtrack_reset'] = 4.0

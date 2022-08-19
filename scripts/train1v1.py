@@ -37,7 +37,7 @@ if __name__ == "__main__":
     print(torch.cuda.is_available())
     args = CmdLineArguments()
     args.device = 'cuda:0'
-    args.headless = False 
+    args.headless = True
     path_cfg = os.getcwd() + '/cfg'
     cfg, cfg_train, logdir_root = getcfg(path_cfg, postfix='_1v1')
     cfg['sim']['numAgents'] = 2
