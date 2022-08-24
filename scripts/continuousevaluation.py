@@ -9,6 +9,7 @@ import sys
 import trueskill
 from torch.utils.tensorboard import SummaryWriter
 import numpy as np
+from datetime import date, datetime
 
 def run_eval(policy, env):
     obs, _ = env.reset()
@@ -61,25 +62,31 @@ def updateratings(ratings, checkpoints, results, max_duration):
         ratings[pt] = ratings_match[idx]
     return ratings
 
-def Log(writer, ratings, num_matches, checkpoints, it):
+def Log(logfile, ratings, num_matches, checkpoints, it):
     log = (f"\033[1m EVAL: {it} \033[0m"
             f"""\n{'#' * 20}\n""")
-    for key in ratings.keys():
-        rat = ratings[key]
-        mu = rat[0].mu
-        sigma = rat[0].sigma
-        log += (f"""{key:>{5}}{', m:'}{mu:.2f}{', s:'}{sigma:.2f}{', n:'}{num_matches[key]}\n""")
-        writer.add_scalar('EVAL/ratings_mean', mu, key)
-        writer.add_scalar('EVAL/ratings_sigma', sigma, key)
-        writer.add_scalar('EVAL/num_matches', num_matches[key], key)   
+    with open(logfile,'a') as fd:
+        for key in ratings.keys():
+            rat = ratings[key]
+            mu = rat[0].mu
+            sigma = rat[0].sigma
+            log += (f"""{key:>{5}}{', m:'}{mu:.2f}{', s:'}{sigma:.2f}{', n:'}{num_matches[key]}\n""")
+            # writer.add_scalar('EVAL/ratings_mean', mu, key)
+            # writer.add_scalar('EVAL/ratings_sigma', sigma, key)
+            # writer.add_scalar('EVAL/num_matches', num_matches[key], key)
+            line = str(key)+', '+str(mu) + ', ' + str(sigma) + ', ' + str(num_matches[key])+'\n'
+            fd.write(line)   
     print(log)
 
 def continuous_eval():
-    cfg['sim']['numEnv'] = 16
+    cfg['sim']['numEnv'] = 128
     #cfg['track']['num_tracks'] = 2
     env = DmarEnv(cfg, args)
     runner = get_mappo_runner(env, cfg_train, logdir_root, env.device, cfg['sim']['numAgents'])
-    writer = SummaryWriter(log_dir=logdir, flush_secs=10)
+    #writer = SummaryWriter(log_dir=logdir, flush_secs=10)
+    now = datetime.now()
+    timestamp = now.strftime("%y_%m_%d_%H_%M_%S")
+    logfile = logdir + '/continuouseval_'+timestamp+'.csv'
     ratings = {}
     num_matches = {}
     it = 0
@@ -95,7 +102,7 @@ def continuous_eval():
             #ratings_eval.append(ratings[chkpt])
         results = run_eval(lumped_policy, env)
         ratings = updateratings(ratings, checkpoints, results, env.max_episode_length)
-        Log(writer, ratings, num_matches, checkpoints, it)
+        Log(logfile, ratings, num_matches, checkpoints, it)
         it +=1
 
 if __name__ == "__main__":
@@ -123,5 +130,5 @@ if __name__ == "__main__":
     
     cfg["logdir"] = logdir
     cfg['viewer']['logEvery'] = -1
-    cfg['test'] = True
+    #cfg['test'] = True
     continuous_eval()
