@@ -69,13 +69,13 @@ def Log(writer, ratings, num_matches, checkpoints, it):
         mu = rat[0].mu
         sigma = rat[0].sigma
         log += (f"""{key:>{5}}{', m:'}{mu:.2f}{', s:'}{sigma:.2f}{', n:'}{num_matches[key]}\n""")
-        writer.add_scalar('EVAL/ratings_mean', mu, key)
-        writer.add_scalar('EVAL/ratings_sigma', sigma, key)
-        writer.add_scalar('EVAL/num_matches', num_matches[key], key)   
+        writer.add_scalar('EVAL2/ratings_mean', mu, key)
+        writer.add_scalar('EVAL2/ratings_sigma', sigma, key)
+        writer.add_scalar('EVAL2/num_matches', num_matches[key], key)   
     print(log)
 
 def continuous_eval():
-    cfg['sim']['numEnv'] = 16
+    cfg['sim']['numEnv'] = 128
     #cfg['track']['num_tracks'] = 2
     env = DmarEnv(cfg, args)
     runner = get_mappo_runner(env, cfg_train, logdir_root, env.device, cfg['sim']['numAgents'])
@@ -102,14 +102,14 @@ if __name__ == "__main__":
     args = CmdLineArguments()
     args.parse(sys.argv[1:])
     args.device = 'cuda:0'
-    args.headless = False
+    args.headless = True
     path_cfg = os.getcwd() + '/cfg'
     cfg, cfg_train, logdir_root = getcfg(path_cfg, postfix='_1v1')  # True)
     cfg['sim']['numAgents'] = 2
     cfg['sim']['collide'] = 1
     experiment_path = '22_08_23_11_49_39'
-    if not args.headless:
-        cfg['viewer']['logEvery'] = -1
+    #if not args.headless:
+    cfg['viewer']['logEvery'] = -1
     logdir = logdir_root +'/'+ experiment_path
     
     #load experiment cfgs
@@ -123,5 +123,5 @@ if __name__ == "__main__":
     
     cfg["logdir"] = logdir
     cfg['viewer']['logEvery'] = -1
-    cfg['test'] = True
+    cfg['test'] = False
     continuous_eval()
