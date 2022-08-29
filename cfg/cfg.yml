@@ -75,12 +75,13 @@ learn:
   actionscale: [0.3, 1.0, 0.2]
   agent_dropout_prob: 0.0
   distance_obs_cutoff: 3 #[m]
+  race_length_laps: 1
 
   progressRewardScale: 5.0
   offtrackRewardScale: -5.0
   actionRateRewardScale: 0.45
   energyRewardScale: 0.00000
-  rankRewardScale: 0.0
+  rankRewardScale: 0.1
   collisionRewardScale: 0.0 #-300.0
   horizon: 15
 

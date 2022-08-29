@@ -159,6 +159,7 @@ class DmarEnv:
         self.default_actions = cfg["learn"]["defaultactions"]
         self.action_scales = cfg["learn"]["actionscale"]
         self.horizon = cfg["learn"]["horizon"]
+        self.race_length_laps = cfg['learn']['race_length_laps']
         self.reset_randomization = cfg["learn"]["resetrand"]
         self.reset_tile_rand = cfg["learn"]["reset_tile_rand"]
         self.reset_grid = cfg["learn"]["resetgrid"]
@@ -453,6 +454,8 @@ class DmarEnv:
         # dithering step
         # self.reset_buf = torch.rand((self.num_envs, 1), device=self.device) < 0.00005
         self.reset_buf = self.time_off_track[:, self.trained_agent_slot].view(-1, 1) > self.offtrack_reset
+        lapdist = self.track_progress[:,self.trained_agent_slot].view(-1, 1)/self.track_lengths[self.active_track_ids].view(-1,1)
+        self.reset_buf |= lapdist > self.race_length_laps
         self.reset_buf |= (torch.abs(self.track_progress[:,0] - self.old_track_progress[:,0]).view(-1,1) > 5.0)*(self.episode_length_buf > 2)
         # self.reset_buf = torch.any(self.time_off_track[:, :] > self.offtrack_reset, dim = 1).view(-1,1)
         self.time_out_buf = self.episode_length_buf > self.max_episode_length
@@ -584,7 +587,8 @@ class DmarEnv:
         #        self.info['percentage_max_episode_length'] = 1.0*self.episode_length_buf[env_ids]/(self.max_episode_length)
 
         #dynamics randomization
-        self.dyn_model.dynamics_integrator.dyn_model.update_noise_vec(env_ids, self.noise_level) 
+        if not self.cfg['test']:
+            self.dyn_model.dynamics_integrator.dyn_model.update_noise_vec(env_ids, self.noise_level) 
 
         self.lap_counter[env_ids, :] = 0
         self.episode_length_buf[env_ids] = 0.0

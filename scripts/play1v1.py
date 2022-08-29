@@ -109,7 +109,7 @@ if __name__ == "__main__":
 
     chkpts = [-1, -1]
     runs = [-1, -1]
-    cfg['sim']['numEnv'] = 3
+    cfg['sim']['numEnv'] = 4
     cfg['sim']['numAgents'] = 2
     cfg['learn']['timeout'] = 300
     cfg['learn']['offtrack_reset'] = 4.0
