@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-path = 'logs/tri_1v1/22_08_23_11_49_39/continuouseval_22_08_26_10_43_12.csv' #'../../supercloud/dmaracing/logs/tri_1v1/22_08_23_11_49_39/continuouseval_22_08_24_16_49_32.csv'
+path = 'logs/tri_1v1/22_08_29_10_50_46/continuouseval_22_08_30_10_22_03.csv' #'../../supercloud/dmaracing/logs/tri_1v1/22_08_23_11_49_39/continuouseval_22_08_24_16_49_32.csv'
 
 my_data = np.genfromtxt(path, delimiter=',')
 keys = my_data[:,0]

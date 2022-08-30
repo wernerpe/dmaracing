@@ -25,6 +25,12 @@ def play():
     policy_infos = runner.load_multi_path(model_paths)
     policy = runner.get_inference_policy(device=env.device)
     
+    if SAVE:
+        policy_jit = torch.jit.script(runner.alg.actor_critic.ac1.actor.to('cpu'))
+        policy_jit.save("logs/saved_models/testmamod.pt")
+        print("Done saving")
+        exit()
+
     time_per_step = cfg['sim']['dt']*cfg['sim']['decimation']
 
     num_races = 0
@@ -99,6 +105,7 @@ def play():
             time.sleep(-realtime)
 
 if __name__ == "__main__":
+    SAVE = True
     args = CmdLineArguments()
     args.device = 'cuda:0'
     args.headless = False 

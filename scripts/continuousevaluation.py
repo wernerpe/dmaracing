@@ -5,8 +5,8 @@ from dmaracing.env.dmar import DmarEnv
 from dmaracing.utils.helpers import *
 #from dmaracing.utils.rating_helpers import compute_winprob_i
 from dmaracing.utils.rl_helpers import get_mappo_runner
-import sys
 import trueskill
+import sys
 from torch.utils.tensorboard import SummaryWriter
 import numpy as np
 from datetime import date, datetime
@@ -47,6 +47,23 @@ def load_polices(logdir, runner, env):
     lumped_policy = runner.get_inference_policy(device=env.device)
     return lumped_policy, checkpoints
 
+def load_polices_det(logdir, runner, env):
+    #round robin policy loading
+    ######TODO
+    # lumped_policy = None
+    runs = [int(r[6:-3]) for r in os.listdir(logdir)[::10] if '.pt' in r]  
+    # runs.sort()
+
+    #random choice    
+    checkpoints = [np.random.choice(runs) for _ in range(env.num_agents)]
+    model_paths = []
+    for modelnr in checkpoints:
+        model_paths.append("{}/model_{}.pt".format(logdir, modelnr))
+        print("Loading model" + model_paths[-1])
+    policy_infos = runner.load_multi_path(model_paths)
+    lumped_policy = runner.get_inference_policy(device=env.device)
+    return lumped_policy, checkpoints
+
 def updateratings(ratings, checkpoints, results, max_duration):
     ratings_match = [ratings[pt] for pt in checkpoints]
     duration, ranks, rewards = results
@@ -70,12 +87,13 @@ def Log(logfile, ratings, num_matches, checkpoints, it):
             rat = ratings[key]
             mu = rat[0].mu
             sigma = rat[0].sigma
-            log += (f"""{key:>{5}}{', m:'}{mu:.2f}{', s:'}{sigma:.2f}{', n:'}{num_matches[key]}\n""")
             # writer.add_scalar('EVAL/ratings_mean', mu, key)
             # writer.add_scalar('EVAL/ratings_sigma', sigma, key)
             # writer.add_scalar('EVAL/num_matches', num_matches[key], key)
-            line = str(key)+', '+str(mu) + ', ' + str(sigma) + ', ' + str(num_matches[key])+'\n'
-            fd.write(line)   
+            if key in checkpoints:
+                log += (f"""{key:>{5}}{', m:'}{mu:.2f}{', s:'}{sigma:.2f}{', n:'}{num_matches[key]}\n""")
+                line = str(key)+', '+str(mu) + ', ' + str(sigma) + ', ' + str(num_matches[key])+'\n'
+                fd.write(line)   
     print(log)
 
 def continuous_eval():
@@ -109,12 +127,12 @@ if __name__ == "__main__":
     args = CmdLineArguments()
     args.parse(sys.argv[1:])
     args.device = 'cuda:0'
-    args.headless = False
+    args.headless = True
     path_cfg = os.getcwd() + '/cfg'
     cfg, cfg_train, logdir_root = getcfg(path_cfg, postfix='_1v1')  # True)
     cfg['sim']['numAgents'] = 2
     cfg['sim']['collide'] = 1
-    experiment_path = '22_08_23_11_49_39'
+    experiment_path = '22_08_29_10_50_46'
     if not args.headless:
         cfg['viewer']['logEvery'] = -1
     logdir = logdir_root +'/'+ experiment_path
