@@ -106,12 +106,12 @@ def  get_run(logdir, run, chkpt):
         runstr = runs[run]
         model_dir = logdir+'/'+ runstr
 
-    if chkpt == -1:
+    if chkpt < 0:
         models = os.listdir(model_dir)
         models = [i for i in models if 'model' in i]
         nrs = [int(model[6:-3]) for model in models]
         nrs.sort()
-        modelnr = int(nrs[-1])
+        modelnr = int(nrs[chkpt])
     else:
         modelnr = chkpt
 

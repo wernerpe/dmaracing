@@ -105,7 +105,7 @@ def play():
             time.sleep(-realtime)
 
 if __name__ == "__main__":
-    SAVE = True
+    SAVE = False
     args = CmdLineArguments()
     args.device = 'cuda:0'
     args.headless = False 
@@ -114,7 +114,7 @@ if __name__ == "__main__":
 
     cfg, cfg_train, logdir = getcfg(path_cfg, postfix='_1v1')
 
-    chkpts = [-1, -1]
+    chkpts = [-10, -10]
     runs = [-1, -1]
     cfg['sim']['numEnv'] = 4
     cfg['sim']['numAgents'] = 2

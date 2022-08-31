@@ -394,13 +394,16 @@ class DmarEnv:
             last_raw_actions = self.last_actions 
             last_raw_actions[:,:, 0 ] = (last_raw_actions[:,:, 0 ] - self.default_actions[0])/self.action_scales[0]  
             last_raw_actions[:,:, 1] = (last_raw_actions[:,:, 1] - self.default_actions[1])/self.action_scales[1]  
+            
+            #maxvel obs self.dyn_model.dynamics_integrator.dyn_model.max_vel_vec
             self.obs_buf = torch.cat(
                 (
                     self.vels_body * 0.1,
                     lookahead_rbound_scaled[:,:,:,0], 
                     lookahead_rbound_scaled[:,:,:,1], 
                     lookahead_lbound_scaled[:,:,:,0], 
-                    lookahead_lbound_scaled[:,:,:,1], 
+                    lookahead_lbound_scaled[:,:,:,1],
+                    self.dyn_model.dynamics_integrator.dyn_model.max_vel_vec,
                     last_raw_actions,
                     self.progress_other * 0.1,
                     self.contouring_err_other * 0.25,
@@ -730,8 +733,8 @@ class DmarEnv:
         self.compute_rewards()
 
         # render before resetting values
-        # if not self.headless:
-        self.render()
+        if not self.headless:
+            self.render()
 
         self.old_active_track_tile = self.active_track_tile
         self.old_track_progress = self.track_progress
