@@ -383,15 +383,17 @@ class DmarEnv:
             )
 
             self.progress_other = (
-                torch.clip(0.5 * torch.cat(tuple([prog for prog in other_progress]), dim=1), min=-50, max=50)
+                torch.clip(torch.cat(tuple([prog for prog in other_progress]), dim=1), min=-2.5, max=2.5)
                 * self.active_obs_template
             )
             self.contouring_err_other = (
-                torch.clip(torch.cat(tuple([err for err in other_contouringerr]), dim=1), min=-10, max=10)
+                torch.clip(torch.cat(tuple([err for err in other_contouringerr]), dim=1), min=-1, max=1)
                 * self.active_obs_template
                 * is_other_close
             )
-
+            last_raw_actions = self.last_actions 
+            last_raw_actions[:,:, 0 ] = (last_raw_actions[:,:, 0 ] - self.default_actions[0])/self.action_scales[0]  
+            last_raw_actions[:,:, 1] = (last_raw_actions[:,:, 1] - self.default_actions[1])/self.action_scales[1]  
             self.obs_buf = torch.cat(
                 (
                     self.vels_body * 0.1,
@@ -399,10 +401,11 @@ class DmarEnv:
                     lookahead_rbound_scaled[:,:,:,1], 
                     lookahead_lbound_scaled[:,:,:,0], 
                     lookahead_lbound_scaled[:,:,:,1], 
-                    self.last_actions,
+                    last_raw_actions,
                     self.progress_other * 0.1,
                     self.contouring_err_other * 0.25,
-                    rot_other,
+                    torch.sin(rot_other),
+                    torch.cos(rot_other),
                     vel_other[..., 0] * 0.1,
                     vel_other[..., 1] * 0.1,
                     angvel_other * 0.1,
@@ -420,7 +423,7 @@ class DmarEnv:
                 lookahead_rbound_scaled[:,:,:,1], 
                 lookahead_lbound_scaled[:,:,:,0], 
                 lookahead_lbound_scaled[:,:,:,1], 
-                self.last_actions,
+                last_raw_actions,
             ),
             dim=2,
             )

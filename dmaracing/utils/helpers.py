@@ -73,12 +73,12 @@ def set_dependent_cfg_entries(cfg, cfg_train):
     numObservations = cfg['sim']['numConstantObservations']
     # numObservations += cfg['learn']['horizon']*2 #lookaheadhorizon
     numObservations += cfg['learn']['horizon']*4 #lookaheadhorizon
-    numObservations += (2+1+1+2) * (cfg['sim']['numAgents']-1)
+    numObservations += (2+1+2+2) * (cfg['sim']['numAgents']-1)
     cfg['sim']['numObservations'] = numObservations
     if cfg_train['policy']['attentive']:
         # cfg_train['policy']['num_ego_obs'] = cfg['learn']['horizon']*2 + cfg['sim']['numConstantObservations']
         cfg_train['policy']['num_ego_obs'] = cfg['learn']['horizon']*4 + cfg['sim']['numConstantObservations']
-        cfg_train['policy']['num_ado_obs'] = 2+1+1+2
+        cfg_train['policy']['num_ado_obs'] = 2+1+2+2
     
 
 def getcfg(path, postfix = ''):
