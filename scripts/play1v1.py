@@ -27,7 +27,7 @@ def play():
     
     if SAVE:
         policy_jit = torch.jit.script(runner.alg.actor_critic.ac1.actor.to('cpu'))
-        policy_jit.save("logs/saved_models/testmamod.pt")
+        policy_jit.save("logs/saved_models/newobsdummy.pt")
         print("Done saving")
         exit()
 
@@ -72,8 +72,9 @@ def play():
                      #(f"""{'velocity y:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 1]:.2f}"""),
                      #(f"""{'ang vel:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 2]:.2f}"""),
                      #(f"""{'steer:':>{10}}{' '}{states[env.viewer.env_idx_render, 0, env.vn['S_STEER']]:.2f}"""),
-                     (f"""{'gas 0:':>{10}}{' '}{actions[env.viewer.env_idx_render, 0, env.vn['A_GAS']].item():.2f}"""),
-                     (f"""{'gas 1:':>{10}}{' '}{actions[env.viewer.env_idx_render, 1, env.vn['A_GAS']].item():.2f}"""),
+                     (f"""{'gas raw 0:':>{10}}{' '}{actions[env.viewer.env_idx_render, 0, env.vn['A_GAS']].item():.2f}"""),
+                     (f"""{'gas inp 0:':>{10}}{' '}{env.action_scales[1] * actions[env.viewer.env_idx_render, 0, 1] + env.default_actions[1]:.2f}"""),
+                     #(f"""{'gas 1:':>{10}}{' '}{actions[env.viewer.env_idx_render, 1, env.vn['A_GAS']].item():.2f}"""),
                      #(f"""{'brake:':>{10}}{' '}{act[env.viewer.env_idx_render, env.vn['A_BRAKE']]:.2f}"""),
                      (f"""{'om_mean:':>{10}}{' '}{om_mean:.2f}"""),
                      (f"""{'collision:':>{10}}{' '}{env.is_collision[0,0].item():.2f}"""),
@@ -114,7 +115,7 @@ if __name__ == "__main__":
 
     cfg, cfg_train, logdir = getcfg(path_cfg, postfix='_1v1')
 
-    chkpts = [-10, -10]
+    chkpts = [-1, -1]
     runs = [-1, -1]
     cfg['sim']['numEnv'] = 4
     cfg['sim']['numAgents'] = 2
