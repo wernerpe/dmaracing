@@ -425,7 +425,8 @@ class DmarEnv:
                 lookahead_rbound_scaled[:,:,:,0], 
                 lookahead_rbound_scaled[:,:,:,1], 
                 lookahead_lbound_scaled[:,:,:,0], 
-                lookahead_lbound_scaled[:,:,:,1], 
+                lookahead_lbound_scaled[:,:,:,1],
+                self.dyn_model.dynamics_integrator.dyn_model.max_vel_vec, 
                 last_raw_actions,
             ),
             dim=2,
@@ -461,7 +462,7 @@ class DmarEnv:
         # self.reset_buf = torch.rand((self.num_envs, 1), device=self.device) < 0.00005
         self.reset_buf = self.time_off_track[:, self.trained_agent_slot].view(-1, 1) > self.offtrack_reset
         lapdist = self.track_progress[:,self.trained_agent_slot].view(-1, 1)/self.track_lengths[self.active_track_ids].view(-1,1)
-        self.reset_buf |= lapdist > self.race_length_laps
+        #self.reset_buf |= lapdist > self.race_length_laps
         self.reset_buf |= (torch.abs(self.track_progress[:,0] - self.old_track_progress[:,0]).view(-1,1) > 5.0)*(self.episode_length_buf > 2)
         # self.reset_buf = torch.any(self.time_off_track[:, :] > self.offtrack_reset, dim = 1).view(-1,1)
         self.time_out_buf = self.episode_length_buf > self.max_episode_length
@@ -803,7 +804,7 @@ class DmarEnv:
 
     def resample_track(self, env_ids) -> None:
         success = self.episode_length_buf[env_ids]> 0.9*self.max_episode_length
-        self.track_successes[self.active_track_ids[env_ids]] += success
+        #self.track_successes[self.active_track_ids[env_ids]] += success
         a = 1/self.track_successes
         probs = a/torch.sum(a)
         dist = torch.distributions.Categorical(probs.view(-1,))
@@ -874,7 +875,7 @@ def compute_rewards_jit(
     rew_progress = torch.clip(track_progress - old_track_progress, min=-10, max=10) * reward_scales["progress"]
     rew_on_track = reward_scales["offtrack"] * ~is_on_track
     act_diff = torch.square(actions - last_actions)
-    act_diff[...,1] *= 20.0
+    act_diff[..., 0] *= 2.0
     rew_actionrate = -torch.sum(act_diff, dim=2) * reward_scales["actionrate"]
     rew_energy = -torch.sum(torch.square(states[:, :, vn["S_W0"] : vn["S_W3"] + 1]), dim=2) * reward_scales["energy"]
     num_active_agents = torch.sum(1.0 * active_agents, dim=1)

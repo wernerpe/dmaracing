@@ -69,6 +69,7 @@ learn:
   use_timeouts: True
   #[posx, posy, theta, vellong, vellat, dtheta, steer]
   resetrand: [0.05, 0.05, 0.5, 0.2, 0.01,  0.1, 0.0]
+  #resetrand: [0.00, 0.0, 0., 0.0, 0.0,  0., 0.0]
   reset_tile_rand: 40
   resetgrid: True
   defaultactions: [0., 0.5, 0.0]
@@ -77,9 +78,9 @@ learn:
   distance_obs_cutoff: 3 #[m]
   race_length_laps: 1
 
-  progressRewardScale: 5.0
-  offtrackRewardScale: -5.0
-  actionRateRewardScale: 0.45
+  progressRewardScale: 10.0
+  offtrackRewardScale: -1.0
+  actionRateRewardScale: 0.12
   energyRewardScale: 0.00000
   rankRewardScale: 0.0
   collisionRewardScale: 0.0 #-300.0

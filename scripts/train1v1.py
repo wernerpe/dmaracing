@@ -37,20 +37,21 @@ if __name__ == "__main__":
     print(torch.cuda.is_available())
     args = CmdLineArguments()
     args.device = 'cuda:0'
-    args.headless = True
+    args.headless = False
     path_cfg = os.getcwd() + '/cfg'
     cfg, cfg_train, logdir_root = getcfg(path_cfg, postfix='_1v1')
     cfg['sim']['numAgents'] = 2
-    cfg['sim']['collide'] = 1
-    #if not args.headless:
-    cfg['viewer']['logEvery'] = -1
+    cfg['sim']['collide'] = 0
+    if not args.headless:
+        cfg['viewer']['logEvery'] = -1
+
     args.override_cfg_with_args(cfg, cfg_train)
     #cfg_train['runner']['experiment_name'] = '1v1_supercloud'
     #cfg['track']['num_tracks'] = 2
     set_dependent_cfg_entries(cfg, cfg_train)
     now = datetime.now()
     timestamp = now.strftime("%y_%m_%d_%H_%M_%S")
-    logdir = logdir_root+'/'+timestamp
+    logdir = logdir_root+'/'+timestamp+'_col_'+str(cfg['sim']['collide'])+'_ar_'+str(cfg['learn']['actionRateRewardScale'])+'_rr_'+str(cfg['learn']['rankRewardScale'])
 
     cfg["logdir"] = logdir
 
