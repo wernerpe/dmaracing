@@ -5,7 +5,7 @@ clip_actions: 4.0
 algorithm:
   clip_param: 0.2
   entropy_coef: 0.005
-  num_learning_epochs: 5
+  num_learning_epochs: 15
   num_mini_batches: 6 # this is per agent
   learning_rate: 5.e-5
   schedule: adaptive # could be adaptive, linear or fixed
@@ -19,9 +19,9 @@ algorithm:
 runner:
   policy_class_name: MAActorCritic
   algorithm_class_name: MAPPO
-  num_steps_per_env: 32 # per iteration
+  num_steps_per_env: 64 # per iteration
   max_iterations: 1200 # number of policy updates
-  population_update_interval: 40 #number of iterations before the opponent policy is updated
+  population_update_interval: 100 #number of iterations before the opponent policy is updated
   # logging
   save_interval: 50 # check for potential saves every this many iterations
   experiment_name: 'tri_single_agent_kinematic'
@@ -33,9 +33,9 @@ runner:
   resume_path: None # updated from load_run and chkpt
 
 policy: 
-  actor_hidden_dims: [512, 256, 32]
-  critic_hidden_dims: [512, 256, 32]
-  encoder_hidden_dims: [256, 256]
+  actor_hidden_dims: [256, 128]
+  critic_hidden_dims: [256, 128]
+  encoder_hidden_dims: [64]
   activation: elu # can be elu, relu, selu, crelu, lrelu, tanh, sigmoid
   init_noise_std: 1.0
   attentive: True

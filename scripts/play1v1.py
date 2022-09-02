@@ -8,6 +8,7 @@ import os
 import time
 #import trueskill
 from scipy.stats import norm
+import matplotlib.pyplot as plt
 
 def play():
     env = DmarEnv(cfg, args)
@@ -27,7 +28,7 @@ def play():
     
     if SAVE:
         policy_jit = torch.jit.script(runner.alg.actor_critic.ac1.actor.to('cpu'))
-        policy_jit.save("logs/saved_models/newobsdummy.pt")
+        policy_jit.save("logs/saved_models/MA_NO_COL_450_2.pt")
         print("Done saving")
         exit()
 
@@ -45,10 +46,15 @@ def play():
     # win_prob = 1 - norm.cdf((0-mu_match)/(np.sqrt(2*var_match)))
     # print("win probability agent 0: ", win_prob, "var match: ", var_match)
     idx = 0 
-    
+    obs_past = []
+    act_past = []
+    #for idx in range(150):
     while True:
         t1 = time.time()
         actions = policy(obs)
+        #obs_past.append(obs[0,...].detach().cpu().numpy())
+        #act_past.append(actions[0,...].detach().cpu().numpy())
+
         #actions[:,:,1] =0.5
         obs, _, rew, dones, info = env.step(actions)
         dones_idx = torch.unique(torch.where(dones)[0])
@@ -104,6 +110,11 @@ def play():
         realtime = t2-t1-time_per_step
         if realtime < 0:
             time.sleep(-realtime)
+    
+    fig = plt.figure()
+    plt.plot(np.array(obs_past)[:,0,:])
+    plt.show()
+
 
 if __name__ == "__main__":
     SAVE = False
@@ -123,6 +134,8 @@ if __name__ == "__main__":
     cfg['learn']['offtrack_reset'] = 4.0
     cfg['learn']['reset_tile_rand'] = 5
     cfg['sim']['test_mode'] = True
+    cfg['sim']['collide'] = 0
+    
     cfg['test'] = True
     cfg['track']['seed'] = 12
     cfg['track']['num_tracks'] = 20

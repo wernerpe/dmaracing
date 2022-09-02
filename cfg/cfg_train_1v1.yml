@@ -23,9 +23,9 @@ runner:
   algorithm_class_name: IMAPPO #JRMAPPO 
   num_steps_per_env: 64  # 32 # per iteration
   max_iterations: 50000 # number of policy updates
-  population_update_interval: 100  # 40 #number of iterations before the opponent policy is updated
+  population_update_interval: 30  # 40 #number of iterations before the opponent policy is updated
   # logging
-  save_interval: 80 # check for potential saves every this many iterations
+  save_interval: 50 # check for potential saves every this many iterations
   eval_interval: 40
   experiment_name: 'tri_1v1'  # '2v2'
   run_name: ''
@@ -48,5 +48,5 @@ policy:
   numcritics: 1
   n_ado_polices: 5
   max_num_old_models: 40
-  kl_save_threshold: 1.5
+  kl_save_threshold: 0.0
   predict_stddev: False
