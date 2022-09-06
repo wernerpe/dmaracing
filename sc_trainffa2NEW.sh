@@ -15,4 +15,4 @@ module load anaconda/2022b
 #conda activate /home/gridsan/pwerner/.conda/envs/dmaracing
 #conda list
 # Run the script
-xvfb-run -a python $HOME/projects/dmaracing/scripts/train1v1.py headless=True actionRateRewardScale=0.0  rankRewardScale=0.0
+xvfb-run -a python $HOME/projects/dmaracing/scripts/train1v1.py headless=True actionRateRewardScale=0.2 rankRewardScale=10.0

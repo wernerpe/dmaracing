@@ -3,6 +3,7 @@ from dmaracing.env.dmar import DmarEnv
 from dmaracing.utils.helpers import *
 from datetime import date, datetime
 import os
+import sys
 import torch 
 
 def train():
@@ -36,8 +37,10 @@ if __name__ == "__main__":
     print('[DMAR TRAIN] Available gpus:', available_gpus)
     print(torch.cuda.is_available())
     args = CmdLineArguments()
+    print(sys.argv)
+    args.parse(sys.argv[1:])
     args.device = 'cuda:0'
-    args.headless = False
+    args.headless = True
     path_cfg = os.getcwd() + '/cfg'
     cfg, cfg_train, logdir_root = getcfg(path_cfg, postfix='_1v1')
     cfg['sim']['numAgents'] = 2
