@@ -4,6 +4,7 @@ from dmaracing.utils.helpers import *
 from datetime import date, datetime
 import os
 import torch 
+import sys
 
 def train():
     env = DmarEnv(cfg, args)
@@ -36,15 +37,16 @@ if __name__ == "__main__":
     print('[DMAR TRAIN] Available gpus:', available_gpus)
     print(torch.cuda.is_available())
     args = CmdLineArguments()
+    args.parse(sys.argv[1:])
+    args.headless = True
     args.device = 'cuda:0'
-    args.headless = False
     path_cfg = os.getcwd() + '/cfg'
     cfg, cfg_train, logdir_root = getcfg(path_cfg, postfix='_1v1')
     cfg['sim']['numAgents'] = 2
-    cfg['sim']['collide'] = 0
+    cfg['sim']['collide'] = 0 
+    args.override_cfg_with_args(cfg, cfg_train)
     if not args.headless:
         cfg['viewer']['logEvery'] = -1
-    args.override_cfg_with_args(cfg, cfg_train)
     #cfg_train['runner']['experiment_name'] = '1v1_supercloud'
     #cfg['track']['num_tracks'] = 2
     set_dependent_cfg_entries(cfg, cfg_train)
@@ -54,12 +56,12 @@ if __name__ == "__main__":
 
     cfg["logdir"] = logdir
 
-    INIT_FROM_CHKPT = False
+    INIT_FROM_CHKPT = True
     #active policies
-    runs = ['22_02_01_18_57_26', '22_02_01_18_57_26']
-    chkpts = [-1, -1]
+    runs = ['22_09_06_13_02_48_col_0']
+    chkpts = [-1]
     ##policies to populate adversary buffer
-    adv_runs = ['22_02_01_18_57_26'] * 5
-    adv_chkpts = [1000, 1500, 2000, 2200, 2500]
+    adv_runs = ['22_09_06_13_02_48_col_0'] * 5
+    adv_chkpts = [500]*5
 
     train()

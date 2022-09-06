@@ -54,7 +54,8 @@
             "program": "scripts/train1v1.py",
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",
-            "justMyCode": false
+            "justMyCode": false,
+            "args": ["headless=False"]
         },
         {
             "name": "play1v1",

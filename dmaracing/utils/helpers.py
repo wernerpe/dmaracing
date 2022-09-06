@@ -30,7 +30,7 @@ class CmdLineArguments:
         for override_key, override_value in zip(self.override_keys, self.override_values):
             print(override_key)
             if override_key == 'headless':
-                self.headless = type(self.headless)(override_value)
+                self.headless = False if override_value == 'False' else True
             for key, val in cfg_train.items():
                 if key == override_key:
                     #typecast from string into type in dict
