@@ -148,5 +148,6 @@ if __name__ == "__main__":
     
     cfg["logdir"] = logdir
     cfg['viewer']['logEvery'] = -1
-    cfg['test'] = True
+    cfg['test'] = False
+
     continuous_eval()

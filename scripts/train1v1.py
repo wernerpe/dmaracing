@@ -3,6 +3,7 @@ from dmaracing.env.dmar import DmarEnv
 from dmaracing.utils.helpers import *
 from datetime import date, datetime
 import os
+import sys
 import torch 
 import sys
 
@@ -52,7 +53,7 @@ if __name__ == "__main__":
     set_dependent_cfg_entries(cfg, cfg_train)
     now = datetime.now()
     timestamp = now.strftime("%y_%m_%d_%H_%M_%S")
-    logdir = logdir_root+'/'+timestamp+'_col_'+str(cfg['sim']['collide'])
+    logdir = logdir_root+'/'+timestamp+'_col_'+str(cfg['sim']['collide'])+'_ar_'+str(cfg['learn']['actionRateRewardScale'])+'_rr_'+str(cfg['learn']['rankRewardScale'])
 
     cfg["logdir"] = logdir
 
