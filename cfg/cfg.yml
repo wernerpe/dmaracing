@@ -80,7 +80,7 @@ learn:
 
   progressRewardScale: 10.0
   offtrackRewardScale: -1.0
-  actionRateRewardScale: 0.12
+  actionRateRewardScale: 0.5
   energyRewardScale: 0.00000
   rankRewardScale: 0.0
   collisionRewardScale: 0.0 #-300.0
