@@ -28,7 +28,7 @@ def play():
     
     if SAVE:
         policy_jit = torch.jit.script(runner.alg.actor_critic.ac1.actor.to('cpu'))
-        policy_jit.save("logs/saved_models/MA_NO_COL_450_2.pt")
+        policy_jit.save("logs/saved_models/" + dir[13:] + "_" +str(modelnr))
         print("Done saving")
         exit()
 
@@ -131,19 +131,13 @@ if __name__ == "__main__":
     cfg['sim']['numEnv'] = 4
     cfg['sim']['numAgents'] = 2
     cfg['learn']['timeout'] = 300
-    cfg['learn']['offtrack_reset'] = 4.0
-    cfg['learn']['reset_tile_rand'] = 5
-    cfg['sim']['test_mode'] = True
-    cfg['sim']['collide'] = 0
+    #cfg['learn']['offtrack_reset'] = 4.0
+    #cfg['learn']['reset_tile_rand'] = 5
+    cfg['sim']['collide'] = 1
     
-    cfg['test'] = True
-    cfg['track']['seed'] = 12
-    cfg['track']['num_tracks'] = 20
-    #cfg['track']['CHECKPOINTS'] = 20
+    cfg['test'] = args.test
+    cfg['learn']['obs_noise_lvl'] = 0.0 if args.test else cfg['learn']['obs_noise_lvl']
 
-    #cfg['track']['CHECKPOINTS'] = 3
-    #cfg['track']['TRACK_RAD'] = 800
-    cfg['viewer']['multiagent'] = True
     if not args.headless:
         cfg['viewer']['logEvery'] = -1
     set_dependent_cfg_entries(cfg, cfg_train)

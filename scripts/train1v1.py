@@ -44,7 +44,7 @@ if __name__ == "__main__":
     path_cfg = os.getcwd() + '/cfg'
     cfg, cfg_train, logdir_root = getcfg(path_cfg, postfix='_1v1')
     cfg['sim']['numAgents'] = 2
-    cfg['sim']['collide'] = 0 
+    cfg['sim']['collide'] = 1 
     args.override_cfg_with_args(cfg, cfg_train)
     if not args.headless:
         cfg['viewer']['logEvery'] = -1
@@ -57,7 +57,7 @@ if __name__ == "__main__":
 
     cfg["logdir"] = logdir
 
-    INIT_FROM_CHKPT = True
+    INIT_FROM_CHKPT = False
     #active policies
     runs = ['22_09_06_13_02_48_col_0']
     chkpts = [-1]
