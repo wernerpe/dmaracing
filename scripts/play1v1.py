@@ -28,7 +28,7 @@ def play():
     
     if SAVE:
         policy_jit = torch.jit.script(runner.alg.actor_critic.ac1.actor.to('cpu'))
-        policy_jit.save("logs/saved_models/MA_NO_COL_450_2.pt")
+        policy_jit.save("logs/saved_models/" + dir[13:] + "_" +str(modelnr))
         print("Done saving")
         exit()
 
@@ -74,11 +74,11 @@ def play():
                      #(f"""{'p1 '+str(modelnrs[1])}{' ts: '}{policy_infos[1]['trueskill']['mu']:.1f}"""),
                      #(f"""{'Win prob p0 : ':>{10}}{win_prob:.3f}"""),
                      (f"""{'rewards:':>{10}}{' '}{100*rewnp[env.viewer.env_idx_render, 0]:.2f}"""   ),
-                     (f"""{'velocity x:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 0]*10:.2f}"""),
+                     (f"""{'velocity:':>{10}}{' '}{np.linalg.norm(obsnp[env.viewer.env_idx_render, 0:2]*10):.2f}"""),
                      #(f"""{'velocity y:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 1]:.2f}"""),
                      #(f"""{'ang vel:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 2]:.2f}"""),
-                     #(f"""{'steer:':>{10}}{' '}{states[env.viewer.env_idx_render, 0, env.vn['S_STEER']]:.2f}"""),
-                     (f"""{'gas raw 0:':>{10}}{' '}{actions[env.viewer.env_idx_render, 0, env.vn['A_GAS']].item():.2f}"""),
+                     (f"""{'steer:':>{10}}{' '}{states[env.viewer.env_idx_render, 0, env.vn['S_STEER']]:.2f}"""),
+                     #(f"""{'gas raw 0:':>{10}}{' '}{actions[env.viewer.env_idx_render, 0, env.vn['A_GAS']].item():.2f}"""),
                      (f"""{'gas inp 0:':>{10}}{' '}{env.action_scales[1] * actions[env.viewer.env_idx_render, 0, 1] + env.default_actions[1]:.2f}"""),
                      #(f"""{'gas 1:':>{10}}{' '}{actions[env.viewer.env_idx_render, 1, env.vn['A_GAS']].item():.2f}"""),
                      #(f"""{'brake:':>{10}}{' '}{act[env.viewer.env_idx_render, env.vn['A_BRAKE']]:.2f}"""),
@@ -127,23 +127,17 @@ if __name__ == "__main__":
     cfg, cfg_train, logdir = getcfg(path_cfg, postfix='_1v1')
 
     chkpts = [-1, -1]
-    runs = [-1, -1]
+    runs = [-1, -1] #['22_09_02_10_40_34_col_0_ar_0.4_rr_0.0', '22_09_02_10_40_34_col_0_ar_0.4_rr_0.0']
     cfg['sim']['numEnv'] = 4
     cfg['sim']['numAgents'] = 2
     cfg['learn']['timeout'] = 300
-    cfg['learn']['offtrack_reset'] = 4.0
-    cfg['learn']['reset_tile_rand'] = 5
-    cfg['sim']['test_mode'] = True
-    cfg['sim']['collide'] = 0
+    #cfg['learn']['offtrack_reset'] = 4.0
+    #cfg['learn']['reset_tile_rand'] = 5
+    cfg['sim']['collide'] = 1
     
-    cfg['test'] = True
-    cfg['track']['seed'] = 12
-    cfg['track']['num_tracks'] = 20
-    #cfg['track']['CHECKPOINTS'] = 20
+    cfg['test'] = args.test
+    cfg['learn']['obs_noise_lvl'] = 0.0 if args.test else cfg['learn']['obs_noise_lvl']
 
-    #cfg['track']['CHECKPOINTS'] = 3
-    #cfg['track']['TRACK_RAD'] = 800
-    cfg['viewer']['multiagent'] = True
     if not args.headless:
         cfg['viewer']['logEvery'] = -1
     set_dependent_cfg_entries(cfg, cfg_train)

@@ -62,8 +62,10 @@ class DmarEnv:
         self.dyn_model.dynamics_integrator.dyn_model.num_agents = self.num_agents
         self.dyn_model.dynamics_integrator.dyn_model.init_noise_vec(self.num_envs, self.device)
         self.dyn_model.integration_function.dyn_model.init_col_switch(self.num_envs, self.cfg['model']['col_decay_time'], self.device)
+        self.dyn_model.integration_function.dyn_model.gp.noise_lvl = self.cfg['model']['gp_noise_scale']
+        
         self.noise_level = self.cfg['model']['noise_level']
-
+        
         # gym stuff
         self.obs_space = spaces.Box(np.ones(self.num_obs) * -np.Inf, np.ones(self.num_obs) * np.Inf)
         self.state_space = spaces.Box(
@@ -432,8 +434,10 @@ class DmarEnv:
             dim=2,
             )
 
-            if self.obs_noise_lvl>0:
-                self.obs_buf
+        if self.obs_noise_lvl>0:
+
+            noise_vec = torch.randn_like(self.obs_buf) * 0.02 * self.obs_noise_lvl
+            self.obs_buf += noise_vec
 
 
     def compute_rewards(
@@ -704,7 +708,7 @@ class DmarEnv:
         self.track_progress = self.track_progress_no_laps + self.lap_counter * self.track_lengths[
             self.active_track_ids
         ].view(-1, 1)
-        dist_sort, self.ranks = torch.sort(self.track_progress, dim=1, descending=True)
+        dist_sort, self.ranks = torch.sort(self.track_progress*self.active_agents, dim=1, descending=True)
         self.ranks = torch.sort(self.ranks, dim=1)[1]
 
         self.contouring_err = torch.einsum("eac, eac-> ea", self.trackperp, self.tile_car_vec)
