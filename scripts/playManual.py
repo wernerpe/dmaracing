@@ -127,6 +127,6 @@ if __name__ == "__main__":
     cfg['learn']['timeout'] = 100
     cfg['model']['OFFTRACK_FRICTION_SCALE'] = 1
     cfg['model']['drag_reduction'] = 1.0
-    cfg['test'] = True
+    cfg['test'] = False
     set_dependent_cfg_entries(cfg, cfg_train)
     play()

@@ -23,9 +23,11 @@ def play():
 
     policy = runner.get_inference_policy(device=env.device)
     policy(obs)
-    policy_jit = torch.jit.script(runner.alg.actor_critic.actor.to('cpu'))
-    policy_jit.save("logs/saved_models/test_new_observations_3.pt") # tw_45_maxv_3.0_lh_15_dfa_0_0.1_as_0.3_1.0_gpmodel.pt")
-    print("Done saving")
+    if SAVE:
+        policy_jit = torch.jit.script(runner.alg.actor_critic.actor.to('cpu'))
+        policy_jit.save("logs/saved_models/new_GP.pt") # tw_45_maxv_3.0_lh_15_dfa_0_0.1_as_0.3_1.0_gpmodel.pt")
+        print("Done saving")
+        exit()
     time_per_step = cfg['sim']['dt']*cfg['sim']['decimation']
     #steer_commands = []
     # for idx in range(1000):
@@ -84,10 +86,11 @@ def play():
     # plt.plot(steer)
 
 if __name__ == "__main__":
+    SAVE = False
     args = CmdLineArguments()
     args.device = 'cuda:0'
     args.headless = False
-    args.test = True
+    args.test = False
     path_cfg = os.getcwd() + '/cfg'
     cfg, cfg_train, logdir = getcfg(path_cfg)
     cfg["logdir"] = logdir
@@ -106,6 +109,6 @@ if __name__ == "__main__":
     cfg['model']['drag_reduction'] = 1.0
     cfg["viewer"]["logEvery"] = -1
     cfg['track']['num_tracks'] = 20
-    cfg['test'] = True
+    cfg['test'] = False
     set_dependent_cfg_entries(cfg, cfg_train)
     play()    

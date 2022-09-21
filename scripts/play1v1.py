@@ -28,7 +28,7 @@ def play():
     
     if SAVE:
         policy_jit = torch.jit.script(runner.alg.actor_critic.ac1.actor.to('cpu'))
-        policy_jit.save("logs/saved_models/" + dir[13:] + "_" +str(modelnr))
+        policy_jit.save("logs/saved_models/" + dir[13:] + "_" +str(modelnr)+".pt")
         print("Done saving")
         exit()
 
@@ -75,6 +75,7 @@ def play():
                      #(f"""{'Win prob p0 : ':>{10}}{win_prob:.3f}"""),
                      (f"""{'rewards:':>{10}}{' '}{100*rewnp[env.viewer.env_idx_render, 0]:.2f}"""   ),
                      (f"""{'velocity:':>{10}}{' '}{np.linalg.norm(obsnp[env.viewer.env_idx_render, 0:2]*10):.2f}"""),
+                     (f"""{'maxvel:':>{10}}{' '}{env.dyn_model.dynamics_integrator.dyn_model.max_vel_vec[env.viewer.env_idx_render,0].item():.2f}"""),
                      #(f"""{'velocity y:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 1]:.2f}"""),
                      #(f"""{'ang vel:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 2]:.2f}"""),
                      (f"""{'steer:':>{10}}{' '}{states[env.viewer.env_idx_render, 0, env.vn['S_STEER']]:.2f}"""),
@@ -121,7 +122,7 @@ if __name__ == "__main__":
     args = CmdLineArguments()
     args.device = 'cuda:0'
     args.headless = False 
-    args.test = True
+    args.test = False
     path_cfg = os.getcwd() + '/cfg'
 
     cfg, cfg_train, logdir = getcfg(path_cfg, postfix='_1v1')
@@ -140,6 +141,7 @@ if __name__ == "__main__":
 
     if not args.headless:
         cfg['viewer']['logEvery'] = -1
+    cfg["logdir"] = logdir
     set_dependent_cfg_entries(cfg, cfg_train)
 
     play()    

@@ -4,7 +4,7 @@ clip_actions: 4.0
 
 algorithm:
   clip_param: 0.2
-  entropy_coef: 0.005
+  entropy_coef: 0.02
   num_learning_epochs: 15
   num_mini_batches: 6 # this is per agent
   learning_rate: 5.e-5

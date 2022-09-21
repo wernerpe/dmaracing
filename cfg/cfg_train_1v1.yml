@@ -6,7 +6,7 @@ track_cfgs: True
 
 algorithm:
   clip_param: 0.2
-  entropy_coef: 0.005
+  entropy_coef: 0.02
   num_learning_epochs: 15  # 5
   num_mini_batches: 6 # this is per agent
   learning_rate: 5.e-5
@@ -22,10 +22,10 @@ runner:
   policy_class_name: MAActorCritic #MultiTeamCMAAC 
   algorithm_class_name: IMAPPO #JRMAPPO 
   num_steps_per_env: 64  # 32 # per iteration
-  max_iterations: 50000 # number of policy updates
-  population_update_interval: 30  # 40 #number of iterations before the opponent policy is updated
+  max_iterations: 500 # number of policy updates
+  population_update_interval: 20  # 40 #number of iterations before the opponent policy is updated
   # logging
-  save_interval: 50 # check for potential saves every this many iterations
+  save_interval: 30 # check for potential saves every this many iterations
   eval_interval: 40
   experiment_name: 'tri_1v1'  # '2v2'
   run_name: ''

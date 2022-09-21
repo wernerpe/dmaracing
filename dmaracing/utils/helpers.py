@@ -101,7 +101,7 @@ def  get_run(logdir, run, chkpt):
     if type(run) == str:
         model_dir = logdir + '/'+ run
     else:
-        runs = os.listdir(logdir)
+        runs = [s for s in os.listdir(logdir) if not 'events' in s]
         runs.sort()
         runstr = runs[run]
         model_dir = logdir+'/'+ runstr
