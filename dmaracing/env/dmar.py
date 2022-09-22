@@ -133,6 +133,7 @@ class DmarEnv:
         self.actions_means = torch_zeros((self.num_envs, self.num_agents, self.num_actions))
         self.last_actions = torch_zeros((self.num_envs, self.num_agents, self.num_actions))
         self.last_steer = torch_zeros((self.num_envs, self.num_agents, 1))
+        self.last_vel = torch_zeros((self.num_envs, self.num_agents,))
         self.last_last_steer = torch_zeros((self.num_envs, self.num_agents, 1))
         
         self.obs_buf = torch_zeros((self.num_envs, self.num_agents, self.num_obs))
@@ -157,6 +158,7 @@ class DmarEnv:
         self.reward_scales["energy"] = cfg["learn"]["energyRewardScale"] * self.dt
         self.reward_scales["rank"] = cfg["learn"]["rankRewardScale"] * self.dt
         self.reward_scales["collision"] = cfg["learn"]["collisionRewardScale"] * self.dt
+        self.reward_scales["acceleration"] = cfg["learn"]["accRewardScale"] * self.dt
 
         self.default_actions = cfg["learn"]["defaultactions"]
         self.action_scales = cfg["learn"]["actionscale"]
@@ -195,7 +197,8 @@ class DmarEnv:
             "progress": torch_zeros((self.num_envs, self.num_agents)),
             "offtrack": torch_zeros((self.num_envs, self.num_agents)),
             "actionrate": torch_zeros((self.num_envs, self.num_agents)),
-            "energy": torch_zeros((self.num_envs, self.num_agents))
+            "energy": torch_zeros((self.num_envs, self.num_agents)),
+            "acceleration": torch_zeros((self.num_envs, self.num_agents)),
         }
         if self.num_agents>1:
             self.reward_terms["rank"] = torch_zeros((self.num_envs, self.num_agents))
@@ -248,8 +251,8 @@ class DmarEnv:
     def compute_observations(
         self,
     ) -> None:
-        steer = self.states[:, :, self.vn["S_STEER"]].unsqueeze(2)
-        gas = self.states[:, :, self.vn["S_GAS"]].unsqueeze(2)
+        #steer = self.states[:, :, self.vn["S_STEER"]].unsqueeze(2)
+        #gas = self.states[:, :, self.vn["S_GAS"]].unsqueeze(2)
 
         theta = self.states[:, :, 2]
         vels = self.states[:, :, 3:6].clone()
@@ -453,6 +456,8 @@ class DmarEnv:
             self.last_actions,
             self.vn,
             self.states,
+            self.vel,
+            self.last_vel,
             self.ranks if self.num_agents>1 else None,
             self.is_collision,
             self.reward_terms,
@@ -553,12 +558,12 @@ class DmarEnv:
                 -self.reset_randomization[5], self.reset_randomization[5], (len(env_ids),), device=self.device
             )
             self.states[env_ids, agent, self.vn["S_DTHETA"] + 1 :] = 0.0
-            self.states[env_ids, agent, self.vn["S_STEER"]] = rand(
-                -self.reset_randomization[6], self.reset_randomization[6], (len(env_ids),), device=self.device
-            )
-            self.states[env_ids, agent, self.vn["S_W0"] : self.vn["S_W3"] + 1] = (
-                vels_long / self.modelParameters["WHEEL_R"]
-            ).unsqueeze(1)
+            # self.states[env_ids, agent, self.vn["S_STEER"]] = rand(
+            #     -self.reset_randomization[6], self.reset_randomization[6], (len(env_ids),), device=self.device
+            # )
+            # self.states[env_ids, agent, self.vn["S_W0"] : self.vn["S_W3"] + 1] = (
+            #     vels_long / self.modelParameters["WHEEL_R"]
+            # ).unsqueeze(1)
 
         idx_inactive, idx2_inactive = torch.where(~self.active_agents[env_ids, :].view(len(env_ids), self.num_agents))
         if len(idx_inactive):
@@ -609,6 +614,7 @@ class DmarEnv:
         self.last_actions[env_ids, :, :] = 0.0
         self.last_steer[env_ids, :, :] = 0.0
         self.last_last_steer[env_ids, :, :] = 0.0
+        self.last_vel[env_ids, ...] = 0.0
         self.agent_left_track[env_ids, :] = False
 
         if 0 in env_ids and self.log_video_freq >= 0:
@@ -734,6 +740,8 @@ class DmarEnv:
         for ag in range(self.num_agents):
             self.active_obs_template[idx_1, ag, self.ado_idx_lookup[idx_2, ag]] = 0
 
+        self.vel = torch.norm(self.states[:,:,self.vn['S_DX']:self.vn['S_DY']+1], dim = -1)
+
         self.compute_observations()
         self.compute_rewards()
 
@@ -746,6 +754,7 @@ class DmarEnv:
         self.last_actions = self.actions.clone()
         self.last_steer[:,:,0] = self.actions[..., self.vn['A_STEER']]
         self.last_last_steer[:] = self.last_steer[:]
+        self.last_vel[:] = self.vel
 
     def render(
         self,
@@ -755,11 +764,11 @@ class DmarEnv:
             self.viewer.mark_env(self.trained_agent_slot)
             if (self._global_step % self.log_video_freq == 0) and (self._global_step > 0):
                 self.viewer_events = self.viewer.render(
-                    self.states[:, :, [0, 1, 2, 10]], self.slip, self.drag_reduced, self.wheel_locations_world, self.interpolated_centers, self.interpolated_bounds
+                    self.states[:, :, [0, 1, 2, 6]], self.slip, self.drag_reduced, self.wheel_locations_world, self.interpolated_centers, self.interpolated_bounds
                 )
         else:
             self.viewer_events = self.viewer.render(
-                self.states[:, :, [0, 1, 2, 10]], self.slip, self.drag_reduced, self.wheel_locations_world, self.interpolated_centers, self.interpolated_bounds
+                self.states[:, :, [0, 1, 2, 6]], self.slip, self.drag_reduced, self.wheel_locations_world, self.interpolated_centers, self.interpolated_bounds
             )
 
     def simulate(self) -> None:
@@ -808,7 +817,7 @@ class DmarEnv:
 
     def resample_track(self, env_ids) -> None:
         success = self.episode_length_buf[env_ids]> 0.9*self.max_episode_length
-        self.track_successes[self.active_track_ids[env_ids]] += success
+        #self.track_successes[self.active_track_ids[env_ids]] += success
         a = 1/self.track_successes
         probs = a/torch.sum(a)
         dist = torch.distributions.Categorical(probs.view(-1,))
@@ -868,6 +877,8 @@ def compute_rewards_jit(
     last_actions: torch.Tensor,
     vn: Dict[str, int],
     states: torch.Tensor,
+    vel: torch.Tensor,
+    last_vel : torch.Tensor,
     ranks: Union[torch.Tensor,None],
     is_collision: torch.Tensor,
     reward_terms: Dict[str, torch.Tensor],
@@ -879,9 +890,10 @@ def compute_rewards_jit(
     rew_progress = torch.clip(track_progress - old_track_progress, min=-10, max=10) * reward_scales["progress"]
     rew_on_track = reward_scales["offtrack"] * ~is_on_track
     act_diff = torch.square(actions - last_actions)
+    rew_acc = torch.square(vel-last_vel.view(-1,num_agents))*reward_scales['acceleration']
     #act_diff[..., 0] *= 1.0
     rew_actionrate = -torch.sum(act_diff, dim=2) * reward_scales["actionrate"]
-    rew_energy = -torch.sum(torch.square(states[:, :, vn["S_W0"] : vn["S_W3"] + 1]), dim=2) * reward_scales["energy"]
+    #rew_energy = -torch.sum(torch.square(states[:, :, vn["S_W0"] : vn["S_W3"] + 1]), dim=2) * reward_scales["energy"]
     num_active_agents = torch.sum(1.0 * active_agents, dim=1)
     if ranks is not None:
         rew_rank = 1.0 / num_agents * (num_active_agents.view(-1, 1) / 2.0 - ranks) * reward_scales["rank"]
@@ -889,20 +901,22 @@ def compute_rewards_jit(
         rew_collision = is_collision * reward_scales["collision"]
 
         rew_buf[..., 0] = torch.clip(
-            rew_progress + rew_on_track + rew_actionrate + rew_energy + rew_rank , min=0, max=None
+            rew_progress + rew_on_track + rew_actionrate + rew_rank + rew_acc + 0.1*dt, min=0, max=None
         )+ rew_collision
     else:
         #needs to be a tensor
         rew_rank = 0*rew_on_track
         rew_collision = 0*rew_on_track
         rew_buf = torch.clip(
-            rew_progress + rew_on_track + rew_actionrate + rew_energy + 0.1*dt , min=0, max=None
+            rew_progress + rew_on_track + rew_actionrate + rew_acc + 0.1*dt , min=0, max=None
         )
 
     reward_terms["progress"] += rew_progress
     reward_terms["offtrack"] += rew_on_track
     reward_terms["actionrate"] += rew_actionrate
-    reward_terms["energy"] += rew_energy
+    #reward_terms["energy"] += rew_energy
+    reward_terms["acceleration"] += rew_acc
+
     if ranks is not None:
         reward_terms["rank"] += rew_rank
         reward_terms["collision"] += rew_collision

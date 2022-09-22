@@ -52,6 +52,8 @@ def play():
     while True:
         t1 = time.time()
         actions = policy(obs)
+        # actions[0, :,0] = 0
+        # actions[0, :,1] = -0.5
         #obs_past.append(obs[0,...].detach().cpu().numpy())
         #act_past.append(actions[0,...].detach().cpu().numpy())
 
@@ -68,7 +70,7 @@ def play():
         cont = env.contouring_err.cpu().numpy()
         act = actions[:,0,:].cpu().detach().numpy()
         states = env.states.cpu().numpy()
-        om_mean = np.mean(states[env.viewer.env_idx_render,0, env.vn['S_W0']:env.vn['S_W3'] +1 ])
+        #om_mean = np.mean(states[env.viewer.env_idx_render,0, env.vn['S_W0']:env.vn['S_W3'] +1 ])
 
         viewermsg = [#(f"""{'p0 '+str(modelnrs[0])}{' ts: '}{policy_infos[0]['trueskill']['mu']:.1f}"""),
                      #(f"""{'p1 '+str(modelnrs[1])}{' ts: '}{policy_infos[1]['trueskill']['mu']:.1f}"""),
@@ -83,7 +85,7 @@ def play():
                      (f"""{'gas inp 0:':>{10}}{' '}{env.action_scales[1] * actions[env.viewer.env_idx_render, 0, 1] + env.default_actions[1]:.2f}"""),
                      #(f"""{'gas 1:':>{10}}{' '}{actions[env.viewer.env_idx_render, 1, env.vn['A_GAS']].item():.2f}"""),
                      #(f"""{'brake:':>{10}}{' '}{act[env.viewer.env_idx_render, env.vn['A_BRAKE']]:.2f}"""),
-                     (f"""{'om_mean:':>{10}}{' '}{om_mean:.2f}"""),
+                     #(f"""{'om_mean:':>{10}}{' '}{om_mean:.2f}"""),
                      (f"""{'collision:':>{10}}{' '}{env.is_collision[0,0].item():.2f}"""),
                      (f"""{'rank ag 0 :':>{10}}{' '}{1+env.ranks[env.viewer.env_idx_render, 0].item():.2f}"""),
                      (f"""{'laps ag 0 :':>{10}}{' '}{env.lap_counter[env.viewer.env_idx_render, 0].item():.2f}"""),

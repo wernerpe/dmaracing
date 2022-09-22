@@ -175,7 +175,7 @@ def get_single_track(device, track_path, track_half_width, track_poly_spacing, c
 
 def get_tri_track_ensemble(device, track_half_width, track_poly_spacing):
     # Load a centerline track, generate polygons and matricies
-    track_paths = ["maps/large_oval.csv", 
+    track_paths = [#"maps/large_oval.csv", 
                    "maps/large_square_track.csv", 
                    #"maps/sharp_turns_track.csv", 
                    #"maps/c1.csv", 
@@ -189,10 +189,10 @@ def get_tri_track_ensemble(device, track_half_width, track_poly_spacing):
                    #"maps/pinch.csv", 
                    #"maps/sharp corners.csv", 
                    "maps/sharp_turns_track.csv",
-                   "maps/oval_diag.csv",
-                   "maps/triangle.csv",
+                   #"maps/oval_diag.csv",
+                   #"maps/triangle.csv",
                    #"maps/wiggle.csv",
-                   #"maps/oversize1.csv",
+                   "maps/oversize1.csv",
                    #"maps/slider.csv",
                    #"maps/h_track.csv",
                    ]

@@ -12,12 +12,12 @@ def get_varnames()->Dict[str, int]:
     varnames['S_DX'] = 3
     varnames['S_DY'] = 4
     varnames['S_DTHETA'] = 5
-    varnames['S_W0'] = 6
-    varnames['S_W1'] = 7
-    varnames['S_W2'] = 8
-    varnames['S_W3'] = 9
-    varnames['S_STEER'] = 10
-    varnames['S_GAS'] = 11
+    #varnames['S_W0'] = 6
+    #varnames['S_W1'] = 7
+    #varnames['S_W2'] = 8
+    #varnames['S_W3'] = 9
+    varnames['S_STEER'] = 6
+    # varnames['S_GAS'] = 7
     
     varnames['A_STEER'] = 0
     varnames['A_GAS'] = 1
