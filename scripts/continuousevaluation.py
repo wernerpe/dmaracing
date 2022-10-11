@@ -132,7 +132,7 @@ if __name__ == "__main__":
     cfg, cfg_train, logdir_root = getcfg(path_cfg, postfix='_1v1')  # True)
     cfg['sim']['numAgents'] = 2
     cfg['sim']['collide'] = 1
-    experiment_path = '22_08_29_10_50_46'
+    experiment_path = '22_09_27_17_09_08_col_1_ar_0.1_rr_0.0'
     if not args.headless:
         cfg['viewer']['logEvery'] = -1
     logdir = logdir_root +'/'+ experiment_path
@@ -140,7 +140,6 @@ if __name__ == "__main__":
     #load experiment cfgs
     pth_cfg = logdir + '/cfg.yml' 
     pth_cfg_train = logdir + '/cfg_train.yml'
-
     with open(pth_cfg, 'r') as stream:
         cfg = yaml.safe_load(stream)
     with open(pth_cfg_train, 'r') as stream:

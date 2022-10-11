@@ -191,8 +191,8 @@ def get_state_control_tensors(
         [
             state[:, :, vn["S_X"] : vn["S_Y"] + 1],
             yaw.unsqueeze(2),
-            roll.unsqueeze(2),
-            state[:, :, vn["S_DX"] : vn["S_DY"] + 1],
+            roll.unsqueeze(2), #3
+            state[:, :, vn["S_DX"] : vn["S_DY"] + 1], #45
             yaw_rate.unsqueeze(2),
         ],
         dim=2,

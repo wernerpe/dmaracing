@@ -57,7 +57,7 @@ class DmarEnv:
             hparams_file="dynamics_models/"+cfg['model']['hparams_path'], strict=False).to(self.device)
         self.dyn_model.integration_function.initialize_lstm_states(torch.zeros((self.num_envs * self.num_agents, 50, 6)).to(self.device))
         
-        if self.cfg['test']:
+        if self.test_mode:
             self.dyn_model.dynamics_integrator.dyn_model.set_test_mode()
         self.dyn_model.dynamics_integrator.dyn_model.num_agents = self.num_agents
         self.dyn_model.dynamics_integrator.dyn_model.init_noise_vec(self.num_envs, self.device)
@@ -155,7 +155,6 @@ class DmarEnv:
         self.reward_scales["offtrack"] = cfg["learn"]["offtrackRewardScale"] * self.dt
         self.reward_scales["progress"] = cfg["learn"]["progressRewardScale"] * self.dt
         self.reward_scales["actionrate"] = cfg["learn"]["actionRateRewardScale"] * self.dt
-        self.reward_scales["energy"] = cfg["learn"]["energyRewardScale"] * self.dt
         self.reward_scales["rank"] = cfg["learn"]["rankRewardScale"] * self.dt
         self.reward_scales["collision"] = cfg["learn"]["collisionRewardScale"] * self.dt
         self.reward_scales["acceleration"] = cfg["learn"]["accRewardScale"] * self.dt
@@ -174,6 +173,7 @@ class DmarEnv:
         self.agent_dropout_prob = cfg["learn"]["agent_dropout_prob"]
 
         self.obs_noise_lvl = cfg["learn"]["obs_noise_lvl"]
+        self.use_track_curriculum = cfg["learn"]["use_track_curriculum"]
 
         self.lap_counter = torch.zeros(
             (self.num_envs, self.num_agents), requires_grad=False, device=self.device, dtype=torch.int
@@ -257,7 +257,7 @@ class DmarEnv:
         theta = self.states[:, :, 2]
         vels = self.states[:, :, 3:6].clone()
         tile_idx_unwrapped = self.active_track_tile.unsqueeze(2) + (
-            2 * torch.arange(self.horizon, device=self.device, dtype=torch.long)
+            4 * torch.arange(self.horizon, device=self.device, dtype=torch.long)
         ).unsqueeze(0).unsqueeze(0)
         tile_idx = torch.remainder(tile_idx_unwrapped, self.active_track_tile_counts.view(-1, 1, 1))
         centers = self.active_centerlines[:, tile_idx, :]
@@ -437,9 +437,9 @@ class DmarEnv:
             dim=2,
             )
 
-        if self.obs_noise_lvl>0:
+        if self.obs_noise_lvl>0 and not self.test_mode:
 
-            noise_vec = torch.randn_like(self.obs_buf) * 0.005 * self.obs_noise_lvl
+            noise_vec = torch.randn_like(self.obs_buf) * 0.1 * self.obs_noise_lvl
             self.obs_buf += noise_vec
 
 
@@ -552,8 +552,8 @@ class DmarEnv:
             self.states[env_ids, agent, self.vn["S_THETA"]] = angs + rand(
                 -self.reset_randomization[2], self.reset_randomization[2], (len(env_ids),), device=self.device
             )
-            self.states[env_ids, agent, self.vn["S_DX"]] = dir_x * vels_long - dir_y * vels_lat
-            self.states[env_ids, agent, self.vn["S_DY"]] = dir_y * vels_long + dir_x * vels_lat
+            self.states[env_ids, agent, self.vn["S_DX"]] = vels_long
+            self.states[env_ids, agent, self.vn["S_DY"]] = 0#dir_y * vels_long + dir_x * vels_lat
             self.states[env_ids, agent, self.vn["S_DTHETA"]] = rand(
                 -self.reset_randomization[5], self.reset_randomization[5], (len(env_ids),), device=self.device
             )
@@ -603,8 +603,7 @@ class DmarEnv:
         #        self.info['percentage_max_episode_length'] = 1.0*self.episode_length_buf[env_ids]/(self.max_episode_length)
 
         #dynamics randomization
-        if not self.cfg['test']:
-            self.dyn_model.dynamics_integrator.dyn_model.update_noise_vec(env_ids, self.noise_level) 
+        self.dyn_model.dynamics_integrator.dyn_model.update_noise_vec(env_ids, self.noise_level) 
 
         self.lap_counter[env_ids, :] = 0
         self.episode_length_buf[env_ids] = 0.0
@@ -817,7 +816,8 @@ class DmarEnv:
 
     def resample_track(self, env_ids) -> None:
         success = self.episode_length_buf[env_ids]> 0.9*self.max_episode_length
-        #self.track_successes[self.active_track_ids[env_ids]] += success
+        if self.use_track_curriculum:
+            self.track_successes[self.active_track_ids[env_ids]] += success
         a = 1/self.track_successes
         probs = a/torch.sum(a)
         dist = torch.distributions.Categorical(probs.view(-1,))
@@ -891,7 +891,8 @@ def compute_rewards_jit(
     rew_on_track = reward_scales["offtrack"] * ~is_on_track
     act_diff = torch.square(actions - last_actions)
     rew_acc = torch.square(vel-last_vel.view(-1,num_agents))*reward_scales['acceleration']
-    #act_diff[..., 0] *= 1.0
+    act_diff[..., 0] *= 5.0
+    act_diff[..., 1] *= 10.0
     rew_actionrate = -torch.sum(act_diff, dim=2) * reward_scales["actionrate"]
     #rew_energy = -torch.sum(torch.square(states[:, :, vn["S_W0"] : vn["S_W3"] + 1]), dim=2) * reward_scales["energy"]
     num_active_agents = torch.sum(1.0 * active_agents, dim=1)

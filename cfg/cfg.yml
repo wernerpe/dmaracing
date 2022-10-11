@@ -63,28 +63,28 @@ track:
   draw_centerline: False
   num_tracks: 20
   track_half_width: 0.6
-  track_poly_spacing: 0.25
+  track_poly_spacing: 0.15
   
 learn:
   use_timeouts: True
+  use_track_curriculum: True
   #[posx, posy, theta, vellong, vellat, dtheta, steer]
-  resetrand: [0.05, 0.05, 0.9, 0, 0.01,  1.1, 0.0]
+  resetrand: [0.05, 0.05, 0.9, 4.0, 0.01,  1.1, 0.0]
   #resetrand: [0.00, 0.0, 0., 0.0, 0.0,  0., 0.0]
   reset_tile_rand: 180
   resetgrid: False
   defaultactions: [0., 0.5, 0.0]
   actionscale: [0.3, 1.0, 0.2]
-  agent_dropout_prob: 1.0
-  distance_obs_cutoff: 3 #[m]
+  agent_dropout_prob: 0.1
+  distance_obs_cutoff: 2.0 #[m]
   race_length_laps: 1
 
   progressRewardScale: 10.0
   offtrackRewardScale: -1.0
   actionRateRewardScale: 0.1
-  energyRewardScale: 0.00000
   rankRewardScale: 0.0
   collisionRewardScale: -0.1
-  accRewardScale: -0.1
+  accRewardScale: -0.5
   horizon: 15
 
   timeout: 25.0 #[s]
