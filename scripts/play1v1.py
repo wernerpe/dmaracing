@@ -14,8 +14,8 @@ from dmaracing.controllers.purepursuit import PPController
 def play():
     env = DmarEnv(cfg, args)
     ppc = PPController(env,
-                       lookahead_dist=0.1,
-                       maxvel=1.5,
+                       lookahead_dist=1.5,
+                       maxvel=2.5,
                        k_steer=1.0,
                        k_gas=2.0)
 
@@ -59,8 +59,9 @@ def play():
     #for idx in range(150):
     while True:
         t1 = time.time()
-        #actions = policy(obs)
-        actions = ppc.step()
+        actions = policy(obs)
+        if USE_PPC:
+            actions[:,1,:] = ppc.step()[:,1,:]
         # actions[0, :,:] = 0
         # actions[0, :,1] = -0.5
         #obs_past.append(obs[0,...].detach().cpu().numpy())
@@ -80,17 +81,17 @@ def play():
         act = actions[:,ag,:].cpu().detach().numpy()
         states = env.states.cpu().numpy()
         #om_mean = np.mean(states[env.viewer.env_idx_render,0, env.vn['S_W0']:env.vn['S_W3'] +1 ])
-
+        mv1 = env.dyn_model.dynamics_integrator.dyn_model.max_vel_vec[env.viewer.env_idx_render,1].item() if not USE_PPC else ppc.maxvel
         viewermsg = [(f"""{'ag: '+str(ag)}"""),
                      #(f"""{'p1 '+str(modelnrs[1])}{' ts: '}{policy_infos[1]['trueskill']['mu']:.1f}"""),
                      #(f"""{'Win prob p0 : ':>{10}}{win_prob:.3f}"""),
                      (f"""{'rewards:':>{10}}{' '}{100*rewnp[env.viewer.env_idx_render, 0]:.2f}"""   ),
                      (f"""{'velocity:':>{10}}{' '}{np.linalg.norm(obsnp[env.viewer.env_idx_render, 0:2]*10):.2f}"""),
                      (f"""{'maxvel 0:':>{10}}{' '}{env.dyn_model.dynamics_integrator.dyn_model.max_vel_vec[env.viewer.env_idx_render,0].item():.2f}"""),
-                     (f"""{'maxvel 1:':>{10}}{' '}{env.dyn_model.dynamics_integrator.dyn_model.max_vel_vec[env.viewer.env_idx_render,1].item():.2f}"""),
+                     (f"""{'maxvel 1:':>{10}}{' '}{mv1:.2f}"""),
                      #(f"""{'velocity y:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 1]:.2f}"""),
                      #(f"""{'ang vel:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 2]:.2f}"""),
-                     (f"""{'steer:':>{10}}{' '}{states[env.viewer.env_idx_render, ag, env.vn['S_STEER']]:.2f}"""),
+                     (f"""{'steer car:':>{10}}{' '}{0.3*act[env.viewer.env_idx_render, 0]:.2f}"""),
                      #(f"""{'gas raw 0:':>{10}}{' '}{actions[env.viewer.env_idx_render, 0, env.vn['A_GAS']].item():.2f}"""),
                      (f"""{'gas inp 0:':>{10}}{' '}{env.action_scales[1] * actions[env.viewer.env_idx_render, ag, 1] + env.default_actions[1]:.2f}"""),
                      #(f"""{'gas 1:':>{10}}{' '}{actions[env.viewer.env_idx_render, 1, env.vn['A_GAS']].item():.2f}"""),
@@ -102,12 +103,12 @@ def play():
                      (f"""{'step :':>{10}}{' '}{env.episode_length_buf[env.viewer.env_idx_render].item():.2f}"""),
                      (f"""{'gasoffset:':>{10}}{' '}{env.dyn_model.integration_function.dyn_model.gas_noise[env.viewer.env_idx_render, ag].item():.2f}"""   )]
 
-        #env.viewer.clear_markers()
         env.viewer.x_offset = int(-env.viewer.width/env.viewer.scale_x*env.states[env.viewer.env_idx_render, ag, 0])
         env.viewer.y_offset = int(env.viewer.height/env.viewer.scale_y*env.states[env.viewer.env_idx_render, ag, 1])
         env.viewer.draw_track()
-        #closest_point_marker = env.interpolated_centers[env.viewer.env_idx_render, 0, :, :].cpu().numpy()
-        #env.viewer.add_point(closest_point_marker, 2,(222,10,0), 2)
+        if USE_PPC:
+            env.viewer.clear_markers()
+            env.viewer.add_point(ppc.lookahead_points[env.viewer.env_idx_render, 1, :,:].cpu().numpy(), 4,(0,0,255), 2)
 
         env.viewer.clear_string()
         for msg in viewermsg:
@@ -137,6 +138,7 @@ def play():
 
 if __name__ == "__main__":
     SAVE = False
+    USE_PPC = False
     args = CmdLineArguments()
     args.device = 'cuda:0'
     args.headless = False 
@@ -151,7 +153,7 @@ if __name__ == "__main__":
     cfg['sim']['numAgents'] = 2
     cfg['learn']['timeout'] = 300
     #cfg['learn']['offtrack_reset'] = 4.0
-    cfg['learn']['resetgrid'] = True
+    cfg['learn']['resetgrid'] = False
     cfg['learn']['resetrand'] = [0.0, 0.0, 0., 0.0, 0.0,  0., 0.0]
     cfg['sim']['collide'] = 1
     

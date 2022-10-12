@@ -21,7 +21,7 @@ class PPController:
     def step(self):
         lookahead_locs = self.get_lookahead()
         steer_error = self.get_steer_error(lookahead_locs)
-        gas_error = self.get_vel_error()
+        gas_error = self.get_vel_error(steer_error)
         self._actions[..., 0] = self.k_s * steer_error
         self._actions[..., 1] = self.k_g * gas_error    
         return self._actions
@@ -47,8 +47,10 @@ class PPController:
         pt = lookahead_loc - loc
         lookahead_dir = pt/(1e-6+torch.norm(pt , dim = -1).view(-1, self.env.num_agents, 1))
         ang = torch.arccos(torch.einsum('eac, eac -> ea', self.ori_vec, lookahead_dir))
-        return ang
+        sign = torch.sign(self.ori_vec[...,0]*lookahead_dir[..., 1] - self.ori_vec[...,1]*lookahead_dir[..., 0]) 
 
-    def get_vel_error(self):
+        return ang*sign
+
+    def get_vel_error(self, ang_error):
         vel = torch.norm(self.env.states[..., 3:5], dim =-1) 
-        return self.maxvel-vel 
+        return torch.clip((1-0.4*torch.abs(ang_error)), max =1, min = 0.2)*self.maxvel-vel 

@@ -179,7 +179,7 @@ def get_tri_track_ensemble(device, track_half_width, track_poly_spacing):
                    #"maps/large_square_track.csv",
                    #"maps/squiggles.csv",
                    #"maps/large_track2.csv",  
-                   #"maps/sharp_turns_track.csv", 
+                   "maps/sharp_turns_track.csv", 
                    #"maps/c1.csv", 
                    #"maps/c2.csv", 
                    #"maps/c3.csv", 
@@ -196,7 +196,7 @@ def get_tri_track_ensemble(device, track_half_width, track_poly_spacing):
                    #"maps/triangle.csv",
                    #"maps/complicated.csv",
                    #"maps/oversize1.csv",
-                   #"maps/slider.csv",
+                   "maps/slider.csv",
                    #"maps/h_track.csv",
                    ]
     Ntracks = len(track_paths)*2
