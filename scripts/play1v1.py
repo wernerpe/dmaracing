@@ -138,7 +138,7 @@ def play():
 
 if __name__ == "__main__":
     SAVE = False
-    USE_PPC = False
+    USE_PPC = True
     args = CmdLineArguments()
     args.device = 'cuda:0'
     args.headless = False 
@@ -147,14 +147,14 @@ if __name__ == "__main__":
 
     cfg, cfg_train, logdir = getcfg(path_cfg, postfix='_1v1')
 
-    chkpts = [-1, -1]
+    chkpts = [-1, 150]
     runs = [-1, -1] #['22_09_02_10_40_34_col_0_ar_0.4_rr_0.0', '22_09_02_10_40_34_col_0_ar_0.4_rr_0.0']
     cfg['sim']['numEnv'] = 4
     cfg['sim']['numAgents'] = 2
     cfg['learn']['timeout'] = 300
     #cfg['learn']['offtrack_reset'] = 4.0
-    cfg['learn']['resetgrid'] = False
-    cfg['learn']['resetrand'] = [0.0, 0.0, 0., 0.0, 0.0,  0., 0.0]
+    cfg['learn']['resetgrid'] = True
+    #cfg['learn']['resetrand'] = [0.0, 0.0, 0., 0.0, 0.0,  0., 0.0]
     cfg['sim']['collide'] = 1
     
     cfg['test'] = args.test

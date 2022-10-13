@@ -1,4 +1,5 @@
 test: False
+trackRaceStatistics: True
 sim:
   numEnv: 1024
   #number of racing agents per env

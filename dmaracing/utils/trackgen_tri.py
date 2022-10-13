@@ -195,8 +195,8 @@ def get_tri_track_ensemble(device, track_half_width, track_poly_spacing):
                    #"maps/oval_diag.csv",
                    #"maps/triangle.csv",
                    #"maps/complicated.csv",
-                   #"maps/oversize1.csv",
-                   "maps/slider.csv",
+                   "maps/oversize1.csv",
+                   #"maps/slider.csv",
                    #"maps/h_track.csv",
                    ]
     Ntracks = len(track_paths)*2

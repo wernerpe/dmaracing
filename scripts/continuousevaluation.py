@@ -1,5 +1,6 @@
 
 
+from math import comb
 import torch
 from dmaracing.env.dmar import DmarEnv
 from dmaracing.utils.helpers import *
@@ -10,6 +11,7 @@ import sys
 from torch.utils.tensorboard import SummaryWriter
 import numpy as np
 from datetime import date, datetime
+import time 
 
 def run_eval(policy, env):
     obs, _ = env.reset()
@@ -32,30 +34,29 @@ def run_eval(policy, env):
             break
     return [eval_ep_duration, eval_ep_terminal_ranks, eval_ep_rewards_tot]
         
-def load_polices(logdir, runner, env):
-    lumped_policy = None
-    runs = [int(r[6:-3]) for r in os.listdir(logdir)[::10] if '.pt' in r]  
-    runs.sort()
+# def load_polices(logdir, runner, env):
+#     lumped_policy = None
+#     runs = [int(r[6:-3]) for r in os.listdir(logdir) if '.pt' in r]  
+#     runs.sort()
 
-    #random choice    
-    checkpoints = [np.random.choice(runs) for _ in range(env.num_agents)]
-    model_paths = []
-    for modelnr in checkpoints:
-        model_paths.append("{}/model_{}.pt".format(logdir, modelnr))
-        print("Loading model" + model_paths[-1])
-    policy_infos = runner.load_multi_path(model_paths)
-    lumped_policy = runner.get_inference_policy(device=env.device)
-    return lumped_policy, checkpoints
+#     #random choice    
+#     checkpoints = [np.random.choice(runs) for _ in range(env.num_agents)]
+#     model_paths = []
+#     for modelnr in checkpoints:
+#         model_paths.append("{}/model_{}.pt".format(logdir, modelnr))
+#         print("Loading model" + model_paths[-1])
+#     policy_infos = runner.load_multi_path(model_paths)
+#     lumped_policy = runner.get_inference_policy(device=env.device)
+#     return lumped_policy, checkpoints
 
-def load_polices_det(logdir, runner, env):
+def load_polices_det(combos, runner, env, it):
     #round robin policy loading
-    ######TODO
     # lumped_policy = None
-    runs = [int(r[6:-3]) for r in os.listdir(logdir)[::10] if '.pt' in r]  
+      
     # runs.sort()
-
-    #random choice    
-    checkpoints = [np.random.choice(runs) for _ in range(env.num_agents)]
+    #random choice
+    
+    checkpoints = combos[it]
     model_paths = []
     for modelnr in checkpoints:
         model_paths.append("{}/model_{}.pt".format(logdir, modelnr))
@@ -108,8 +109,23 @@ def continuous_eval():
     ratings = {}
     num_matches = {}
     it = 0
-    while True:
-        lumped_policy, checkpoints = load_polices(logdir, runner, env)
+    runs = [int(r[6:-3]) for r in os.listdir(logdir) if '.pt' in r]
+    runs.sort()
+    num_its= len(runs)**2
+    combos = []
+    for ag0 in range(len(runs)):
+        for ag1 in range(len(runs)):
+            combos.append([runs[ag0], runs[ag1]])
+    perm = np.random.permutation(len(combos))
+    combos = [combos[perm[idx]] for idx in range(len(perm))] 
+    
+    t_start = time.time()
+    it_times = []
+
+    for it in range(num_its):
+        t_0 = time.time()
+        lumped_policy, checkpoints = load_polices_det(combos, runner, env, it)
+        #lumped_policy, checkpoints = load_polices(logdir, runner, env)
         #get ratings of agents in eval loop
         #ratings_eval = []
         for chkpt in checkpoints:
@@ -122,6 +138,12 @@ def continuous_eval():
         ratings = updateratings(ratings, checkpoints, results, env.max_episode_length)
         Log(logfile, ratings, num_matches, checkpoints, it)
         it +=1
+        t_1 = time.time()
+        it_times.append(t_1-t_0)
+        elapsed = time.strftime("%H:%M:%S", time.gmtime(t_1-t_start))
+        rem = np.mean(it_times) * (num_its - it)
+        rem = time.strftime("%H:%M:%S",time.gmtime(rem))
+        print('it : '+str(it)+'/'+str(num_its)+'\n elapsed: '+ elapsed + '\n remaining: ' + rem)
 
 if __name__ == "__main__":
     args = CmdLineArguments()
@@ -132,7 +154,7 @@ if __name__ == "__main__":
     cfg, cfg_train, logdir_root = getcfg(path_cfg, postfix='_1v1')  # True)
     cfg['sim']['numAgents'] = 2
     cfg['sim']['collide'] = 1
-    experiment_path = '22_09_27_17_09_08_col_1_ar_0.1_rr_0.0'
+    experiment_path = '22_10_12_11_20_19_col_1_ar_0.1_rr_0.0'
     if not args.headless:
         cfg['viewer']['logEvery'] = -1
     logdir = logdir_root +'/'+ experiment_path
@@ -147,6 +169,10 @@ if __name__ == "__main__":
     
     cfg["logdir"] = logdir
     cfg['viewer']['logEvery'] = -1
-    cfg['test'] = False
+    cfg['test'] = True
+    cfg['learn']['resetgrid'] = True
+    cfg['learn']['agent_dropout_prob'] = 0.0
+    cfg['learn']['obs_noise_lvl'] = 0.0 if cfg['test'] else cfg['learn']['obs_noise_lvl']
+    set_dependent_cfg_entries(cfg, cfg_train)
 
     continuous_eval()

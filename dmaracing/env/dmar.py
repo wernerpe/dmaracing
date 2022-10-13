@@ -37,6 +37,7 @@ class DmarEnv:
 
         # use bootstrapping on vf
         self.use_timeouts = cfg["learn"]["use_timeouts"]
+        self.track_stats = cfg["trackRaceStatistics"]
 
         self.num_states = 0
         self.num_privileged_obs = None
@@ -238,6 +239,21 @@ class DmarEnv:
                     self.ado_idx_lookup[row, col] = row
 
         self.trained_agent_slot = 0
+
+        if self.track_stats:
+            self.stats_overtakes_current = torch.zeros((self.num_envs), device = self.device)
+            self.stats_overtakes_last_race = torch.zeros((self.num_envs), device = self.device)
+            self.stats_num_collisions_current = torch.zeros((self.num_envs), device = self.device)
+            self.stats_num_collisions_last_race = torch.zeros((self.num_envs), device = self.device)
+            self.stats_ego_left_track_current = torch.zeros((self.num_envs), device = self.device)
+            self.stats_ego_left_track_last_race = torch.zeros((self.num_envs), device = self.device)
+            self.stats_ado_left_track_current = torch.zeros((self.num_envs), device = self.device)
+            self.stats_ado_left_track_last_race = torch.zeros((self.num_envs), device = self.device)
+            self.stats_start_from_behind_current = torch.zeros((self.num_envs), device = self.device)
+            self.stats_win_from_behind_last_race = torch.zeros((self.num_envs), device = self.device)
+            self.stats_lead_time_current = torch.zeros((self.num_envs), device = self.device)
+            self.stats_lead_time_last_race = torch.zeros((self.num_envs), device = self.device)
+            self.stats_last_ranks = torch.zeros((self.num_envs, self.num_agents), device = self.device)
 
         self.total_step = 0
         self.viewer.center_cam(self.states)
@@ -715,6 +731,14 @@ class DmarEnv:
         ].view(-1, 1)
         dist_sort, self.ranks = torch.sort(self.track_progress*self.active_agents, dim=1, descending=True)
         self.ranks = torch.sort(self.ranks, dim=1)[1]
+        
+        if self.track_stats:
+            #set to 1 when not starting from rank 1
+            idx_uninit = torch.where(self.stats_start_from_behind_current == -1)[0]
+            if len(idx_uninit):
+                self.stats_start_from_behind_current[idx_uninit] = 1.0*(self.ranks[idx_uninit, 0]>0)
+                self.stats_last_ranks[idx_uninit] = 1.0*self.ranks[idx_uninit]
+                self.stats_overtakes_current[idx_uninit] = 0
 
         self.contouring_err = torch.einsum("eac, eac-> ea", self.trackperp, self.tile_car_vec)
         
@@ -731,6 +755,8 @@ class DmarEnv:
         #    self.info['ranking'] = [torch.mean(1.0*self.ranks[ids_report, :], dim = 0), 1.0*len(ids_report)/(1.0*len(self.reset_buf))]
 
         if len(env_ids):
+            if self.track_stats:
+                self.reset_stats(env_ids)
             self.reset_envs(env_ids)
 
         self.active_obs_template[...] = 1.0
@@ -741,6 +767,8 @@ class DmarEnv:
 
         self.vel = torch.norm(self.states[:,:,self.vn['S_DX']:self.vn['S_DY']+1], dim = -1)
 
+        if self.track_stats:
+            self.update_current_stats()
         self.compute_observations()
         self.compute_rewards()
 
@@ -864,6 +892,28 @@ class DmarEnv:
     def set_trained_agent_slot(self, slot):
         self.trained_agent_slot = slot
 
+    def reset_stats(self, env_ids):
+        self.stats_overtakes_last_race[env_ids] = self.stats_overtakes_current[env_ids]
+        self.stats_num_collisions_current[env_ids] = self.stats_num_collisions_current[env_ids]
+        self.stats_ego_left_track_last_race[env_ids] = self.stats_ego_left_track_current[env_ids]
+        self.stats_ado_left_track_last_race[env_ids] = self.stats_ado_left_track_current[env_ids]
+        self.stats_win_from_behind_last_race[env_ids] = (self.ranks[env_ids, 0] == 0)*self.stats_start_from_behind_current[env_ids]
+        self.stats_lead_time_last_race[env_ids] = self.stats_lead_time_current[env_ids]
+
+        self.stats_overtakes_current[env_ids] = 0
+        self.stats_num_collisions_current[env_ids] = 0
+        self.stats_ego_left_track_current[env_ids] = 0 
+        self.stats_start_from_behind_current[env_ids] = -1
+        self.stats_lead_time_current[env_ids] = 0
+
+    def update_current_stats(self):
+        self.stats_overtakes_current[:] += 1.0*((self.ranks[:,0] - self.stats_last_ranks[:,0]) < 0)
+        self.stats_num_collisions_current[:] += 1.0*self.is_collision[:,0]
+        self.stats_ego_left_track_current[:] += 1.0 *self.is_on_track[:,0]
+        self.stats_ado_left_track_current[:] += 1.0 *torch.any(self.is_on_track[:,1:] , dim =1).view(-1,)
+        self.stats_lead_time_current[:] += self.dt*(self.ranks[:, 0])
+        
+        self.stats_last_ranks[:] = self.ranks[:] 
 
 ### jit functions
 @torch.jit.script
