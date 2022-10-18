@@ -13,7 +13,7 @@ import numpy as np
 from datetime import date, datetime
 import time 
 
-def run_eval(policy, env):
+def run_eval(policy, env :DmarEnv):
     obs, _ = env.reset()
         
     already_done = env.reset_buf > 1000
@@ -21,7 +21,15 @@ def run_eval(policy, env):
     eval_ep_rewards_team = 0.*already_done
     eval_ep_duration = 0.*already_done
     eval_ep_terminal_ranks = 0.*env.ranks
-        
+    
+    #stat_tracking
+    stats_num_overtakes_per_race = 0*env.stats_overtakes_last_race
+    stats_num_collisions_per_race = 0*env.stats_overtakes_last_race
+    stats_ego_car_leaves_track_fraction = 0*env.stats_overtakes_last_race
+    stats_ado_car_leaves_track_fraction = 0*env.stats_overtakes_last_race
+    stats_win_from_behind_fraction = 0*env.stats_overtakes_last_race
+    stats_avg_lead_time_per_race = 0*env.stats_overtakes_last_race
+
     for ev_it in range(env.max_episode_length+1):
         actions = policy(obs)
         obs, privileged_obs, rewards, dones, infos = env.step(actions)
@@ -29,33 +37,37 @@ def run_eval(policy, env):
         eval_ep_terminal_ranks += env.ranks[:, :] * (~already_done)*dones
         eval_ep_rewards_tot += torch.sum(rewards[:,0,:], dim = 1).view(-1,1)*(~already_done)
         eval_ep_rewards_team += (rewards[:,0,1]).view(-1,1)*(~already_done)
+
+        add_flag = (dones*(~already_done)).view(-1) 
+        stats_num_overtakes_per_race += env.stats_overtakes_last_race * add_flag 
+        stats_num_collisions_per_race += env.stats_num_collisions_last_race * add_flag 
+        stats_ego_car_leaves_track_fraction += env.stats_ego_left_track_last_race * add_flag 
+        stats_ado_car_leaves_track_fraction += env.stats_ado_left_track_last_race * add_flag 
+        stats_win_from_behind_fraction += env.stats_win_from_behind_last_race * add_flag 
+        stats_avg_lead_time_per_race += env.stats_lead_time_last_race * add_flag 
+
         already_done |= dones
         if ~torch.any(~already_done):
             break
-    return [eval_ep_duration, eval_ep_terminal_ranks, eval_ep_rewards_tot]
-        
-# def load_polices(logdir, runner, env):
-#     lumped_policy = None
-#     runs = [int(r[6:-3]) for r in os.listdir(logdir) if '.pt' in r]  
-#     runs.sort()
-
-#     #random choice    
-#     checkpoints = [np.random.choice(runs) for _ in range(env.num_agents)]
-#     model_paths = []
-#     for modelnr in checkpoints:
-#         model_paths.append("{}/model_{}.pt".format(logdir, modelnr))
-#         print("Loading model" + model_paths[-1])
-#     policy_infos = runner.load_multi_path(model_paths)
-#     lumped_policy = runner.get_inference_policy(device=env.device)
-#     return lumped_policy, checkpoints
+    
+    stats_num_overtakes_per_race = torch.mean(stats_num_overtakes_per_race).item()
+    stats_num_collisions_per_race = torch.mean(stats_num_collisions_per_race).item()
+    stats_ego_car_leaves_track_fraction = torch.sum((stats_ego_car_leaves_track_fraction>(0.2/env.dt))).item()/env.num_envs
+    stats_ado_car_leaves_track_fraction = torch.sum((stats_ado_car_leaves_track_fraction>(0.2/env.dt))).item()/env.num_envs
+    num_start_from_behind = torch.sum(1.0*(stats_win_from_behind_fraction != 0)).item()
+    stats_win_from_behind_fraction = torch.sum((stats_win_from_behind_fraction== 1)).item()/(num_start_from_behind + 1e-6)
+    stats_avg_lead_time_per_race = torch.mean(stats_avg_lead_time_per_race).item()/(env.max_episode_length * env.dt)
+    stats = {'num_overtakes': stats_num_overtakes_per_race,
+             'num_collisions': stats_num_collisions_per_race,
+             'ego_offtrack': stats_ego_car_leaves_track_fraction,
+             'ado_offtrack': stats_ado_car_leaves_track_fraction,
+             'win_from_behind': stats_win_from_behind_fraction,
+             'avg_time_lead_frac_race': stats_avg_lead_time_per_race
+             }
+    return [eval_ep_duration, eval_ep_terminal_ranks, eval_ep_rewards_tot, stats]
 
 def load_polices_det(combos, runner, env, it):
-    #round robin policy loading
-    # lumped_policy = None
-      
-    # runs.sort()
-    #random choice
-    
+    #round robin policy loading    
     checkpoints = combos[it]
     model_paths = []
     for modelnr in checkpoints:
@@ -67,7 +79,7 @@ def load_polices_det(combos, runner, env, it):
 
 def updateratings(ratings, checkpoints, results, max_duration):
     ratings_match = [ratings[pt] for pt in checkpoints]
-    duration, ranks, rewards = results
+    duration, ranks, rewards, stats = results
     duration, ranks, rewards = duration.cpu().numpy(), ranks.cpu().numpy(), rewards.cpu().numpy()
     for dur, rank in zip(duration, ranks):
         update_ratio = 1.0 #dur/max_duration
@@ -78,9 +90,9 @@ def updateratings(ratings, checkpoints, results, max_duration):
             ratings_match[it] = (trueskill.Rating(mu, sigma),)
     for idx, pt in enumerate(checkpoints):
         ratings[pt] = ratings_match[idx]
-    return ratings
+    return ratings, stats
 
-def Log(logfile, ratings, num_matches, checkpoints, it):
+def Log(logfile, ratings, stats, num_matches, checkpoints, it):
     log = (f"\033[1m EVAL: {it} \033[0m"
             f"""\n{'#' * 20}\n""")
     with open(logfile,'a') as fd:
@@ -92,13 +104,22 @@ def Log(logfile, ratings, num_matches, checkpoints, it):
             # writer.add_scalar('EVAL/ratings_sigma', sigma, key)
             # writer.add_scalar('EVAL/num_matches', num_matches[key], key)
             if key in checkpoints:
+                stats_string = ''
+                is_first = (checkpoints.index(key) == 0)
+                
+                for value in stats.values():
+                    stats_string += str(value)+ ', ' if is_first else '-1, ' 
                 log += (f"""{key:>{5}}{', m:'}{mu:.2f}{', s:'}{sigma:.2f}{', n:'}{num_matches[key]}\n""")
-                line = str(key)+', '+str(mu) + ', ' + str(sigma) + ', ' + str(num_matches[key])+'\n'
-                fd.write(line)   
+                line = str(key)+', '+str(mu) + ', ' + str(sigma) + ', ' + str(num_matches[key])+ ', ' + stats_string + '\n'
+                
+                fd.write(line)
+            
+        for key, val in stats.items():
+            log += (f"""{key:>{5}}{': '}{val:.2f}\n""")   
     print(log)
 
 def continuous_eval():
-    cfg['sim']['numEnv'] = 128
+    cfg['sim']['numEnv'] = 256
     #cfg['track']['num_tracks'] = 2
     env = DmarEnv(cfg, args)
     runner = get_mappo_runner(env, cfg_train, logdir_root, env.device, cfg['sim']['numAgents'])
@@ -135,8 +156,8 @@ def continuous_eval():
             num_matches[chkpt] += 1
             #ratings_eval.append(ratings[chkpt])
         results = run_eval(lumped_policy, env)
-        ratings = updateratings(ratings, checkpoints, results, env.max_episode_length)
-        Log(logfile, ratings, num_matches, checkpoints, it)
+        ratings, stats = updateratings(ratings, checkpoints, results, env.max_episode_length)
+        Log(logfile, ratings, stats, num_matches, checkpoints, it)
         it +=1
         t_1 = time.time()
         it_times.append(t_1-t_0)
@@ -146,6 +167,20 @@ def continuous_eval():
         print('it : '+str(it)+'/'+str(num_its)+'\n elapsed: '+ elapsed + '\n remaining: ' + rem)
 
 if __name__ == "__main__":
+    csv_key = ['checkpoint', 
+                'mu', 
+                'sigma', 
+                'nmatchups', 
+                'overtakes', 
+                'collisions', 
+                'ego offtrack', 
+                'ado offtrack', 
+                'win from behind', 
+                'fraction of race led']
+    print('eval key for csv')
+    for k in csv_key:
+        print(k)
+
     args = CmdLineArguments()
     args.parse(sys.argv[1:])
     args.device = 'cuda:0'
@@ -171,6 +206,8 @@ if __name__ == "__main__":
     cfg['viewer']['logEvery'] = -1
     cfg['test'] = True
     cfg['learn']['resetgrid'] = True
+    #cfg['learn']['timeout'] = 20
+    #cfg['learn']['resetrand'] = [0.0, 0.0, 0., 0.0, 0.0,  0., 0.0]
     cfg['learn']['agent_dropout_prob'] = 0.0
     cfg['learn']['obs_noise_lvl'] = 0.0 if cfg['test'] else cfg['learn']['obs_noise_lvl']
     set_dependent_cfg_entries(cfg, cfg_train)

@@ -894,23 +894,24 @@ class DmarEnv:
 
     def reset_stats(self, env_ids):
         self.stats_overtakes_last_race[env_ids] = self.stats_overtakes_current[env_ids]
-        self.stats_num_collisions_current[env_ids] = self.stats_num_collisions_current[env_ids]
+        self.stats_num_collisions_last_race[env_ids] = self.stats_num_collisions_current[env_ids]
         self.stats_ego_left_track_last_race[env_ids] = self.stats_ego_left_track_current[env_ids]
         self.stats_ado_left_track_last_race[env_ids] = self.stats_ado_left_track_current[env_ids]
-        self.stats_win_from_behind_last_race[env_ids] = (self.ranks[env_ids, 0] == 0)*self.stats_start_from_behind_current[env_ids]
+        self.stats_win_from_behind_last_race[env_ids] = (self.ranks[env_ids, 0] == 0)*self.stats_start_from_behind_current[env_ids]  -1* (self.ranks[env_ids, 0] != 0)*self.stats_start_from_behind_current[env_ids]
         self.stats_lead_time_last_race[env_ids] = self.stats_lead_time_current[env_ids]
 
         self.stats_overtakes_current[env_ids] = 0
         self.stats_num_collisions_current[env_ids] = 0
         self.stats_ego_left_track_current[env_ids] = 0 
+        self.stats_ado_left_track_current[env_ids] = 0 
         self.stats_start_from_behind_current[env_ids] = -1
         self.stats_lead_time_current[env_ids] = 0
 
     def update_current_stats(self):
         self.stats_overtakes_current[:] += 1.0*((self.ranks[:,0] - self.stats_last_ranks[:,0]) < 0)
-        self.stats_num_collisions_current[:] += 1.0*self.is_collision[:,0]
-        self.stats_ego_left_track_current[:] += 1.0 *self.is_on_track[:,0]
-        self.stats_ado_left_track_current[:] += 1.0 *torch.any(self.is_on_track[:,1:] , dim =1).view(-1,)
+        self.stats_num_collisions_current[:] += 1.0 * self.is_collision[:,0]
+        self.stats_ego_left_track_current[:] += 1.0 * ~self.is_on_track[:,0]
+        self.stats_ado_left_track_current[:] += 1.0 * torch.any(~self.is_on_track[:,1:] , dim =1).view(-1,)
         self.stats_lead_time_current[:] += self.dt*(self.ranks[:, 0])
         
         self.stats_last_ranks[:] = self.ranks[:] 
