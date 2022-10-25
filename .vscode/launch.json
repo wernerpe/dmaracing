@@ -103,10 +103,10 @@
             "justMyCode": false
         },
         {
-            "name": "continuouseval",
+            "name": "plot_cont_eval",
             "type": "python",
             "request": "launch",
-            "program": "scripts/continuousevaluation.py",
+            "program": "scripts/plot_continuousevaluation.py",
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",
             "justMyCode": false,

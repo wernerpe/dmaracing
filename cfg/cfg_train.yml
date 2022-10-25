@@ -20,11 +20,11 @@ runner:
   policy_class_name: MAActorCritic
   algorithm_class_name: MAPPO
   num_steps_per_env: 64 # per iteration
-  max_iterations: 1200 # number of policy updates
+  max_iterations: 500 # number of policy updates
   population_update_interval: 100 #number of iterations before the opponent policy is updated
   # logging
   save_interval: 50 # check for potential saves every this many iterations
-  experiment_name: 'tri_single_agent_kinematic'
+  experiment_name: 'tri_single_blr'
   run_name: ''
   # load and resume
   resume: False

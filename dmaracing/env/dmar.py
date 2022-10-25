@@ -63,7 +63,7 @@ class DmarEnv:
         self.dyn_model.dynamics_integrator.dyn_model.num_agents = self.num_agents
         self.dyn_model.dynamics_integrator.dyn_model.init_noise_vec(self.num_envs, self.device)
         self.dyn_model.integration_function.dyn_model.init_col_switch(self.num_envs, self.cfg['model']['col_decay_time'], self.device)
-        self.dyn_model.integration_function.dyn_model.gp.noise_lvl = self.cfg['model']['gp_noise_scale']
+        #self.dyn_model.integration_function.dyn_model.gp.noise_lvl = self.cfg['model']['gp_noise_scale']
         
         self.noise_level = self.cfg['model']['noise_level']
         
@@ -79,7 +79,7 @@ class DmarEnv:
         #self.num_tracks = cfg["track"]["num_tracks"]
         self.track_half_width = cfg["track"]["track_half_width"]
         self.track_poly_spacing = cfg["track"]["track_poly_spacing"]
-        t, self.tile_len, self.track_tile_counts, self.num_tracks = get_tri_track_ensemble(self.device, self.track_half_width, self.track_poly_spacing)
+        t, self.tile_len, self.track_tile_counts, self.num_tracks, self.track_names = get_tri_track_ensemble(self.device, self.track_half_width, self.track_poly_spacing)
         self.track_lengths = torch.tensor(self.track_tile_counts, device=self.device) * self.tile_len
         self.track_successes = torch.ones((self.num_tracks,1), device=self.device, dtype=torch.float, requires_grad=False)
         
@@ -263,6 +263,11 @@ class DmarEnv:
         if not self.headless:
             self.viewer.center_cam(self.states)
             self.render()
+        print(10*'#'+' Randomized Vars '+10*'#')
+        print('dynamics model:\n')
+        print(self.dyn_model.integration_function.dyn_model.randomized_params)
+        print('env:\n')
+        print('obs noise' if self.test_mode else '')
 
     def compute_observations(
         self,
@@ -502,11 +507,13 @@ class DmarEnv:
 
     def reset_envs(self, env_ids) -> None:
         self.dyn_model.integration_function.dyn_model.reset(env_ids)
+        if self.track_stats:
+            last_track_ids = self.active_track_ids[env_ids].clone()
         self.resample_track(env_ids)
         self.active_agents[env_ids, 1:] = (
             torch.rand((len(env_ids), self.num_agents - 1), device=self.device) > self.agent_dropout_prob
         )
-        tile_idx_env = (
+        tile_idx_env = 0*(
             torch.rand((len(env_ids), 1), device=self.device) * self.active_track_tile_counts[env_ids].view(-1, 1)
         ).to(dtype=torch.long)
         tile_idx_env = torch.tile(tile_idx_env, (self.num_agents,))
@@ -617,7 +624,16 @@ class DmarEnv:
             ]
         #        self.info['ranking'] = self.ranks[env_ids]
         #        self.info['percentage_max_episode_length'] = 1.0*self.episode_length_buf[env_ids]/(self.max_episode_length)
-
+        if self.track_stats:
+            self.info["proginfo"] = [last_track_ids, 
+            self.episode_length_buf[env_ids].clone(), 
+            self.lap_counter[env_ids].clone(), 
+            self.track_progress[env_ids].clone(), 
+            self.track_progress_no_laps[env_ids].clone(),
+            self.track_lengths[last_track_ids],
+            #env_ids.clone(),
+            self.dyn_model.dynamics_integrator.dyn_model.max_vel_vec[env_ids].clone()]
+            
         #dynamics randomization
         self.dyn_model.dynamics_integrator.dyn_model.update_noise_vec(env_ids, self.noise_level) 
 
@@ -625,6 +641,7 @@ class DmarEnv:
         self.episode_length_buf[env_ids] = 0.0
         self.old_track_progress[env_ids] = 0.0
         self.track_progress[env_ids] = 0.0
+        self.track_progress_no_laps[env_ids] = 0.0
         self.time_off_track[env_ids, :] = 0.0
         self.last_actions[env_ids, :, :] = 0.0
         self.last_steer[env_ids, :, :] = 0.0

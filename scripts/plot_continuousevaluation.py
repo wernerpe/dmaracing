@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
+from tkinter.filedialog import askopenfilename
 
 def make_radar_chart(ax, name, stats, label = '', color = 'b', attribute_labels = None,
                      plot_markers = None, plot_str_markers= True):
@@ -27,7 +28,8 @@ def make_radar_chart(ax, name, stats, label = '', color = 'b', attribute_labels 
 
     return ax
 
-path = 'logs/tri_1v1_2/22_10_12_11_20_19_col_1_ar_0.1_rr_0.0/continuouseval_22_10_18_10_46_55.csv' #'../../supercloud/dmaracing/logs/tri_1v1/22_08_23_11_49_39/continuouseval_22_08_24_16_49_32.csv'
+#path = 'logs/tri_1v1_2/22_10_12_11_20_19_col_1_ar_0.1_rr_0.0/continuouseval_22_10_18_10_46_55.csv' #'../../supercloud/dmaracing/logs/tri_1v1/22_08_23_11_49_39/continuouseval_22_08_24_16_49_32.csv'
+path = askopenfilename(filetypes = [("Continuous Eval Log", "*csv")], initialdir= 'logs/tri_1v1_2/') 
 
 my_data = np.genfromtxt(path, delimiter=',')
 keys = my_data[:,0]

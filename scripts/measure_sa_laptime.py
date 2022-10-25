@@ -6,11 +6,13 @@ from dmaracing.utils.rl_helpers import get_ppo_runner
 import numpy as np
 import os
 import time
+from datetime import date, datetime
 
 def play():
     chkpt = -1
     
     env = DmarEnv(cfg, args)
+    names = print(env.track_names)
     #env.viewer.mark_env(0)
     obs = env.obs_buf
 
@@ -23,20 +25,46 @@ def play():
 
     policy = runner.get_inference_policy(device=env.device)
     policy(obs)
-    if SAVE:
-        policy_jit = torch.jit.script(runner.alg.actor_critic.actor.to('cpu'))
-        #policy_jit.save("logs/saved_models/new_GP.pt") # tw_45_maxv_3.0_lh_15_dfa_0_0.1_as_0.3_1.0_gpmodel.pt")
-        print("Done saving")
-        exit()
+    
     time_per_step = cfg['sim']['dt']*cfg['sim']['decimation']
     #steer_commands = []
     # for idx in range(1000):
+    lap_times = {}
+    for idx, n in enumerate(env.track_names):
+        lap_times[idx] = []
+
     obs = env.obs_buf.clone().view(-1, env.num_obs)
+    
     while True:
-        t1 = time.time()
+        #t1 = time.time()
         actions = policy(obs)
         #actions[:, 1] = 2.0
         obs,_, rew, dones, info = env.step(actions)
+        if len(info):
+            track_ids =info['proginfo'][0].cpu().numpy().reshape(-1)
+            time_raced = (info['proginfo'][1].cpu().numpy()*env.dt*env.decimation).reshape(-1)
+            progress = info['proginfo'][3].cpu().numpy().reshape(-1)
+            lap_lengths = info['proginfo'][5].cpu().numpy().reshape(-1)
+            maxvels  = info['proginfo'][6].cpu().numpy().reshape(-1)
+            is_max_ep_time = (np.abs(info['proginfo'][1].cpu().numpy() - env.max_episode_length) < 2).reshape(-1)
+            # print(np.array(env.track_names)[track_ids])
+            # print('eplenghts\n', info['proginfo'][1])
+            # print('lapcount\n', info['proginfo'][2])
+            # print('progress\n', progress)
+            # print('progress no l\n', info['proginfo'][4])
+            # print('tracklen\n', lap_lengths)
+            # print('-------------------')
+            num_laps_float = progress/lap_lengths
+            avg_laptime_est = time_raced/num_laps_float 
+            #env_ids = info['proginfo'][6]
+            for idt, mv, avg_laptime_est, max_ep_time in zip(track_ids, maxvels, avg_laptime_est, is_max_ep_time):
+                lap_times[idt].append([mv, avg_laptime_est]) 
+                if max_ep_time:
+                    with open(logfile,'a') as fd:
+                        line = str(idt)+', '+ str(mv) + ', ' + str(avg_laptime_est) +'\n'
+                        print(env.track_names[idt],  ', '+ str(mv),  ', '+str(avg_laptime_est))
+                        fd.write(line)
+
         obsnp = obs.cpu().numpy()
         rewnp = rew.cpu().numpy()
         #cont = env.contuoring_err.cpu().numpy()
@@ -75,11 +103,11 @@ def play():
             print("env ", env.viewer.env_idx_render, " reset")
             env.episode_length_buf[env.viewer.env_idx_render] = 1e9
         
-        t2 = time.time()
-        realtime = t2-t1-time_per_step
+        #t2 = time.time()
+        #realtime = t2-t1-time_per_step
         
-        if realtime < 0:
-             time.sleep(-realtime)
+        # if realtime < 0:
+        #      time.sleep(-realtime)
 
     # steer = np.array(steer_commands)
     # import matplotlib.pyplot as plt
@@ -97,10 +125,17 @@ if __name__ == "__main__":
     cfg["logdir"] = logdir
     cfg_train['runner']['policy_class_name'] = 'ActorCritic'
     cfg_train['runner']['algorithm_class_name'] = 'PPO'
+    cfg['learn']['resetrand'] = [0.0, 0.0, 0., 0.0, 0.0,  0., 0.0]
     #cfg['sim']['collide'] = 0
-    cfg['sim']['numEnv'] = 3
+    cfg['sim']['numEnv'] = 2048
     cfg['sim']['numAgents'] = 1
+    cfg['learn']['timeout'] = 20
     cfg["viewer"]["logEvery"] = -1
+    cfg['trackRaceStatistics'] = True
+
     cfg['test'] = args.test
     set_dependent_cfg_entries(cfg, cfg_train)
+    now = datetime.now()
+    timestamp = now.strftime("%y_%m_%d_%H_%M_%S")
+    logfile = logdir + '/laptimes_'+timestamp+'.csv'
     play()    

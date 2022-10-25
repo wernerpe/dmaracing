@@ -27,6 +27,6 @@ if __name__ == "__main__":
     cfg["viewer"]["logEvery"] = -1
     print("logevery")
     print(cfg["viewer"]["logEvery"])
-    cfg['learn']['offtrack_reset'] = 0.3
+    #cfg['learn']['offtrack_reset'] = 0.3
     set_dependent_cfg_entries(cfg, cfg_train)
     train()

@@ -199,6 +199,7 @@ def get_tri_track_ensemble(device, track_half_width, track_poly_spacing):
                    #"maps/slider.csv",
                    #"maps/h_track.csv",
                    ]
+    track_names = [tpth[5:-4]+pf for tpth in track_paths for pf in ['_ccw', '_cw']]
     Ntracks = len(track_paths)*2
     track_tile_counts =[]
     centerlines = []
@@ -260,7 +261,7 @@ def get_tri_track_ensemble(device, track_half_width, track_poly_spacing):
         centerline[idx, :len(centerlines[idx]), :] = torch.tensor(centerlines[idx].copy(), device = device, dtype=torch.float, requires_grad = False)
         alpha[idx, :len(centerlines[idx])] = torch.tensor(alphas_tracks[idx].copy(), device = device, dtype=torch.float, requires_grad = False)
     #[centerline, track_poly_verts, alphas, A, b, S_mat, border_poly_verts, border_poly_col]
-    return [centerline, poly_verts_tracks, alpha, A, b, S_mat, np.ones([Ntracks,0]), np.ones([Ntracks,0])] ,tile_len , track_tile_counts, Ntracks
+    return [centerline, poly_verts_tracks, alpha, A, b, S_mat, np.ones([Ntracks,0]), np.ones([Ntracks,0])] ,tile_len , track_tile_counts, Ntracks, track_names
 
 
 

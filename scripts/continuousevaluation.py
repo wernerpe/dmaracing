@@ -204,12 +204,13 @@ if __name__ == "__main__":
     
     cfg["logdir"] = logdir
     cfg['viewer']['logEvery'] = -1
-    cfg['test'] = True
+    cfg['test'] = True #disable length randomizations only use mean of blr but still randomly draw maxvel vecs
     cfg['learn']['resetgrid'] = True
     #cfg['learn']['timeout'] = 20
     #cfg['learn']['resetrand'] = [0.0, 0.0, 0., 0.0, 0.0,  0., 0.0]
     cfg['learn']['agent_dropout_prob'] = 0.0
     cfg['learn']['obs_noise_lvl'] = 0.0 if cfg['test'] else cfg['learn']['obs_noise_lvl']
+    cfg['trackRaceStatistics'] = True
     set_dependent_cfg_entries(cfg, cfg_train)
 
     continuous_eval()

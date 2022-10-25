@@ -1,5 +1,5 @@
 test: False
-trackRaceStatistics: True
+trackRaceStatistics: False #makes sim substantially slower
 sim:
   numEnv: 1024
   #number of racing agents per env
