@@ -29,7 +29,7 @@ def run_eval(policy, env :DmarEnv):
     stats_ado_car_leaves_track_fraction = 0*env.stats_overtakes_last_race
     stats_win_from_behind_fraction = 0*env.stats_overtakes_last_race
     stats_avg_lead_time_per_race = 0*env.stats_overtakes_last_race
-
+    stats_percentage_sa_laptime_last_race = 0*env.stats_percentage_sa_laptime_last_race
     for ev_it in range(env.max_episode_length+1):
         actions = policy(obs)
         obs, privileged_obs, rewards, dones, infos = env.step(actions)
@@ -45,6 +45,8 @@ def run_eval(policy, env :DmarEnv):
         stats_ado_car_leaves_track_fraction += env.stats_ado_left_track_last_race * add_flag 
         stats_win_from_behind_fraction += env.stats_win_from_behind_last_race * add_flag 
         stats_avg_lead_time_per_race += env.stats_lead_time_last_race * add_flag 
+        stats_percentage_sa_laptime_last_race += env.stats_percentage_sa_laptime_last_race* add_flag 
+  
 
         already_done |= dones
         if ~torch.any(~already_done):
@@ -57,12 +59,15 @@ def run_eval(policy, env :DmarEnv):
     num_start_from_behind = torch.sum(1.0*(stats_win_from_behind_fraction != 0)).item()
     stats_win_from_behind_fraction = torch.sum((stats_win_from_behind_fraction== 1)).item()/(num_start_from_behind + 1e-6)
     stats_avg_lead_time_per_race = torch.mean(stats_avg_lead_time_per_race).item()/(env.max_episode_length * env.dt)
+    idx = torch.where(stats_percentage_sa_laptime_last_race< 10)[0]
+    stats_avg_percentage_sa_laptime = torch.mean(stats_percentage_sa_laptime_last_race[idx]).item()
     stats = {'num_overtakes': stats_num_overtakes_per_race,
              'num_collisions': stats_num_collisions_per_race,
              'ego_offtrack': stats_ego_car_leaves_track_fraction,
              'ado_offtrack': stats_ado_car_leaves_track_fraction,
              'win_from_behind': stats_win_from_behind_fraction,
-             'avg_time_lead_frac_race': stats_avg_lead_time_per_race
+             'avg_time_lead_frac_race': stats_avg_lead_time_per_race,
+             'percentage_sa_laptime': stats_avg_percentage_sa_laptime
              }
     return [eval_ep_duration, eval_ep_terminal_ranks, eval_ep_rewards_tot, stats]
 
@@ -176,7 +181,8 @@ if __name__ == "__main__":
                 'ego offtrack', 
                 'ado offtrack', 
                 'win from behind', 
-                'fraction of race led']
+                'fraction of race led',
+                'fraction of sa performance']
     print('eval key for csv')
     for k in csv_key:
         print(k)

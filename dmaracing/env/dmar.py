@@ -254,6 +254,16 @@ class DmarEnv:
             self.stats_lead_time_current = torch.zeros((self.num_envs), device = self.device)
             self.stats_lead_time_last_race = torch.zeros((self.num_envs), device = self.device)
             self.stats_last_ranks = torch.zeros((self.num_envs, self.num_agents), device = self.device)
+            self.stats_percentage_sa_laptime_last_race = torch.zeros((self.num_envs), device = self.device)
+            #track_order 
+            #track_names = ['sharp_turns_track_ccw', 'sharp_turns_track_cw', 'orca_ccw', 'orca_cw', 'oversize1_ccw', 'oversize1_cw']
+
+            self.maxvel_to_laptime_in_s_model = torch.tensor([[ 18.76698252,  -6.93244121,   1.09663193],
+                                                    [ 19.64517843,  -7.39382932,   1.1109327 ],
+                                                    [ 60.76572465, -22.33884921,   3.12345654],
+                                                    [ 69.6452333 , -29.56069015,   4.58618748],
+                                                    [ 56.92511095, -22.11645183,   3.11423204],
+                                                    [ 57.72302405, -22.85980533,   3.29237065]], device=self.device)
 
         self.total_step = 0
         self.viewer.center_cam(self.states)
@@ -598,7 +608,8 @@ class DmarEnv:
             self.states[env_ids, :, 0:2].unsqueeze(2) - self.active_centerlines[env_ids].unsqueeze(1), dim=3
         )
         self.old_active_track_tile[env_ids, :] = torch.sort(dists, dim=2)[1][:, :, 0]
-
+        self.active_track_tile[env_ids, :] = torch.sort(dists, dim=2)[1][:, :, 0]
+        
         self.info["episode"] = {}
 
         for key in self.reward_terms.keys():
@@ -625,6 +636,17 @@ class DmarEnv:
         #        self.info['ranking'] = self.ranks[env_ids]
         #        self.info['percentage_max_episode_length'] = 1.0*self.episode_length_buf[env_ids]/(self.max_episode_length)
         if self.track_stats:
+            #compute percentage of laptime achieved
+            mv = self.dyn_model.dynamics_integrator.dyn_model.max_vel_vec[env_ids, 0]
+            X = torch.cat(tuple([mv.view(-1,1)**idx for idx in range(3)]), dim = -1)
+            w = self.maxvel_to_laptime_in_s_model[last_track_ids, :]
+            sa_lap_time_targets = torch.einsum('ef, ef -> e', X, w)
+            time_ep = (self.episode_length_buf[env_ids]*self.dt*self.decimation).view(-1,)
+            prog_ep = torch.clip(self.track_progress[env_ids, 0].view(-1,), min = 0)
+            track_len_ep = self.track_lengths[last_track_ids].view(-1,)
+            lap_time_actual = (track_len_ep/ (prog_ep+1e-9)) * time_ep 
+            self.stats_percentage_sa_laptime_last_race[env_ids] = lap_time_actual/sa_lap_time_targets
+            
             self.info["proginfo"] = [last_track_ids, 
             self.episode_length_buf[env_ids].clone(), 
             self.lap_counter[env_ids].clone(), 
@@ -916,6 +938,7 @@ class DmarEnv:
         self.stats_ado_left_track_last_race[env_ids] = self.stats_ado_left_track_current[env_ids]
         self.stats_win_from_behind_last_race[env_ids] = (self.ranks[env_ids, 0] == 0)*self.stats_start_from_behind_current[env_ids]  -1* (self.ranks[env_ids, 0] != 0)*self.stats_start_from_behind_current[env_ids]
         self.stats_lead_time_last_race[env_ids] = self.stats_lead_time_current[env_ids]
+        self.stats_percentage_sa_laptime_last_race[env_ids] = -1
 
         self.stats_overtakes_current[env_ids] = 0
         self.stats_num_collisions_current[env_ids] = 0

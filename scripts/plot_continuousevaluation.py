@@ -42,6 +42,7 @@ frac_ego_offtrack = my_data[:, 6]
 frac_ado_offtrack = my_data[:, 7]
 frac_win_from_behind = my_data[:, 8]
 fraction_of_race_led = my_data[:, 9]
+fraction_of_sa_laptime = my_data[:, 10]
 
 els = np.unique(keys)
 latest_ratings = []
@@ -51,6 +52,7 @@ policy_frac_ego_offtrack = []
 policy_frac_ado_offtrack = []
 policy_frac_win_from_behind = []
 policy_fraction_of_race_led = []
+policy_frac_of_sa_laptime = []
 for el in els:
     idxs = np.where(keys==el)
     idx2 = np.where(n_overtakes != -1)
@@ -64,20 +66,23 @@ for el in els:
     policy_frac_ado_offtrack.append(frac_ado_offtrack[idxs2])
     policy_frac_win_from_behind.append(frac_win_from_behind[idxs2])
     policy_fraction_of_race_led.append(fraction_of_race_led[idxs2])
+    policy_frac_of_sa_laptime.append(fraction_of_sa_laptime[idxs2])
 
 stats = [policy_n_overtakes,
         policy_n_collisions,
         policy_frac_ego_offtrack,
         policy_frac_ado_offtrack,
         policy_frac_win_from_behind,
-        policy_fraction_of_race_led]
+        policy_fraction_of_race_led,
+        policy_frac_of_sa_laptime]
 
 stat_keys = ['n_overtakes',
              'n_collisions',
              'frac_ego_offtrack',
              'frac_ado_offtrack',
              'frac_win_from_behind',
-             'fraction_of_race_led']
+             'fraction_of_race_led',
+             'fraction_sa_laptime']
 
 figure = plt.figure()
 plt.scatter(keys, mu)
@@ -86,8 +91,8 @@ plt.xlabel('training step')
 plt.ylabel('trueskill')
 plt.legend(['eval progression', 'final skill'])
 
-fig, ax_grid = plt.subplots(nrows=3, ncols = 2, figsize = (15, 10))
-axs = ax_grid[:,0].tolist()+ax_grid[:,1].tolist()
+fig, ax_grid = plt.subplots(nrows=3, ncols = 3, figsize = (15, 10))
+axs = ax_grid[:,0].tolist()+ax_grid[:,1].tolist()+ax_grid[:,2].tolist()
 
 for idx, ax in enumerate(axs):
     data_over_policies = stats[idx]
@@ -96,8 +101,10 @@ for idx, ax in enumerate(axs):
     ax.set_title(name)
     ax.plot(els, mean_policy_stat, 'r')
     ax.set_xlabel('training steps')
+    if idx == 6:
+        break
 
-spider_keys = ['overtaking', 'collisions x 0.02', 'ego offtrack', 'ado offtrack', 'win from behind', 'fraction of race led']
+spider_keys = ['overtaking', 'collisions x 0.02', 'ego offtrack', 'ado offtrack', 'win from behind', 'fraction of race led', 'frac sa laptime']
 policy_profiles = []
 for idx, evaluations in enumerate(els):
     pol_profile = []

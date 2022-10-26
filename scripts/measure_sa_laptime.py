@@ -24,22 +24,19 @@ def play():
     runner.load(model_path)
 
     policy = runner.get_inference_policy(device=env.device)
-    policy(obs)
     
-    time_per_step = cfg['sim']['dt']*cfg['sim']['decimation']
-    #steer_commands = []
-    # for idx in range(1000):
     lap_times = {}
     for idx, n in enumerate(env.track_names):
         lap_times[idx] = []
 
     obs = env.obs_buf.clone().view(-1, env.num_obs)
-    
+    steps = 0
     while True:
         #t1 = time.time()
         actions = policy(obs)
         #actions[:, 1] = 2.0
         obs,_, rew, dones, info = env.step(actions)
+        steps +=1
         if len(info):
             track_ids =info['proginfo'][0].cpu().numpy().reshape(-1)
             time_raced = (info['proginfo'][1].cpu().numpy()*env.dt*env.decimation).reshape(-1)
@@ -47,22 +44,16 @@ def play():
             lap_lengths = info['proginfo'][5].cpu().numpy().reshape(-1)
             maxvels  = info['proginfo'][6].cpu().numpy().reshape(-1)
             is_max_ep_time = (np.abs(info['proginfo'][1].cpu().numpy() - env.max_episode_length) < 2).reshape(-1)
-            # print(np.array(env.track_names)[track_ids])
-            # print('eplenghts\n', info['proginfo'][1])
-            # print('lapcount\n', info['proginfo'][2])
-            # print('progress\n', progress)
-            # print('progress no l\n', info['proginfo'][4])
-            # print('tracklen\n', lap_lengths)
-            # print('-------------------')
             num_laps_float = progress/lap_lengths
             avg_laptime_est = time_raced/num_laps_float 
             #env_ids = info['proginfo'][6]
+            print('writing results to csv')
             for idt, mv, avg_laptime_est, max_ep_time in zip(track_ids, maxvels, avg_laptime_est, is_max_ep_time):
                 lap_times[idt].append([mv, avg_laptime_est]) 
                 if max_ep_time:
                     with open(logfile,'a') as fd:
                         line = str(idt)+', '+ str(mv) + ', ' + str(avg_laptime_est) +'\n'
-                        print(env.track_names[idt],  ', '+ str(mv),  ', '+str(avg_laptime_est))
+                        #print(env.track_names[idt],  ', '+ str(mv),  ', '+str(avg_laptime_est))
                         fd.write(line)
 
         obsnp = obs.cpu().numpy()
@@ -81,6 +72,8 @@ def play():
                      #(f"""{'ang vel:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 2]:.2f}"""),
                      #(f"""{'trackprogress:':>{10}}{' '}{env.track_progress[env.viewer.env_idx_render,0].item():.2f}"""),
                      (f"""{'maxvel:':>{10}}{' '}{env.dyn_model.dynamics_integrator.dyn_model.max_vel_vec[env.viewer.env_idx_render,0].item():.2f}"""),                     
+                     (f"""{'progress:':>{10}}{' '}{env.track_progress[env.viewer.env_idx_render,0].item():.2f}"""),                     
+                     
                      #(f"""{'steer:':>{10}}{' '}{states[env.viewer.env_idx_render, 0, env.vn['S_STEER']]:.2f}"""),
                      #(f"""{'gas:':>{10}}{' '}{states[env.viewer.env_idx_render, 0, env.vn['S_GAS']]:.2f}"""),
                     # (f"""{'brake:':>{10}}{' '}{act[env.viewer.env_idx_render, 0, env.vn['A_BRAKE']]:.2f}"""),
