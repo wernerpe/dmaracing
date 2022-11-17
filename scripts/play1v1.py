@@ -86,8 +86,9 @@ def play():
                      #(f"""{'p1 '+str(modelnrs[1])}{' ts: '}{policy_infos[1]['trueskill']['mu']:.1f}"""),
                      #(f"""{'Win prob p0 : ':>{10}}{win_prob:.3f}"""),
                      (f"""{'rewards:':>{10}}{' '}{100*rewnp[env.viewer.env_idx_render, 0]:.2f}"""   ),
+                     (f"""{'rewards rel_rank:':>{10}}{' '}{100*env.reward_scales['rank']*-torch.clip(env.progress_other_w_laps, -1, 1).sum(dim=-1)[env.viewer.env_idx_render, ag].item():.2f}"""   ),
                      (f"""{'velocity:':>{10}}{' '}{np.linalg.norm(obsnp[env.viewer.env_idx_render, 0:2]*10):.2f}"""),
-                     (f"""{'maxvel 0:':>{10}}{' '}{env.dyn_model.dynamics_integrator.dyn_model.max_vel_vec[env.viewer.env_idx_render,0].item():.2f}"""),
+                     (f"""{'maxvel 0:':>{10}}{' '}{env.dyn_model.dynamics_integrator.dyn_model.max_vel_vec[env.viewer.env_idx_render, ag].item():.2f}"""),
                      (f"""{'maxvel 1:':>{10}}{' '}{mv1:.2f}"""),
                      #(f"""{'velocity y:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 1]:.2f}"""),
                      #(f"""{'ang vel:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 2]:.2f}"""),
@@ -138,7 +139,7 @@ def play():
 
 if __name__ == "__main__":
     SAVE = False
-    USE_PPC = True
+    USE_PPC = False
     args = CmdLineArguments()
     args.device = 'cuda:0'
     args.headless = False 
@@ -147,14 +148,14 @@ if __name__ == "__main__":
 
     cfg, cfg_train, logdir = getcfg(path_cfg, postfix='_1v1')
 
-    chkpts = [-1, 150]
+    chkpts = [-1, -1]
     runs = [-1, -1] #['22_09_02_10_40_34_col_0_ar_0.4_rr_0.0', '22_09_02_10_40_34_col_0_ar_0.4_rr_0.0']
     cfg['sim']['numEnv'] = 4
     cfg['sim']['numAgents'] = 2
     cfg['learn']['timeout'] = 300
     #cfg['learn']['offtrack_reset'] = 4.0
     cfg['learn']['resetgrid'] = True
-    #cfg['learn']['resetrand'] = [0.0, 0.0, 0., 0.0, 0.0,  0., 0.0]
+    cfg['learn']['resetrand'] = [0.0, 0.0, 0., 0.0, 0.0,  0., 0.0]
     cfg['sim']['collide'] = 1
     
     cfg['test'] = args.test

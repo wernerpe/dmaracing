@@ -337,6 +337,8 @@ class DmarEnv:
         other_progress = []
         other_contouringerr = []
 
+        other_progress_w_laps = []
+
         if self.num_agents > 1:
             
             for agent in range(self.num_agents):
@@ -355,6 +357,14 @@ class DmarEnv:
                     ).view(-1, 1, self.num_agents - 1)
                     - selftrackprogress
                 )
+                
+                oth_progress_w_laps = torch.clip(
+                    torch.cat(
+                        (self.track_progress[:, :agent], self.track_progress[:, agent + 1 :]), dim=1
+                    ).view(-1, 1, self.num_agents - 1)
+                    - self.track_progress[:, agent].view(-1, 1, 1), -self.cfg["learn"]["distance_obs_cutoff"], self.cfg["learn"]["distance_obs_cutoff"]
+                ) 
+
                 oth_prog = (
                     oth_prog
                     + 1.0
@@ -366,6 +376,7 @@ class DmarEnv:
                 )
 
                 other_progress.append(oth_prog)
+                other_progress_w_laps.append(oth_progress_w_laps)
 
                 selfcontouringerr = self.contouring_err[:, agent]
                 other_contouringerr.append(
@@ -420,7 +431,12 @@ class DmarEnv:
 
             self.progress_other = (
                 torch.clip(torch.cat(tuple([prog for prog in other_progress]), dim=1), min=-2.5, max=2.5)
-                * self.active_obs_template
+                * self.active_obs_template - 2.5*(1-self.active_obs_template)
+            )
+
+            self.progress_other_w_laps = (
+                torch.clip(torch.cat(tuple([prog for prog in other_progress_w_laps]), dim=1), min=-2.5, max=2.5)
+                * self.active_obs_template - 2.5*(1-self.active_obs_template)
             )
             self.contouring_err_other = (
                 torch.clip(torch.cat(tuple([err for err in other_contouringerr]), dim=1), min=-1, max=1)
@@ -481,6 +497,7 @@ class DmarEnv:
             self.rew_buf,
             self.track_progress,
             self.old_track_progress,
+            self.progress_other_w_laps if self.num_agents>1 else None,
             self.is_on_track,
             self.reward_scales,
             self.actions,
@@ -523,9 +540,11 @@ class DmarEnv:
         self.active_agents[env_ids, 1:] = (
             torch.rand((len(env_ids), self.num_agents - 1), device=self.device) > self.agent_dropout_prob
         )
-        tile_idx_env = 0*(
+        tile_idx_env = (
             torch.rand((len(env_ids), 1), device=self.device) * self.active_track_tile_counts[env_ids].view(-1, 1)
         ).to(dtype=torch.long)
+        if self.test_mode:
+            tile_idx_env *=0 
         tile_idx_env = torch.tile(tile_idx_env, (self.num_agents,))
         self.drag_reduction_points[env_ids, :, :] = 0.0
         self.drag_reduced[env_ids, :] = False
@@ -957,11 +976,12 @@ class DmarEnv:
         self.stats_last_ranks[:] = self.ranks[:] 
 
 ### jit functions
-@torch.jit.script
+#@torch.jit.script
 def compute_rewards_jit(
     rew_buf: torch.Tensor,
     track_progress: torch.Tensor,
     old_track_progress: torch.Tensor,
+    progress_other: torch.Tensor,
     is_on_track: torch.Tensor,
     reward_scales: Dict[str, float],
     actions: torch.Tensor,
@@ -988,12 +1008,15 @@ def compute_rewards_jit(
     #rew_energy = -torch.sum(torch.square(states[:, :, vn["S_W0"] : vn["S_W3"] + 1]), dim=2) * reward_scales["energy"]
     num_active_agents = torch.sum(1.0 * active_agents, dim=1)
     if ranks is not None:
-        rew_rank = 1.0 / num_agents * (num_active_agents.view(-1, 1) / 2.0 - ranks) * reward_scales["rank"]
+        #compute relative progress
+        rew_rel_prog = -torch.clip(progress_other, -1, 1).sum(dim=-1)* reward_scales["rank"]
+        
+        #rew_rank = 1.0 / num_agents * (num_active_agents.view(-1, 1) / 2.0 - ranks) * reward_scales["rank"]
 
         rew_collision = is_collision * reward_scales["collision"]
 
         rew_buf[..., 0] = torch.clip(
-            rew_progress + rew_on_track + rew_actionrate + rew_rank + rew_acc + 0.1*dt, min=0, max=None
+            rew_progress + rew_on_track + rew_actionrate + rew_rel_prog + rew_acc + 0.1*dt, min=0, max=None
         )+ rew_collision
     else:
         #needs to be a tensor
@@ -1010,6 +1033,6 @@ def compute_rewards_jit(
     reward_terms["acceleration"] += rew_acc
 
     if ranks is not None:
-        reward_terms["rank"] += rew_rank
+        reward_terms["rank"] += rew_rel_prog
         reward_terms["collision"] += rew_collision
     return rew_buf, reward_terms

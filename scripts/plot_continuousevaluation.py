@@ -28,7 +28,7 @@ def make_radar_chart(ax, name, stats, label = '', color = 'b', attribute_labels 
 
     return ax
 
-#path = 'logs/tri_1v1_2/22_10_12_11_20_19_col_1_ar_0.1_rr_0.0/continuouseval_22_10_18_10_46_55.csv' #'../../supercloud/dmaracing/logs/tri_1v1/22_08_23_11_49_39/continuouseval_22_08_24_16_49_32.csv'
+#path = '/home/peter/git/dmaracing/logs/tri_1v1_2/22_11_01_10_24_05_col_1_ar_0.1_rr_1.0/continuouseval_22_11_01_17_01_06.csv' #'../../supercloud/dmaracing/logs/tri_1v1/22_08_23_11_49_39/continuouseval_22_08_24_16_49_32.csv'
 path = askopenfilename(filetypes = [("Continuous Eval Log", "*csv")], initialdir= 'logs/tri_1v1_2/') 
 
 my_data = np.genfromtxt(path, delimiter=',')
@@ -100,7 +100,9 @@ for idx, ax in enumerate(axs):
     name = stat_keys[idx]
     ax.set_title(name)
     ax.plot(els, mean_policy_stat, 'r')
-    ax.set_xlabel('training steps')
+    if (idx+1) %3 == 0:
+        ax.set_xlabel('training steps')
+    ax.set_xlim([0, np.max(els)])
     if idx == 6:
         break
 
@@ -117,9 +119,10 @@ for idx, evaluations in enumerate(els):
     policy_profiles.append(pol_profile)
 fig = plt.figure()
 ax = fig.add_subplot(111, polar=True)
-colors = ['r', 'g', 'b', 'k']
-for col, driver_idx in zip(colors,[0, 4, 8, -1]) :
-    art = make_radar_chart(ax,'drivers ', policy_profiles[driver_idx],'iter ' +str(els[driver_idx]), col, spider_keys)
+color = np.linspace(0,1, len(els[:-1]))
+#colors = ['r', 'g', 'b', 'k']
+for driver_idx, col  in enumerate(color) :
+    art = make_radar_chart(ax,'drivers ', policy_profiles[driver_idx+1],'iter ' +str(els[driver_idx+1]), (col,  0.5*col, 1-col*0.5, 0.6), spider_keys)
 ax.legend()
 #mean_policy_stats = [np.mean(s) for s in data_over_policies]
 plt.show()

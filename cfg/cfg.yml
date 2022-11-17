@@ -81,10 +81,10 @@ learn:
   race_length_laps: 1
 
   progressRewardScale: 10.0
-  offtrackRewardScale: -1.0
+  offtrackRewardScale: -0.1
   actionRateRewardScale: 0.1
-  rankRewardScale: 0.0
-  collisionRewardScale: -0.1
+  rankRewardScale: 1.0
+  collisionRewardScale: -1.0
   accRewardScale: -0.5
   horizon: 15
 
