@@ -91,7 +91,7 @@ class Viewer:
         return None
         
 
-    def render(self, state, slip, drag_reduced, wheel_locs, lookahead, bounds):
+    def render(self, state, slip, drag_reduced, wheel_locs, lookahead, bounds, targets=None, targets_rew01=None, targets_angle=None):
         self.state = state.clone()
         self.slip = slip.clone()
         self.wheel_locs = wheel_locs.clone()
@@ -106,6 +106,8 @@ class Viewer:
                 self.draw_slip_markers()
                 self.draw_multiagent_rep(state)
                 self.draw_lookahead_markers(lookahead, bounds)
+                if targets is not None:
+                  self.draw_target_marker(targets, targets_rew01, targets_angle)
             else:
                 self.draw_singleagent_rep(state[:self.num_cars])
             cv.putText(self.img, "env:" + str(self.env_idx_render), (50, 50), self.font, 2, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
@@ -273,6 +275,11 @@ class Viewer:
         pts[:, 1] = -self.height/self.scale_y*pts[:, 1] + self.height/2.0 + self.y_offset
         return pts.astype(np.int32)
 
+    def length2px_np(self, pts):
+        pts[:, 0] = self.width/self.scale_x*pts[:, 0]
+        pts[:, 1] = self.height/self.scale_y*pts[:, 1]
+        return pts.astype(np.int32)
+
     def cords2px_np_copy(self, pts):
         a = pts.copy()
         a[:, 0] = self.width/self.scale_x*a[:, 0] + self.width/2.0 + self.x_offset
@@ -363,3 +370,17 @@ class Viewer:
         lbounds = self.cords2px_np(lbounds)
         for lbound in lbounds:
             self.img = cv.circle(self.img, (lbound[0], lbound[1]), scale, (0, 0, 0), -1)
+
+    def draw_target_marker(self, targets, targets_rew01, targets_angle):
+        target = targets[self.env_idx_render, 0, :].cpu().numpy()
+        target_rew01 = targets_rew01[self.env_idx_render, 0, :].cpu().numpy()
+        target_angle = targets_angle[self.env_idx_render, 0].cpu().numpy()
+
+        #project into camera frame%
+        target = self.cords2px_np(target[None, :])[0]
+        scale =  int(50/(self.scale_x))
+        target_rew01 = self.length2px_np(target_rew01[None, :])[0]
+        target_angle = 360.0 - 180.0 / np.pi * target_angle
+
+        self.img = cv.circle(self.img, (target[0], target[1]), scale, (0, 0, 255), -1)
+        self.img = cv.ellipse(self.img, (target[0], target[1]), (target_rew01[0], target_rew01[1]), float(target_angle), 0.0, 360.0, (0, 0, 255), 1)

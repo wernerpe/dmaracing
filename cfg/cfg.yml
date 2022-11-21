@@ -11,7 +11,8 @@ sim:
   #dependent on the lookaheadhorizon length and number of ado cars in an env
   #this is done in get_cfg directly
   numObservations: -1
-  numConstantObservations: 6 #vels, rxy, lxy, maxvel, last actions
+  # numConstantObservations: 6 #vels, rxy, lxy, maxvel, last actions
+  numConstantObservations: 11 #vels, rxy, lxy, maxvel, last actions, goalpos, goalstd, lltime
   numActions: 2
   collide: 1
   decimation: 4
@@ -86,6 +87,7 @@ learn:
   rankRewardScale: 1.0
   collisionRewardScale: -1.0
   accRewardScale: -0.5
+  goalRewardScale: 5.0
   horizon: 15
 
   timeout: 25.0 #[s]

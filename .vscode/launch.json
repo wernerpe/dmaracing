@@ -55,7 +55,7 @@
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",
             "justMyCode": false,
-            "args": ["headless=False"]
+            "args": ["headless=True"]
         },
         {
             "name": "play1v1",
