@@ -173,6 +173,26 @@ def get_single_track(device, track_path, track_half_width, track_poly_spacing, c
 
     return [track_pts, track_poly_verts, alphas, As, b, S_mat, [], []], TRACK_POLYGON_SPACING, track_tile_counts
 
+
+def dense_track(track_path):
+    import pandas as pd
+    path = []
+    with open(track_path) as csv_file:
+        csv_reader = csv.reader(csv_file, delimiter=',', quoting=csv.QUOTE_NONNUMERIC)
+        for waypoint in csv_reader:
+            path.append((waypoint[0], waypoint[1]))
+        waypoints_dense = []
+        N = 10
+        tvals = np.linspace(0,1, N)
+        for idx, wp in enumerate(path[:-1]):
+            pt1 = np.array(list(path[idx]))
+            pt2 = np.array(list(path[idx+1]))
+            for t in tvals:
+                waypoints_dense.append(pt1*(1-t) + pt2*t)
+        pd.DataFrame(np.array(waypoints_dense)).to_csv(track_path[:-4] + '_dense.csv', index = None, header=None)
+
+        #waypoints_dense_np.tofile(, sep = ',')
+
 def get_tri_track_ensemble(device, track_half_width, track_poly_spacing):
     # Load a centerline track, generate polygons and matricies
     track_paths = [#"maps/large_oval.csv", 
@@ -199,6 +219,7 @@ def get_tri_track_ensemble(device, track_half_width, track_poly_spacing):
                    #"maps/slider.csv",
                    #"maps/h_track.csv",
                    ]
+
     track_names = [tpth[5:-4]+pf for tpth in track_paths for pf in ['_ccw', '_cw']]
     Ntracks = len(track_paths)*2
     track_tile_counts =[]
