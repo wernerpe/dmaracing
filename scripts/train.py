@@ -1,4 +1,4 @@
-from dmaracing.utils.rl_helpers import get_ppo_runner
+from dmaracing.utils.rl_helpers import get_ppo_runner, get_hierarchical_ppo_runner
 from dmaracing.env.dmar import DmarEnv
 from dmaracing.utils.helpers import *
 from datetime import date, datetime
@@ -7,6 +7,7 @@ import os
 def train():
     env = DmarEnv(cfg, args)
     runner = get_ppo_runner(env, cfg_train, logdir, args.device)
+    # runner = get_hierarchical_ppo_runner(env, cfg_train, logdir, args.device)
     runner.learn(cfg_train['runner']['max_iterations'], init_at_random_ep_len=True)
 
 if __name__ == "__main__":
@@ -20,6 +21,7 @@ if __name__ == "__main__":
     #cfg['track']['num_tracks'] = 2
     cfg_train['runner']['policy_class_name'] = 'ActorCritic'
     cfg_train['runner']['algorithm_class_name'] = 'PPO'
+    # cfg_train['runner']['algorithm_class_name'] = 'HierarchicalPPO'
     now = datetime.now()
     timestamp = now.strftime("%y_%m_%d_%H_%M_%S")
     logdir = logdir+'/'+timestamp
