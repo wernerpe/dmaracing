@@ -387,8 +387,8 @@ class DmarEnv:
         target_std_local = target_std_mag * torch.tensor([std_max_xtrack, std_max_ytrack], dtype=torch.float, device=self.device)
 
         # Decide whether to update targets
-        ll_episode_length = 20
-        update_target = 1.0 * (torch.remainder(self.episode_length_buf.unsqueeze(-1), ll_episode_length)==1)
+        self.ll_episode_length = 20
+        update_target = 1.0 * (torch.remainder(self.episode_length_buf.unsqueeze(-1), self.ll_episode_length)==1)
         self.targets_pos_world = update_target * target_pos_world + (1.0 - update_target) * self.targets_pos_world
         self.targets_std_local = update_target * target_std_local + (1.0 - update_target) * self.targets_std_local
         self.targets_rot_world = update_target * target_rot_world + (1.0 - update_target) * self.targets_rot_world
@@ -408,8 +408,10 @@ class DmarEnv:
         # self.targets_std_world = self.coord_trafo(self.targets_std_local, -self.targets_rot_world)
         self.targets_dist_track = target_dist_track
         self.targets_std_track = self.targets_std_local
-        self.ll_steps_left = ll_episode_length - torch.remainder(self.episode_length_buf.unsqueeze(-1), ll_episode_length)
-        self.ll_steps_left /= ll_episode_length
+        self.ll_steps_left = self.ll_episode_length - torch.remainder(self.episode_length_buf.unsqueeze(-1), self.ll_episode_length)
+        self.ll_steps_left /= self.ll_episode_length
+
+        self.ll_ep_done = 1.0 * (torch.remainder(self.episode_length_buf.unsqueeze(-1), self.ll_episode_length)==0)
 
         # Plot ellipsis for 0.1*(max reward) region
         # Quantile function: Q(p) = sqrt(2) * sigma * inverf(2*p-1) + mu [https://statproofbook.github.io/P/norm-qf.html]
@@ -639,7 +641,7 @@ class DmarEnv:
             # self.targets_std_local,
             self.targets_dist_track,
             self.targets_std_track,
-            self.ll_steps_left,
+            self.ll_ep_done,
         )
 
     def check_termination(self) -> None:
@@ -1127,7 +1129,7 @@ def compute_rewards_jit(
     dt: float,
     targets_dist_local: torch.Tensor,
     targets_std_local: torch.Tensor,
-    ll_steps_left: torch.Tensor,
+    ll_ep_done: torch.Tensor,
 ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
 
     rew_progress = torch.clip(track_progress - old_track_progress, min=-10, max=10) * reward_scales["progress"]
@@ -1143,10 +1145,10 @@ def compute_rewards_jit(
     # Goal distance reward --> FIXME: does not rotate distribution
     exponent = -0.5 * (targets_dist_local / targets_std_local)**2
     pdf_dist = 1.0/(np.sqrt(2.0 * np.pi) * targets_std_local) * torch.exp(exponent)
-    rew_dist = (1.0 * (ll_steps_left > 0.0)) * pdf_dist * reward_scales['goal']
+    rew_dist = ll_ep_done * pdf_dist * reward_scales['goal']
     # rew_dist = torch.mean(rew_dist, dim=-1)
     # Only reward y proximity if actually close to target
-    rew_dist = rew_dist[..., 0] + 1.0 / (5e1 * targets_dist_local[..., 0] + 1e0) * rew_dist[..., 1]
+    rew_dist = rew_dist[..., 0] + 1.0 / (5e1 * targets_dist_local[..., 0].abs() + 1e0) * rew_dist[..., 1]
 
     if ranks is not None:
         #compute relative progress
