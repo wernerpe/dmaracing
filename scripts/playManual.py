@@ -4,13 +4,16 @@ from dmaracing.utils.helpers import *
 import os
 import numpy as np
 import time
+from dmaracing.controllers.purepursuit import PPController
 
 def play():
-
-
-
     env = DmarEnv(cfg, args)
     obs = env.obs_buf
+    ppc = PPController(env,
+                       lookahead_dist=1.5,
+                       maxvel=2.5,
+                       k_steer=1.0,
+                       k_gas=2.0)
 
     #actions = torch.zeros((cfg['sim']['numEnv'], cfg['sim']['numAgents'], cfg['sim']['numActions']), device=args.device,  dtype= torch.float, requires_grad=False)
     actions = torch.zeros((cfg['sim']['numEnv'], cfg['sim']['numAgents'], cfg['sim']['numActions']), device=args.device,  dtype= torch.float, requires_grad=False)
@@ -22,10 +25,13 @@ def play():
     time_per_step = cfg['sim']['dt']*cfg['sim']['decimation']
 
     print('###########################')
+    idx2 = 0
     while True:
         t1 = time.time()
         actions[0 , ag, 0] = steer_cmd
         actions[0 , ag, 1] = vel_cmd
+        if USE_PPC:
+            actions[:,1:,:] = ppc.step()[:,1:,:]
         #env.states[0,0,0:3] = 0
         #env.states[0,0,0] = 2
         #env.states[0,0,0] = -0.05
@@ -54,8 +60,12 @@ def play():
                      #(f"""{'gas state:':>{10}}{' '}{states[env.viewer.env_idx_render, ag, env.vn['S_GAS']]:.2f}"""),
                      (f"""{'gas act:':>{10}}{' '}{act[env.vn['A_GAS']]:.2f}"""),
                      (f"""{'steer act:':>{10}}{' '}{act[ env.vn['A_STEER']]:.2f}"""),
-                     (f"""{'gas:':>{10}}{' '}{env.states[env.viewer.env_idx_render, ag, env.vn['S_GAS']].item():.2f}"""),
+                     (f"""{'maxvel 0:':>{10}}{' '}{env.dyn_model.dynamics_integrator.dyn_model.max_vel_vec[env.viewer.env_idx_render,0].item():.2f}"""),
+                     (f"""{'maxvel 1:':>{10}}{' '}{env.dyn_model.dynamics_integrator.dyn_model.max_vel_vec[env.viewer.env_idx_render,1].item():.2f}"""),
+                     (f"""{'maxvel 2:':>{10}}{' '}{env.dyn_model.dynamics_integrator.dyn_model.max_vel_vec[env.viewer.env_idx_render,2].item():.2f}"""),
+                     #(f"""{'gas:':>{10}}{' '}{env.states[env.viewer.env_idx_render, ag, env.vn['S_GAS']].item():.2f}"""),
                      (f"""{'ctorque:':>{10}}{' '}{env.contact_wrenches[env.viewer.env_idx_render, ag, 2].item():.2f}"""),
+                     (f"""{'idx:':>{10}}{' '}{idx2:.2f}"""),
                      #(f"""{'omega mean:':>{10}}{' '}{om_mean:.2f}"""),
                      #(f"""{'omega mean:':>{10}}{' '}{om_mean:.2f}"""),
                      #(f"""{'velother x:':>{10}}{' '}{vel_other[0]:.2f}"""),
@@ -101,10 +111,12 @@ def play():
         #print('dt ', t2-t1)
         realtime = t2-t1-time_per_step
         
-        if realtime < 0:
-             time.sleep(-realtime)
+        # if realtime < 0:
+        #      time.sleep(-realtime)
+        idx2 +=1
 
 if __name__ == "__main__":
+    USE_PPC = True
     args = CmdLineArguments()
     args.device = 'cuda:0'
     args.headless = False

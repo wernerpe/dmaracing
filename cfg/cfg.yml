@@ -18,6 +18,7 @@ sim:
   decimation: 4
   test_mode: False
   collisionstiffness: 80.0
+  filtercollisionstoego: False #if set to true only collisions with ego vehicle are checked
 
 model:
   dynamics_model_name: kinematic/checkpoints/kinematic.ckpt #higher_roll_loss.ckpt #plastic_wheels.ckpt #
@@ -92,4 +93,4 @@ learn:
 
   timeout: 25.0 #[s]
   offtrack_reset: 0.8 #[s]
-  obs_noise_lvl: 1.0
+  obs_noise_lvl: 0.0

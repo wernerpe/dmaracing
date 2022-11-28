@@ -138,4 +138,3 @@ def rand(min, max, shape, device):
     r = torch.rand(shape, device=device, dtype = torch.float, requires_grad=False)
     dist = max-min
     return dist*r + min
-

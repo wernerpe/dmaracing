@@ -387,7 +387,7 @@ class DmarEnv:
         target_std_local = target_std_mag * torch.tensor([std_max_xtrack, std_max_ytrack], dtype=torch.float, device=self.device)
 
         # Decide whether to update targets
-        self.ll_episode_length = 20
+        self.ll_episode_length = 30
         update_target = 1.0 * (torch.remainder(self.episode_length_buf.unsqueeze(-1), self.ll_episode_length)==1)
         self.targets_pos_world = update_target * target_pos_world + (1.0 - update_target) * self.targets_pos_world
         self.targets_std_local = update_target * target_std_local + (1.0 - update_target) * self.targets_std_local
@@ -563,7 +563,9 @@ class DmarEnv:
                 * self.active_obs_template
                 * is_other_close
             )
-            last_raw_actions = self.last_actions 
+            last_raw_actions = self.last_actions
+            last_raw_actions[:,:,0] = torch.clip(last_raw_actions[:,:,0], min = -0.35, max= 0.35)
+             
             last_raw_actions[:,:, 0 ] = (last_raw_actions[:,:, 0 ] - self.default_actions[0])/self.action_scales[0]  
             last_raw_actions[:,:, 1] = (last_raw_actions[:,:, 1] - self.default_actions[1])/self.action_scales[1]  
             
@@ -588,7 +590,10 @@ class DmarEnv:
                 dim=2,
             )
         else:
-            last_raw_actions = self.last_actions 
+            last_raw_actions = self.last_actions
+            last_raw_actions[:,:,0] = torch.clip(last_raw_actions[:,:,0], min = -0.35, max= 0.35)
+            last_raw_actions[:,:,1] = torch.clip(last_raw_actions[:,:,0], min = -0.3, max= 1.3)
+            
             last_raw_actions[:,:, 0 ] = (last_raw_actions[:,:, 0 ] - self.default_actions[0])/self.action_scales[0]  
             last_raw_actions[:,:, 1] = (last_raw_actions[:,:, 1] - self.default_actions[1])/self.action_scales[1]  
             self.obs_buf = torch.cat(
@@ -848,7 +853,7 @@ class DmarEnv:
 
         # reset collision detection
         self.is_collision = self.is_collision < 0
-        for _ in range(self.decimation):
+        for j in range(self.decimation):
             self.simulate()
             # need to check for collisions in inner loop otherwise get missed
             self.is_collision |= torch.norm(self.contact_wrenches, dim=2) > 0
@@ -984,7 +989,7 @@ class DmarEnv:
                 )
         else:
             self.viewer_events = self.viewer.render(
-                self.states[:, :, [0, 1, 2, 6]], self.slip, self.drag_reduced, self.wheel_locations_world, self.interpolated_centers, self.interpolated_bounds
+                self.states[:, :, [0, 1, 2, 6]], self.slip, self.drag_reduced, self.wheel_locations_world, self.interpolated_centers, self.interpolated_bounds, self.targets_pos_world, self.targets_rew01_local, self.targets_rot_world,
             )
 
     def simulate(self) -> None:
@@ -1136,7 +1141,7 @@ def compute_rewards_jit(
     rew_on_track = reward_scales["offtrack"] * ~is_on_track
     act_diff = torch.square(actions - last_actions)
     rew_acc = torch.square(vel-last_vel.view(-1,num_agents))*reward_scales['acceleration']
-    act_diff[..., 0] *= 5.0
+    act_diff[..., 0] *= 25.0
     act_diff[..., 1] *= 10.0
     rew_actionrate = -torch.sum(act_diff, dim=2) * reward_scales["actionrate"]
     #rew_energy = -torch.sum(torch.square(states[:, :, vn["S_W0"] : vn["S_W3"] + 1]), dim=2) * reward_scales["energy"]
