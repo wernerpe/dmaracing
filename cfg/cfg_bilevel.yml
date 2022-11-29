@@ -11,9 +11,9 @@ sim:
   #dependent on the lookaheadhorizon length and number of ado cars in an env
   #this is done in get_cfg directly
   numObservations: -1
-  # numConstantObservations: 6 #vels, rxy, lxy, maxvel, last actions
+  numConstantObservations: 6 #vels, rxy, lxy, maxvel, last actions
   # numConstantObservations: 7 #vels, rxy, lxy, maxvel, last actions, lltime
-  numConstantObservations: 11 #vels, rxy, lxy, maxvel, last actions, goalpos, goalstd, lltime
+  # numConstantObservations: 11 #vels, rxy, lxy, maxvel, last actions, goalpos, goalstd, lltime
   numActions: 2
   collide: 1
   decimation: 4
@@ -78,19 +78,21 @@ learn:
   resetgrid: False
   defaultactions: [0., 0.5, 0.0]
   actionscale: [0.3, 1.0, 0.2]
+  defaultactionshl: [0., 0., 0.5, 0.5]
+  actionscalehl: [1.0, 1.0, 1.0, 1.0]
   agent_dropout_prob: 0.1
   distance_obs_cutoff: 2.0 #[m]
   race_length_laps: 1
 
   progressRewardScale: 0.0  # 1.0  # 10.0
-  offtrackRewardScale: -0.1
-  actionRateRewardScale: 0.1
-  rankRewardScale: 1.0
-  collisionRewardScale: -1.0
-  accRewardScale: -0.5
+  offtrackRewardScale: 0.0  # -0.1
+  actionRateRewardScale: 0.0  # 0.1
+  rankRewardScale: 0.0  # 1.0
+  collisionRewardScale: 0.0  # -1.0
+  accRewardScale: 0.0  # -0.5
   goalRewardScale: 5.0
   horizon: 15
 
-  timeout: 25.0 #[s]
+  timeout: 24.0  # 25.0 #[s]
   offtrack_reset: 1.0  # 0.8 #[s]
   obs_noise_lvl: 0.0  # 1.0  # FIXME: change back?
