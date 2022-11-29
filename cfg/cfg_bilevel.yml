@@ -14,7 +14,9 @@ sim:
   numConstantObservations: 6 #vels, rxy, lxy, maxvel, last actions
   # numConstantObservations: 7 #vels, rxy, lxy, maxvel, last actions, lltime
   # numConstantObservations: 11 #vels, rxy, lxy, maxvel, last actions, goalpos, goalstd, lltime
+  numConstantObservationsLL: 5  # goalpos, goalstd, lltime
   numActions: 2
+  numActionsHL: 4  # goalpos, goalstd
   collide: 1
   decimation: 4
   test_mode: False
@@ -80,11 +82,14 @@ learn:
   actionscale: [0.3, 1.0, 0.2]
   defaultactionshl: [0., 0., 0.5, 0.5]
   actionscalehl: [1.0, 1.0, 1.0, 1.0]
+  actionsminhl: [-0.5, -0.6, 0.1, 0.1]
+  actionsmaxhl: [+0.5, +0.6, 0.7, 0.7]
+  actionsinihl: [+0.0, +0.0, 0.5, 0.5]
   agent_dropout_prob: 0.1
   distance_obs_cutoff: 2.0 #[m]
   race_length_laps: 1
 
-  progressRewardScale: 0.0  # 1.0  # 10.0
+  progressRewardScale: 1.0  # 1.0  # 10.0
   offtrackRewardScale: 0.0  # -0.1
   actionRateRewardScale: 0.0  # 0.1
   rankRewardScale: 0.0  # 1.0
@@ -92,6 +97,8 @@ learn:
   accRewardScale: 0.0  # -0.5
   goalRewardScale: 5.0
   horizon: 15
+
+  episode_length_ll: 20  # low-level steps in high-level step
 
   timeout: 24.0  # 25.0 #[s]
   offtrack_reset: 1.0  # 0.8 #[s]

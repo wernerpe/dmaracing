@@ -50,6 +50,8 @@ class DmarEnvBilevel:
         self.num_envs = self.simParameters["numEnv"]
         self.collide = self.simParameters["collide"]
         self.decimation = self.simParameters["decimation"]
+        self.num_actions_hl = self.simParameters["numActionsHL"]
+        self.num_obs_add_ll = self.simParameters["numConstantObservationsLL"]
 
         # Import TRI dynamics model and weights
         self.dyn_model = DynamicsEncoder.load_from_checkpoint(
@@ -152,9 +154,7 @@ class DmarEnvBilevel:
         self.time_off_track = torch_zeros((self.num_envs, self.num_agents))
         self.dt = cfg["sim"]["dt"]
 
-        self.dt_hl = 20
-        # self.time_buf = torch_zeros((self.num_envs, 1))
-        # self.reset_buf_hl = torch_zeros((self.num_envs, 1)) > 1
+        self.dt_hl = cfg["learn"]["episode_length_ll"]
 
         self.reward_scales = {}
         self.reward_scales["offtrack"] = cfg["learn"]["offtrackRewardScale"] * self.dt
@@ -179,6 +179,10 @@ class DmarEnvBilevel:
         self.offtrack_reset = int(self.offtrack_reset_s / (self.decimation * self.dt))
         self.max_episode_length = int(self.timeout_s / (self.decimation * self.dt))
         self.agent_dropout_prob = cfg["learn"]["agent_dropout_prob"]
+
+        self.action_min_hl = cfg["learn"]["actionsminhl"]
+        self.action_max_hl = cfg["learn"]["actionsmaxhl"]
+        self.action_ini_hl = cfg["learn"]["actionsinihl"]
 
         self.obs_noise_lvl = cfg["learn"]["obs_noise_lvl"]
         self.use_track_curriculum = cfg["learn"]["use_track_curriculum"]
@@ -346,7 +350,7 @@ class DmarEnvBilevel:
         # actions_hl *= torch.tensor(self.action_scales_hl[:2], device=self.device)
 
         target_offset_on_centerline_track = actions_hl[..., 0:2]
-        # target_std_local = actions_hl[..., 2:4].unsqueeze(dim=1)
+        target_std_local = actions_hl[..., 2:4].unsqueeze(dim=1)
         # self.ll_steps_left = actions_hl[..., 4]
         self.ll_steps_left = (self.dt_hl - torch.remainder(self.total_step * torch.ones_like(self.reset_buf), self.dt_hl)) / self.dt_hl
         self.ll_steps_left = self.ll_steps_left.unsqueeze(dim=1)
@@ -391,6 +395,8 @@ class DmarEnvBilevel:
         self.targets_tile_idx = target_tile_idx.unsqueeze(-1)
         self.targets_tile_pos = target_offset_local
 
+        self.targets_std_local = target_std_local
+
 
     def update_target_distance_track_frame(self):  # , actions_hl):
 
@@ -407,7 +413,7 @@ class DmarEnvBilevel:
 
         # target_offset_on_centerline_track = target_offset_on_centerline_track.unsqueeze(dim=1)
         
-        target_std_local = 0.1 + torch.zeros_like(self.targets_std_local)
+        # target_std_local = 0.1 + torch.zeros_like(self.targets_std_local)
 
         tile_idx_unwrapped = self.active_track_tile.unsqueeze(2) + (
             4 * torch.arange(self.horizon, device=self.device, dtype=torch.long)
@@ -460,7 +466,7 @@ class DmarEnvBilevel:
         # self.targets_tile_pos = update_target * target_offset_local + (1.0 - update_target) * self.targets_tile_pos
 
         # self.targets_pos_world = target_pos_world
-        self.targets_std_local = target_std_local
+        # self.targets_std_local = target_std_local
         # self.targets_rot_world = target_rot_world
         # self.targets_tile_idx = target_tile_idx.unsqueeze(-1)
         # self.targets_tile_pos = target_offset_local
