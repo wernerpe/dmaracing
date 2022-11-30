@@ -312,6 +312,8 @@ class DmarEnvBilevel:
                                                     [ 56.92511095, -22.11645183,   3.11423204],
                                                     [ 57.72302405, -22.85980533,   3.29237065]], device=self.device)
 
+        self.train_ll = True
+
         self.total_step = 0
         self.viewer.center_cam(self.states)
         self.reset()
@@ -326,6 +328,20 @@ class DmarEnvBilevel:
         print(self.dyn_model.integration_function.dyn_model.randomized_params)
         print('env:\n')
         print('obs noise' if self.test_mode else '')
+
+    def set_train_level(self, low_level=False, high_level=False):
+        if not low_level and not high_level:
+            print("Neither low-level nor high-level training set")
+            print("Defaulting to low-level training ...")
+            self.train_ll = True
+        elif low_level and high_level:
+            print("Only one of {low, high)-level training should be set")
+            print("Defaulting to low-level training ...")
+            self.train_ll = True
+        elif low_level:
+            self.train_ll = True
+        elif high_level:
+            self.train_ll = False
 
     def track_to_world_coords(self, target_offset_track, tile_length):
 
@@ -487,6 +503,7 @@ class DmarEnvBilevel:
         # self.ll_steps_left /= self.ll_episode_length
 
         self.ll_ep_done = 1.0 * (torch.remainder((self.episode_length_buf.unsqueeze(-1)+1), self.dt_hl)==0)
+        # self.ll_ep_done = 1.0 * (torch.remainder((self.episode_length_buf.unsqueeze(-1)), self.dt_hl)==0)
 
         # Plot ellipsis for 0.1*(max reward) region
         # Quantile function: Q(p) = sqrt(2) * sigma * inverf(2*p-1) + mu [https://statproofbook.github.io/P/norm-qf.html]
@@ -822,6 +839,7 @@ class DmarEnvBilevel:
             self.targets_dist_track,
             self.targets_std_track,
             self.ll_ep_done,
+            1.0 * self.train_ll,
         )
 
     def check_termination(self) -> None:
@@ -835,7 +853,8 @@ class DmarEnvBilevel:
         self.time_out_buf = self.episode_length_buf > self.max_episode_length
         self.reset_buf |= self.time_out_buf
 
-        self.reset_buf = torch.logical_and(self.reset_buf, torch.remainder(self.total_step * torch.ones_like(self.reset_buf), self.dt_hl)==0)
+        # if not self.train_ll:
+        self.reset_buf = torch.logical_and(self.reset_buf, torch.remainder((self.total_step-1) * torch.ones_like(self.reset_buf), self.dt_hl)==0)
 
     def reset(self) -> Tuple[torch.Tensor, Union[None, torch.Tensor]]:
         print("Resetting")
@@ -1315,15 +1334,16 @@ def compute_rewards_jit(
     targets_dist_local: torch.Tensor,
     targets_std_local: torch.Tensor,
     ll_ep_done: torch.Tensor,
+    train_ll: float,
 ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
 
-    rew_progress = torch.clip(track_progress - old_track_progress, min=-10, max=10) * reward_scales["progress"]
-    rew_on_track = reward_scales["offtrack"] * ~is_on_track
+    rew_progress = torch.clip(track_progress - old_track_progress, min=-10, max=10) * reward_scales["progress"] * (1.0 - train_ll)
+    rew_on_track = reward_scales["offtrack"] * ~is_on_track * train_ll
     act_diff = torch.square(actions - last_actions)
-    rew_acc = torch.square(vel-last_vel.view(-1,num_agents))*reward_scales['acceleration']
+    rew_acc = torch.square(vel-last_vel.view(-1,num_agents))*reward_scales['acceleration'] * train_ll
     act_diff[..., 0] *= 5.0
     act_diff[..., 1] *= 10.0
-    rew_actionrate = -torch.sum(act_diff, dim=2) * reward_scales["actionrate"]
+    rew_actionrate = -torch.sum(act_diff, dim=2) * reward_scales["actionrate"] * train_ll
     #rew_energy = -torch.sum(torch.square(states[:, :, vn["S_W0"] : vn["S_W3"] + 1]), dim=2) * reward_scales["energy"]
     num_active_agents = torch.sum(1.0 * active_agents, dim=1)
 

@@ -19,8 +19,9 @@ algorithm:
 runner:
   policy_class_name: MAActorCritic
   algorithm_class_name: MAPPO
-  num_steps_per_env: 64 # per iteration
-  max_iterations: 1000 # 500 # number of policy updates
+  num_steps_per_env_hl: 20  # 64 # per iteration
+  num_steps_per_env_ll: 60
+  max_iterations: 1200 # 500 # number of policy updates
   population_update_interval: 100 #number of iterations before the opponent policy is updated
   # logging
   save_interval: 50 # check for potential saves every this many iterations
