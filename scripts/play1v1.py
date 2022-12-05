@@ -87,7 +87,7 @@ def play():
                      #(f"""{'Win prob p0 : ':>{10}}{win_prob:.3f}"""),
                      (f"""{'rewards:':>{10}}{' '}{100*rewnp[env.viewer.env_idx_render, 0]:.2f}"""   ),
                      (f"""{'rewards rel_rank:':>{10}}{' '}{100*env.reward_scales['rank']*-torch.clip(env.progress_other_w_laps, -1, 1).sum(dim=-1)[env.viewer.env_idx_render, ag].item():.2f}"""   ),
-                     (f"""{'velocity:':>{10}}{' '}{np.linalg.norm(obsnp[env.viewer.env_idx_render, 0:2]*10):.2f}"""),
+                     (f"""{'velocipairty:':>{10}}{' '}{np.linalg.norm(obsnp[env.viewer.env_idx_render, 0:2]*10):.2f}"""),
                      (f"""{'maxvel 0:':>{10}}{' '}{env.dyn_model.dynamics_integrator.dyn_model.max_vel_vec[env.viewer.env_idx_render, ag].item():.2f}"""),
                      (f"""{'maxvel 1:':>{10}}{' '}{mv1:.2f}"""),
                      #(f"""{'velocity y:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 1]:.2f}"""),

@@ -4,16 +4,10 @@ from dmaracing.utils.helpers import *
 import os
 import numpy as np
 import time
-from dmaracing.controllers.purepursuit import PPController
 
 def play():
     env = DmarEnv(cfg, args)
     obs = env.obs_buf
-    ppc = PPController(env,
-                       lookahead_dist=1.5,
-                       maxvel=2.5,
-                       k_steer=1.0,
-                       k_gas=2.0)
 
     #actions = torch.zeros((cfg['sim']['numEnv'], cfg['sim']['numAgents'], cfg['sim']['numActions']), device=args.device,  dtype= torch.float, requires_grad=False)
     actions = torch.zeros((cfg['sim']['numEnv'], cfg['sim']['numAgents'], cfg['sim']['numActions']), device=args.device,  dtype= torch.float, requires_grad=False)
@@ -30,8 +24,6 @@ def play():
         t1 = time.time()
         actions[0 , ag, 0] = steer_cmd
         actions[0 , ag, 1] = vel_cmd
-        if USE_PPC:
-            actions[:,1:,:] = ppc.step()[:,1:,:]
         #env.states[0,0,0:3] = 0
         #env.states[0,0,0] = 2
         #env.states[0,0,0] = -0.05
@@ -107,7 +99,6 @@ def play():
         if evt == 109:
             ag = (ag - 1) % env.num_agents
         t2 = time.time()
-
         #print('dt ', t2-t1)
         realtime = t2-t1-time_per_step
         
@@ -116,7 +107,6 @@ def play():
         idx2 +=1
 
 if __name__ == "__main__":
-    USE_PPC = True
     args = CmdLineArguments()
     args.device = 'cuda:0'
     args.headless = False

@@ -18,7 +18,7 @@ from gym import spaces
 from dmaracing.env.car_dynamics_utils import get_varnames, set_dependent_params, allocate_car_dynamics_tensors
 from dynamics_lib import DynamicsEncoder
 from dmaracing.env.car_dynamics import step_cars
-
+from dmaracing.controllers.purepursuit import PPController
 
 class DmarEnv:
     def __init__(self, cfg, args) -> None:
@@ -57,7 +57,7 @@ class DmarEnv:
             "dynamics_models/"+cfg['model']['dynamics_model_name'],
             hparams_file="dynamics_models/"+cfg['model']['hparams_path'], strict=False).to(self.device)
         self.dyn_model.integration_function.initialize_lstm_states(torch.zeros((self.num_envs * self.num_agents, 50, 6)).to(self.device))
-        
+
         if self.test_mode:
             self.dyn_model.dynamics_integrator.dyn_model.set_test_mode()
         self.dyn_model.dynamics_integrator.dyn_model.num_agents = self.num_agents
@@ -177,6 +177,16 @@ class DmarEnv:
 
         self.obs_noise_lvl = cfg["learn"]["obs_noise_lvl"]
         self.use_track_curriculum = cfg["learn"]["use_track_curriculum"]
+
+        self.steer_ado_ppc = True if self.cfg['learn']['steer_ado_with_PPC'] and self.num_agents>1 else False
+        
+        if self.steer_ado_ppc:
+            print('[DMAR] Overriding ado actions with PPC')
+            self.ppc = PPController(self,
+                       lookahead_dist=1.5,
+                       maxvel=2.5,
+                       k_steer=1.0,
+                       k_gas=2.0)
 
         self.lap_counter = torch.zeros(
             (self.num_envs, self.num_agents), requires_grad=False, device=self.device, dtype=torch.int
@@ -579,6 +589,9 @@ class DmarEnv:
                     lookahead_lbound_scaled[:,:,:,1],
                     self.dyn_model.dynamics_integrator.dyn_model.max_vel_vec,
                     last_raw_actions,
+                    self.targets_dist_track,
+                    self.targets_std_track,
+                    self.ll_steps_left.tile(1,2,1),
                     self.progress_other * 0.1,
                     self.contouring_err_other * 0.25,
                     torch.sin(rot_other),
@@ -840,6 +853,9 @@ class DmarEnv:
         actions = actions.clone().to(self.device)
         if actions.requires_grad:
             actions = actions.detach()
+
+        if self.steer_ado_ppc:
+            actions[:,1:,:] = self.ppc.step()[:,1:,:]
 
         if len(actions.shape) == 2:
             self.actions[:, 0, 0] = self.action_scales[0] * actions[..., 0] + self.default_actions[0]
@@ -1164,14 +1180,14 @@ def compute_rewards_jit(
         rew_collision = is_collision * reward_scales["collision"]
 
         rew_buf[..., 0] = torch.clip(
-            rew_progress + rew_on_track + rew_actionrate + rew_rel_prog + rew_acc + 0.1*dt, min=0, max=None
+            rew_progress + rew_on_track + rew_actionrate + rew_rel_prog + rew_acc + 0.1*dt, min=-5*dt, max=None
         )+ rew_collision + rew_dist
     else:
         #needs to be a tensor
         rew_rank = 0*rew_on_track
         rew_collision = 0*rew_on_track
         rew_buf = torch.clip(
-            rew_progress + rew_on_track + rew_actionrate + rew_acc + 0.1*dt , min=0, max=None
+            rew_progress + rew_on_track + rew_actionrate + rew_acc + 0.1*dt , min=-5*dt, max=None
         ) + rew_dist
 
     reward_terms["progress"] += rew_progress

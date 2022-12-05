@@ -41,7 +41,7 @@ model:
 viewer:
   width: 1200  # 1200
   height: 1200  # 1200
-  width_tb: 600  # 1200
+  width_tb: 600  # 1200steer_ado_with_PPC
   height_tb: 600  # 1200
 
   scale: 12.0 #[m/width*px] indicates how wide the window is in pixels
@@ -69,6 +69,7 @@ track:
   track_poly_spacing: 0.15
   
 learn:
+  steer_ado_with_PPC: True
   use_timeouts: True
   use_track_curriculum: True
   #[posx, posy, theta, vellong, vellat, dtheta, steer]

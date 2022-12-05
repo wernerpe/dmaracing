@@ -1,9 +1,8 @@
 import torch
-from dmaracing.env.dmar import DmarEnv
 
 class PPController:
     def __init__(self,
-                 env : DmarEnv, 
+                 env , 
                  lookahead_dist = 0.2, #[m]
                  maxvel = 1.0,
                  k_steer = 1.0,
