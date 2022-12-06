@@ -30,8 +30,10 @@ if __name__ == "__main__":
     # cfg_train['runner']['algorithm_class_name'] = 'PPO'
     # cfg_train['runner']['policy_class_name'] = 'HierarchicalActorCritic'
     # cfg_train['runner']['algorithm_class_name'] = 'HierarchicalPPO'
-    cfg_train['runner']['policy_class_name'] = 'BilevelActorCritic'
-    cfg_train['runner']['algorithm_class_name'] = 'BilevelPPO'
+    cfg_train['runner']['policy_class_hl_name'] = 'BilevelActorCritic'
+    cfg_train['runner']['algorithm_class_hl_name'] = 'BilevelPPO'
+    cfg_train['runner']['policy_class_ll_name'] = 'ActorCritic'
+    cfg_train['runner']['algorithm_class_ll_name'] = 'PPO'
     now = datetime.now()
     timestamp = now.strftime("%y_%m_%d_%H_%M_%S")
     logdir = logdir+'/'+timestamp

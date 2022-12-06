@@ -81,9 +81,9 @@ def set_dependent_cfg_entries(cfg, cfg_train):
         cfg_train['policy']['num_ado_obs'] = 2+1+2+2
     
 
-def getcfg(path, postfix = ''):
-    pth_cfg = path+'/cfg.yml'
-    pth_cfg_train = path+'/cfg_train' + postfix + '.yml'
+def getcfg(path, postfix='', postfix_train=''):
+    pth_cfg = path+'/cfg' + postfix + '.yml'
+    pth_cfg_train = path+'/cfg_train' + postfix_train + '.yml'
     
     with open(pth_cfg, 'r') as stream:
         cfg = yaml.safe_load(stream)
