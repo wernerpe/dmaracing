@@ -397,7 +397,7 @@ class DmarEnv:
         target_std_local = target_std_mag * torch.tensor([std_max_xtrack, std_max_ytrack], dtype=torch.float, device=self.device)
 
         # Decide whether to update targets
-        self.ll_episode_length = 30
+        self.ll_episode_length = 25
         update_target = 1.0 * (torch.remainder(self.episode_length_buf.unsqueeze(-1), self.ll_episode_length)==1)
         self.targets_pos_world = update_target * target_pos_world + (1.0 - update_target) * self.targets_pos_world
         self.targets_std_local = update_target * target_std_local + (1.0 - update_target) * self.targets_std_local
@@ -575,6 +575,7 @@ class DmarEnv:
             )
             last_raw_actions = self.last_actions
             last_raw_actions[:,:,0] = torch.clip(last_raw_actions[:,:,0], min = -0.35, max= 0.35)
+            last_raw_actions[:,:,1] = torch.clip(last_raw_actions[:,:,1], min = -0.3, max= 1.3)
              
             last_raw_actions[:,:, 0 ] = (last_raw_actions[:,:, 0 ] - self.default_actions[0])/self.action_scales[0]  
             last_raw_actions[:,:, 1] = (last_raw_actions[:,:, 1] - self.default_actions[1])/self.action_scales[1]  
@@ -605,7 +606,7 @@ class DmarEnv:
         else:
             last_raw_actions = self.last_actions
             last_raw_actions[:,:,0] = torch.clip(last_raw_actions[:,:,0], min = -0.35, max= 0.35)
-            last_raw_actions[:,:,1] = torch.clip(last_raw_actions[:,:,0], min = -0.3, max= 1.3)
+            last_raw_actions[:,:,1] = torch.clip(last_raw_actions[:,:,1], min = -0.3, max= 1.3)
             
             last_raw_actions[:,:, 0 ] = (last_raw_actions[:,:, 0 ] - self.default_actions[0])/self.action_scales[0]  
             last_raw_actions[:,:, 1] = (last_raw_actions[:,:, 1] - self.default_actions[1])/self.action_scales[1]  
@@ -1180,7 +1181,7 @@ def compute_rewards_jit(
         rew_collision = is_collision * reward_scales["collision"]
 
         rew_buf[..., 0] = torch.clip(
-            rew_progress + rew_on_track + rew_actionrate + rew_rel_prog + rew_acc + 0.1*dt, min=-5*dt, max=None
+            rew_progress + rew_on_track + rew_actionrate + 0*rew_rel_prog + rew_acc + 0.15*dt, min=-5*dt, max=None
         )+ rew_collision + rew_dist
     else:
         #needs to be a tensor

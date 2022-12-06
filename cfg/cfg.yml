@@ -88,7 +88,7 @@ learn:
   actionRateRewardScale: 0.1
   rankRewardScale: 1.0
   collisionRewardScale: -1.0
-  accRewardScale: -0.5
+  accRewardScale: -0.7
   goalRewardScale: 5.0
   horizon: 15
 
