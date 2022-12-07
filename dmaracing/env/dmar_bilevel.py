@@ -382,7 +382,7 @@ class DmarEnvBilevel:
         self.ll_steps_left = (self.dt_hl - torch.remainder(self.total_step * torch.ones_like(self.reset_buf), self.dt_hl)) / self.dt_hl
         self.ll_steps_left = self.ll_steps_left.unsqueeze(dim=1)
 
-        target_offset_on_centerline_track[..., 0] += 4.0
+        # target_offset_on_centerline_track[..., 0] += 4.0
 
         target_offset_on_centerline_track = target_offset_on_centerline_track.unsqueeze(dim=1)
         
@@ -798,6 +798,9 @@ class DmarEnvBilevel:
             )
         else:
             last_raw_actions = self.last_actions 
+            last_raw_actions[:,:,0] = torch.clip(last_raw_actions[:,:,0], min = -0.35, max= 0.35)
+            last_raw_actions[:,:,1] = torch.clip(last_raw_actions[:,:,1], min = -0.3, max= 1.3)
+
             last_raw_actions[:,:, 0 ] = (last_raw_actions[:,:, 0 ] - self.default_actions[0])/self.action_scales[0]  
             last_raw_actions[:,:, 1] = (last_raw_actions[:,:, 1] - self.default_actions[1])/self.action_scales[1]  
             self.obs_buf = torch.cat(
@@ -1065,7 +1068,7 @@ class DmarEnvBilevel:
 
         # reset collision detection
         self.is_collision = self.is_collision < 0
-        for _ in range(self.decimation):
+        for j in range(self.decimation):
             self.simulate()
             # need to check for collisions in inner loop otherwise get missed
             self.is_collision |= torch.norm(self.contact_wrenches, dim=2) > 0
@@ -1202,7 +1205,7 @@ class DmarEnvBilevel:
                 )
         else:
             self.viewer_events = self.viewer.render(
-                self.states[:, :, [0, 1, 2, 6]], self.slip, self.drag_reduced, self.wheel_locations_world, self.interpolated_centers, self.interpolated_bounds
+                self.states[:, :, [0, 1, 2, 6]], self.slip, self.drag_reduced, self.wheel_locations_world, self.interpolated_centers, self.interpolated_bounds, self.targets_pos_world, self.targets_rew01_local, self.targets_rot_world,
             )
 
     def simulate(self) -> None:
