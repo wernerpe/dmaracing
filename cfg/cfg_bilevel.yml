@@ -21,6 +21,7 @@ sim:
   decimation: 4
   test_mode: False
   collisionstiffness: 80.0
+  filtercollisionstoego: False
 
 model:
   dynamics_model_name: kinematic/checkpoints/kinematic.ckpt #higher_roll_loss.ckpt #plastic_wheels.ckpt #
@@ -71,6 +72,7 @@ track:
   track_poly_spacing: 0.15
   
 learn:
+  steer_ado_with_PPC: True
   use_timeouts: True
   use_track_curriculum: True
   #[posx, posy, theta, vellong, vellat, dtheta, steer]

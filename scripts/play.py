@@ -53,12 +53,15 @@ def play():
                      #(f"""{'ang vel:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 2]:.2f}"""),
                      #(f"""{'trackprogress:':>{10}}{' '}{env.track_progress[env.viewer.env_idx_render,0].item():.2f}"""),
                      (f"""{'maxvel:':>{10}}{' '}{env.dyn_model.dynamics_integrator.dyn_model.max_vel_vec[env.viewer.env_idx_render,0].item():.2f}"""),                     
-                     #(f"""{'steer:':>{10}}{' '}{states[env.viewer.env_idx_render, 0, env.vn['S_STEER']]:.2f}"""),
+                     (f"""{'steer:':>{10}}{' '}{act[env.viewer.env_idx_render, 0, env.vn['A_STEER']]:.2f}"""),
                      #(f"""{'gas:':>{10}}{' '}{states[env.viewer.env_idx_render, 0, env.vn['S_GAS']]:.2f}"""),
-                    # (f"""{'brake:':>{10}}{' '}{act[env.viewer.env_idx_render, 0, env.vn['A_BRAKE']]:.2f}"""),
-                     #(f"""{'cont err:':>{10}}{' '}{cont[env.viewer.env_idx_render, 0]:.2f}"""),
-                     #(f"""{'omega mean:':>{10}}{' '}{om_mean:.2f}"""),
+                     #(f"""{'brake:':>{10}}{' '}{act[env.viewer.env_idx_render, 0, env.vn['A_BRAKE']]:.2f}"""),
+                     (f"""{'dist_track_x:':>{10}}{' '}{env.targets_dist_track[env.viewer.env_idx_render, 0, 0].item():.2f}"""),
+                     (f"""{'dist_track_y:':>{10}}{' '}{env.targets_dist_track[env.viewer.env_idx_render, 0, 1].item():.2f}"""),
+                     (f"""{'ll_steps_left:':>{10}}{' '}{env.ll_steps_left[env.viewer.env_idx_render].item():.2f}"""),
+                     (f"""{'obsmax:':>{10}}{' '}{torch.max(obs[0,:]).item():.2f}"""),
                      ]
+        print(obs[0,:])
         env.viewer.x_offset = int(-env.viewer.width/env.viewer.scale_x*env.states[env.viewer.env_idx_render, 0, 0])
         env.viewer.y_offset = int(env.viewer.height/env.viewer.scale_y*env.states[env.viewer.env_idx_render, 0, 1])
         env.viewer.draw_track()

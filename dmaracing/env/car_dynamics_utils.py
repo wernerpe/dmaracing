@@ -29,7 +29,7 @@ def allocate_car_dynamics_tensors(task):
     task.zero_pad = torch.zeros((task.num_envs, 5,1), device =task.device, requires_grad=False) 
 
     task.P_tot, task.D_tot, task.S_mat, task.Repf_mat, task.Ds = build_col_poly_eqns(1.1*task.modelParameters['W'], 1.1*(task.modelParameters['lr'] + task.modelParameters['lf']), task.device, task.num_envs)
-    task.collision_pairs = get_collision_pairs(task.num_agents)
+    task.collision_pairs = get_collision_pairs(task.num_agents, task.cfg['sim']['filtercollisionstoego'])
     task.collision_verts = get_car_vert_mat(task.modelParameters['W'], 
                                             task.modelParameters['lf']+task.modelParameters['lr'], 
                                             task.num_envs, 
@@ -92,10 +92,14 @@ def get_car_vert_mat(w, l, num_envs, device):
     verts[:, 4, 1] = 0
     return verts
 
-def get_collision_pairs(num_agents):
+def get_collision_pairs(num_agents, filtercollisionpairstoego = False):
+    if filtercollisionpairstoego:
+        ls = np.arange(num_agents)
+        pairs = [[0, a] for a in ls[1:]]    
+    else:
     #naively check all collision pairs
-    ls = np.arange(num_agents)
-    pairs = [[a, b] for idx, a in enumerate(ls) for b in ls[idx + 1:]]
+        ls = np.arange(num_agents)
+        pairs = [[a, b] for idx, a in enumerate(ls) for b in ls[idx + 1:]]
     return pairs
 
 def get_collision_pairs2(num_agents):

@@ -18,6 +18,7 @@ from gym import spaces
 from dmaracing.env.car_dynamics_utils import get_varnames, set_dependent_params, allocate_car_dynamics_tensors
 from dynamics_lib import DynamicsEncoder
 from dmaracing.env.car_dynamics import step_cars
+from dmaracing.controllers.purepursuit import PPController
 
 
 class DmarEnvBilevel:
@@ -186,6 +187,16 @@ class DmarEnvBilevel:
 
         self.obs_noise_lvl = cfg["learn"]["obs_noise_lvl"]
         self.use_track_curriculum = cfg["learn"]["use_track_curriculum"]
+
+        self.steer_ado_ppc = True if self.cfg['learn']['steer_ado_with_PPC'] and self.num_agents>1 else False
+        
+        if self.steer_ado_ppc:
+            print('[DMAR] Overriding ado actions with PPC')
+            self.ppc = PPController(self,
+                       lookahead_dist=1.5,
+                       maxvel=2.5,
+                       k_steer=1.0,
+                       k_gas=2.0)
 
         self.lap_counter = torch.zeros(
             (self.num_envs, self.num_agents), requires_grad=False, device=self.device, dtype=torch.int
@@ -761,6 +772,7 @@ class DmarEnvBilevel:
                 * is_other_close
             )
             last_raw_actions = self.last_actions 
+            
             last_raw_actions[:,:, 0 ] = (last_raw_actions[:,:, 0 ] - self.default_actions[0])/self.action_scales[0]  
             last_raw_actions[:,:, 1] = (last_raw_actions[:,:, 1] - self.default_actions[1])/self.action_scales[1]  
             
@@ -1039,6 +1051,8 @@ class DmarEnvBilevel:
         if actions.requires_grad:
             actions = actions.detach()
 
+        if self.steer_ado_ppc:
+            actions[:,1:,:] = self.ppc.step()[:,1:,:]
         if len(actions.shape) == 2:
             self.actions[:, 0, 0] = self.action_scales[0] * actions[..., 0] + self.default_actions[0]
             self.actions[:, 0, 1] = self.action_scales[1] * actions[..., 1] + self.default_actions[1]
@@ -1341,7 +1355,7 @@ def compute_rewards_jit(
     rew_on_track = reward_scales["offtrack"] * ~is_on_track * train_ll
     act_diff = torch.square(actions - last_actions)
     rew_acc = torch.square(vel-last_vel.view(-1,num_agents))*reward_scales['acceleration'] * train_ll
-    act_diff[..., 0] *= 5.0
+    act_diff[..., 0] *= 25.0
     act_diff[..., 1] *= 10.0
     rew_actionrate = -torch.sum(act_diff, dim=2) * reward_scales["actionrate"] * train_ll
     #rew_energy = -torch.sum(torch.square(states[:, :, vn["S_W0"] : vn["S_W3"] + 1]), dim=2) * reward_scales["energy"]
@@ -1364,14 +1378,14 @@ def compute_rewards_jit(
         rew_collision = is_collision * reward_scales["collision"]
 
         rew_buf[..., 0] = torch.clip(
-            rew_progress + rew_on_track + rew_actionrate + rew_rel_prog + rew_acc + 0.1*dt, min=0, max=None
+            rew_progress + rew_on_track + rew_actionrate + 0*rew_rel_prog + rew_acc + 0.15*dt, min=-5*dt, max=None
         )+ rew_collision + rew_dist
     else:
         #needs to be a tensor
         rew_rank = 0*rew_on_track
         rew_collision = 0*rew_on_track
         rew_buf = torch.clip(
-            rew_progress + rew_on_track + rew_actionrate + rew_acc + 0.1*dt , min=0, max=None
+            rew_progress + rew_on_track + rew_actionrate + rew_acc + 0.1*dt , min=-5*dt, max=None
         ) + rew_dist
 
     reward_terms["progress"] += rew_progress

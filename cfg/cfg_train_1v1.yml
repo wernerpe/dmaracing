@@ -22,12 +22,12 @@ runner:
   policy_class_name: MAActorCritic #MultiTeamCMAAC 
   algorithm_class_name: IMAPPO #JRMAPPO 
   num_steps_per_env: 64  # 32 # per iteration
-  max_iterations: 500 # number of policy updates
+  max_iterations: 1000 # number of policy updates
   population_update_interval: 10  # 40 #number of iterations before the opponent policy is updated
   # logging
   save_interval: 30 # check for potential saves every this many iterations
   eval_interval: 40
-  experiment_name: 'tri_1v1_2'  # '2v2'
+  experiment_name: 'tri_single_blr_hierarchical_1v1'  # '2v2'
   run_name: ''
   # load and resume
   resume: False
