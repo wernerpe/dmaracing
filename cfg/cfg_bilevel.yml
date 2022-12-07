@@ -80,8 +80,8 @@ learn:
   #resetrand: [0.00, 0.0, 0., 0.0, 0.0,  0., 0.0]
   reset_tile_rand: 180
   resetgrid: False
-  defaultactions: [0., 0., 0.]  # [0., 0.5, 0.0]
-  actionscale: [1., 1., 1.]  # [0.3, 1.0, 0.2]
+  defaultactions: [0.0, 0.5, 0.0]  # [0., 0.5, 0.0]
+  actionscale: [0.3, 0.8, 0.2]  # [0.3, 1.0, 0.2]
   defaultactionshl: [0., 0., 0.5, 0.5]
   actionscalehl: [1.0, 1.0, 1.0, 1.0]
   actionsminhl: [4.0, -0.55, 0.1, 0.05]  # [3.0, -0.6, 0.1, 0.1]
@@ -97,7 +97,7 @@ learn:
   rankRewardScale: 1.0
   collisionRewardScale: -1.0
   accRewardScale: -0.5
-  goalRewardScale: 1.0  # 5.0
+  goalRewardScale: 5.0  # 5.0
   horizon: 15
 
   episode_length_ll: 20  # low-level steps in high-level step

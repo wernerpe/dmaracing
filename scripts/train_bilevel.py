@@ -1,4 +1,4 @@
-from dmaracing.utils.rl_helpers import get_ppo_runner, get_hierarchical_ppo_runner, get_bilevel_ppo_runner
+from dmaracing.utils.rl_helpers import get_bilevel_ppo_runner
 from dmaracing.env.dmar import DmarEnv
 from dmaracing.env.dmar_bilevel import DmarEnvBilevel
 from dmaracing.utils.helpers import *
@@ -26,10 +26,6 @@ if __name__ == "__main__":
     cfg['sim']['numAgents'] = 1
     cfg['sim']['collide'] = 0
     #cfg['track']['num_tracks'] = 2
-    # cfg_train['runner']['policy_class_name'] = 'ActorCritic'
-    # cfg_train['runner']['algorithm_class_name'] = 'PPO'
-    # cfg_train['runner']['policy_class_name'] = 'HierarchicalActorCritic'
-    # cfg_train['runner']['algorithm_class_name'] = 'HierarchicalPPO'
     cfg_train['runner']['policy_class_hl_name'] = 'BilevelActorCritic'
     cfg_train['runner']['algorithm_class_hl_name'] = 'BilevelPPO'
     cfg_train['runner']['policy_class_ll_name'] = 'ActorCritic'

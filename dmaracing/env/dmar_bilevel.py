@@ -139,6 +139,8 @@ class DmarEnvBilevel:
         self.last_steer = torch_zeros((self.num_envs, self.num_agents, 1))
         self.last_vel = torch_zeros((self.num_envs, self.num_agents,))
         self.last_last_steer = torch_zeros((self.num_envs, self.num_agents, 1))
+
+        self.ll_steps_left = torch_zeros((self.num_envs, self.num_agents, 1))
         
         self.obs_buf = torch_zeros((self.num_envs, self.num_agents, self.num_obs))
         self.rew_buf = torch_zeros(
@@ -377,14 +379,15 @@ class DmarEnvBilevel:
         # actions_hl *= torch.tensor(self.action_scales_hl[:2], device=self.device)
 
         target_offset_on_centerline_track = actions_hl[..., 0:2]
-        target_std_local = actions_hl[..., 2:4].unsqueeze(dim=1)
+        target_std_local = actions_hl[..., 2:4]  # .unsqueeze(dim=1)  # NOTE: changed for multi-agent
         # self.ll_steps_left = actions_hl[..., 4]
-        self.ll_steps_left = (self.dt_hl - torch.remainder(self.total_step * torch.ones_like(self.reset_buf), self.dt_hl)) / self.dt_hl
-        self.ll_steps_left = self.ll_steps_left.unsqueeze(dim=1)
+        # self.ll_steps_left = (self.dt_hl - torch.remainder(self.total_step * torch.ones_like(self.last_steer), self.dt_hl)) / self.dt_hl
+        # self.ll_steps_left = self.ll_steps_left.unsqueeze(dim=1)
+        self.ll_steps_left = (self.dt_hl - torch.remainder(self.total_step * torch.ones_like(self.ll_steps_left), self.dt_hl)) / self.dt_hl
 
         # target_offset_on_centerline_track[..., 0] += 4.0
 
-        target_offset_on_centerline_track = target_offset_on_centerline_track.unsqueeze(dim=1)
+        # target_offset_on_centerline_track = target_offset_on_centerline_track.unsqueeze(dim=1)  # NOTE: changed for multi-agent
         
         tile_idx_unwrapped = self.active_track_tile.unsqueeze(2) + (
             4 * torch.arange(self.horizon, device=self.device, dtype=torch.long)
@@ -433,8 +436,9 @@ class DmarEnvBilevel:
         # target_offset_on_centerline_track = actions_hl[..., 0:2]
         # target_std_local = actions_hl[..., 2:4].unsqueeze(dim=1)
         # self.ll_steps_left = actions_hl[..., 4]
-        self.ll_steps_left = (self.dt_hl - torch.remainder(self.total_step * torch.ones_like(self.reset_buf), self.dt_hl)) / self.dt_hl
-        self.ll_steps_left = self.ll_steps_left.unsqueeze(dim=1)
+        # self.ll_steps_left = (self.dt_hl - torch.remainder(self.total_step * torch.ones_like(self.last_steer), self.dt_hl)) / self.dt_hl
+        # self.ll_steps_left = self.ll_steps_left.unsqueeze(dim=1)
+        self.ll_steps_left = (self.dt_hl - torch.remainder(self.total_step * torch.ones_like(self.ll_steps_left), self.dt_hl)) / self.dt_hl
 
         # target_offset_on_centerline_track[..., 0] += 4.0
 
@@ -520,6 +524,7 @@ class DmarEnvBilevel:
         # Quantile function: Q(p) = sqrt(2) * sigma * inverf(2*p-1) + mu [https://statproofbook.github.io/P/norm-qf.html]
         reward_cut = 0.9 + 0.0 * self.targets_std_local
         self.targets_rew01_local = 2**(1/2) * self.targets_std_local * torch.erfinv(2*reward_cut-1.0) + 0.0
+        self.targets_rew01_local = self.targets_rew01_local[:, 0].unsqueeze(dim=1)  # NOTE: only care about plotting for ego agent
 
         actions_hl = torch.cat(
             (
@@ -529,7 +534,7 @@ class DmarEnvBilevel:
             ),
             dim=2,
             )
-        return actions_hl.squeeze(dim=1)
+        return actions_hl  # .squeeze(dim=1)
 
     def compute_observations(
         self,
@@ -801,7 +806,7 @@ class DmarEnvBilevel:
             last_raw_actions[:,:,0] = torch.clip(last_raw_actions[:,:,0], min = -0.35, max= 0.35)
             last_raw_actions[:,:,1] = torch.clip(last_raw_actions[:,:,1], min = -0.3, max= 1.3)
 
-            last_raw_actions[:,:, 0 ] = (last_raw_actions[:,:, 0 ] - self.default_actions[0])/self.action_scales[0]  
+            last_raw_actions[:,:, 0] = (last_raw_actions[:,:, 0] - self.default_actions[0])/self.action_scales[0]  
             last_raw_actions[:,:, 1] = (last_raw_actions[:,:, 1] - self.default_actions[1])/self.action_scales[1]  
             self.obs_buf = torch.cat(
             (
@@ -1074,10 +1079,11 @@ class DmarEnvBilevel:
             self.is_collision |= torch.norm(self.contact_wrenches, dim=2) > 0
 
         self.post_physics_step()
-        if self.num_agents>1:
-            return self.obs_buf.clone(), self.privileged_obs, self.rew_buf.clone(), self.reset_buf.clone(), self.info
-        else:
-            return self.obs_buf[:,0,:].clone(), self.privileged_obs, self.rew_buf[:,0].clone(), self.reset_buf[:,0].clone(), self.info
+        # if self.num_agents>1:
+        #     return self.obs_buf.clone(), self.privileged_obs, self.rew_buf.clone(), self.reset_buf.clone(), self.info
+        # else:
+        #     return self.obs_buf[:,0,:].clone(), self.privileged_obs, self.rew_buf[:,0].clone(), self.reset_buf[:,0].clone(), self.info
+        return self.obs_buf.clone(), self.privileged_obs, self.rew_buf.clone(), self.reset_buf.clone(), self.info
 
     def post_physics_step(self) -> None:
         self.total_step += 1
@@ -1283,7 +1289,7 @@ class DmarEnvBilevel:
     def get_observations(
         self,
     ) -> torch.Tensor:
-        return self.obs_buf.squeeze()
+        return self.obs_buf  # .squeeze()
 
     def get_privileged_observations(
         self,
