@@ -91,7 +91,7 @@ class Viewer:
         return None
         
 
-    def render(self, state, slip, drag_reduced, wheel_locs, lookahead, bounds, targets=None, targets_rew01=None, targets_angle=None, targets_distance=None):
+    def render(self, state, slip, drag_reduced, wheel_locs, lookahead, bounds, targets=None, targets_rew01=None, targets_angle=None, targets_distance=None, actions=None):
         self.state = state.clone()
         self.slip = slip.clone()
         self.wheel_locs = wheel_locs.clone()
@@ -115,6 +115,10 @@ class Viewer:
                 target_dist = targets_distance[0, 0, :].cpu().numpy()
                 cv.putText(self.img, "dGx:" + "{:.2f}".format(target_dist[0]), (200, 50), self.font, 1, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
                 cv.putText(self.img, "dGy:" + "{:.2f}".format(target_dist[1]), (200, 80), self.font, 1, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
+            if actions is not None:
+                actions = actions[0, 0, :].cpu().numpy()
+                cv.putText(self.img, "uSt:" + "{:.2f}".format(actions[0]), (400, 50), self.font, 1, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
+                cv.putText(self.img, "uTh:" + "{:.2f}".format(actions[1]), (400, 80), self.font, 1, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
             self.draw_points()
             self.draw_lines()
             self.draw_string()

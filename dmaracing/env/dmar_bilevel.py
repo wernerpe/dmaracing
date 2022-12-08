@@ -387,7 +387,8 @@ class DmarEnvBilevel:
         # self.ll_steps_left = (self.dt_hl - torch.remainder(self.total_step * torch.ones_like(self.last_steer), self.dt_hl)) / self.dt_hl
         # self.ll_steps_left = self.ll_steps_left.unsqueeze(dim=1)
         # self.ll_steps_left = (self.dt_hl - torch.remainder(self.total_step * torch.ones_like(self.ll_steps_left), self.dt_hl)) / self.dt_hl
-        self.ll_steps_left = (self.dt_hl - torch.remainder(self.episode_length_buf.unsqueeze(dim=1), self.dt_hl)) / self.dt_hl
+        self.ll_steps_left *= 0.0
+        self.ll_steps_left += (self.dt_hl - torch.remainder(self.episode_length_buf.unsqueeze(dim=1), self.dt_hl)) / self.dt_hl
 
 
         # target_offset_on_centerline_track[..., 0] += 4.0
@@ -1136,11 +1137,11 @@ class DmarEnvBilevel:
             self.viewer.mark_env(self.trained_agent_slot)
             if (self._global_step % self.log_video_freq == 0) and (self._global_step > 0):
                 self.viewer_events = self.viewer.render(
-                    self.states[:, :, [0, 1, 2, 6]], self.slip, self.drag_reduced, self.wheel_locations_world, self.interpolated_centers, self.interpolated_bounds, self.targets_pos_world, self.targets_rew01_local, self.targets_rot_world, self.targets_dist_track,
+                    self.states[:, :, [0, 1, 2, 6]], self.slip, self.drag_reduced, self.wheel_locations_world, self.interpolated_centers, self.interpolated_bounds, self.targets_pos_world, self.targets_rew01_local, self.targets_rot_world, self.targets_dist_track, self.actions, 
                 )
         else:
             self.viewer_events = self.viewer.render(
-                self.states[:, :, [0, 1, 2, 6]], self.slip, self.drag_reduced, self.wheel_locations_world, self.interpolated_centers, self.interpolated_bounds, self.targets_pos_world, self.targets_rew01_local, self.targets_rot_world, self.targets_dist_track,
+                self.states[:, :, [0, 1, 2, 6]], self.slip, self.drag_reduced, self.wheel_locations_world, self.interpolated_centers, self.interpolated_bounds, self.targets_pos_world, self.targets_rew01_local, self.targets_rot_world, self.targets_dist_track, self.actions,
             )
 
     def simulate(self) -> None:
@@ -1322,7 +1323,7 @@ def compute_rewards_jit(
         #needs to be a tensor
         rew_rank = 0*rew_on_track
         rew_collision = 0*rew_on_track
-        rew_buf = torch.clip(
+        rew_buf[..., 0] = torch.clip(
             rew_progress + rew_on_track + rew_actionrate + rew_acc + 0.1*dt , min=-5*dt, max=None
         ) + rew_dist
 
