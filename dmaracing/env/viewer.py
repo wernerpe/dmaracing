@@ -91,7 +91,7 @@ class Viewer:
         return None
         
 
-    def render(self, state, slip, drag_reduced, wheel_locs, lookahead, bounds, targets=None, targets_rew01=None, targets_angle=None):
+    def render(self, state, slip, drag_reduced, wheel_locs, lookahead, bounds, targets=None, targets_rew01=None, targets_angle=None, targets_distance=None):
         self.state = state.clone()
         self.slip = slip.clone()
         self.wheel_locs = wheel_locs.clone()
@@ -110,7 +110,11 @@ class Viewer:
                   self.draw_target_marker(targets, targets_rew01, targets_angle)
             else:
                 self.draw_singleagent_rep(state[:self.num_cars])
-            cv.putText(self.img, "env:" + str(self.env_idx_render), (50, 50), self.font, 2, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
+            cv.putText(self.img, "env:" + str(self.env_idx_render), (50, 50), self.font, 1, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
+            if targets_distance is not None:
+                target_dist = targets_distance[0, 0, :].cpu().numpy()
+                cv.putText(self.img, "dGx:" + "{:.2f}".format(target_dist[0]), (200, 50), self.font, 1, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
+                cv.putText(self.img, "dGy:" + "{:.2f}".format(target_dist[1]), (200, 80), self.font, 1, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
             self.draw_points()
             self.draw_lines()
             self.draw_string()
