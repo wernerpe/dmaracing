@@ -66,6 +66,15 @@
           "justMyCode": false
         },
         {
+          "name": "trainffa4_bilevel",
+          "type": "python",
+          "request": "launch",
+          "program": "scripts/trainffa4_bilevel.py",
+          "console": "integratedTerminal",
+          "cwd": "${workspaceFolder}",
+          "justMyCode": false
+        },
+        {
             "name": "train1v1",
             "type": "python",
             "request": "launch",

@@ -3,6 +3,8 @@ import torch
 import numpy as np
 import sys
 
+from matplotlib import pyplot as plt
+
 from dmaracing.utils.trackgen import draw_track
 
 
@@ -91,7 +93,12 @@ class Viewer:
         return None
         
 
-    def render(self, state, slip, drag_reduced, wheel_locs, lookahead, bounds, targets=None, targets_rew01=None, targets_angle=None, targets_distance=None, actions=None):
+    def render(
+      self, 
+      state, slip, drag_reduced, wheel_locs, lookahead, bounds, 
+      targets=None, targets_rew01=None, targets_angle=None, targets_distance=None, 
+      actions=None, time_off_track=None, 
+      hl_action_probs=None, ll_action_mean=None, ll_action_std=None):
         self.state = state.clone()
         self.slip = slip.clone()
         self.wheel_locs = wheel_locs.clone()
@@ -110,19 +117,25 @@ class Viewer:
                   self.draw_target_marker(targets, targets_rew01, targets_angle)
             else:
                 self.draw_singleagent_rep(state[:self.num_cars])
-            cv.putText(self.img, "env:" + str(self.env_idx_render), (50, 50), self.font, 1, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
+            cv.putText(self.img, "env:" + str(self.env_idx_render), (50, 50), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
             if targets_distance is not None:
                 target_dist = targets_distance[0, 0, :].cpu().numpy()
-                cv.putText(self.img, "dGx:" + "{:.2f}".format(target_dist[0]), (200, 50), self.font, 1, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
-                cv.putText(self.img, "dGy:" + "{:.2f}".format(target_dist[1]), (200, 80), self.font, 1, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
+                cv.putText(self.img, "dGx:" + "{:.2f}".format(target_dist[0]), (150, 50), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
+                cv.putText(self.img, "dGy:" + "{:.2f}".format(target_dist[1]), (150, 80), self.font, 0.51, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
             if actions is not None:
                 actions = actions[0, 0, :].cpu().numpy()
-                cv.putText(self.img, "uSt:" + "{:.2f}".format(actions[0]), (400, 50), self.font, 1, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
-                cv.putText(self.img, "uTh:" + "{:.2f}".format(actions[1]), (400, 80), self.font, 1, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
+                cv.putText(self.img, "uSt:" + "{:.2f}".format(actions[0]), (250, 50), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
+                cv.putText(self.img, "uTh:" + "{:.2f}".format(actions[1]), (250, 80), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
+            if time_off_track is not None:
+                time_off_track = time_off_track[0, 0].cpu().numpy()
+                cv.putText(self.img, "off:" + str(int(time_off_track)), (50, 80), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
             self.draw_points()
             self.draw_lines()
             self.draw_string()
             self.draw_marked_agents()
+
+            if hl_action_probs is not None:
+                self.draw_action_distributions(hl_action_probs, ll_action_mean, ll_action_std)
 
         
         #listen for keypressed events
@@ -132,6 +145,123 @@ class Viewer:
             key = self._render_tb()
 
         return key
+
+    def draw_action_distributions(self, hl_action_probs, ll_action_mean, ll_action_std):
+
+        hl_action_probs = hl_action_probs[0, 0].cpu().numpy()
+        ll_action_mean = ll_action_mean[0, 0].cpu().numpy()
+        ll_action_std = ll_action_std[0, 0].cpu().numpy()
+        # xlabel = np.linspace(1, hl_action_probs.shape[-1], num=hl_action_probs.shape[-1])
+
+        bar_width = 10
+        bar_scale = 50
+        bar_bottom = self.height - 50
+        separation = 3
+
+        # ### High-level controller ###
+        # Action 1
+        x_start = 35  # 125
+        for idx, action_prob in enumerate(hl_action_probs[0]):
+            x_bar_start = x_start + idx * (bar_width + separation)
+            x_bar_end = x_bar_start + bar_width
+            cv.rectangle(self.img, (x_bar_start, bar_bottom), (x_bar_end, bar_bottom - int(action_prob * 50)), color=(255, 0, 0), thickness=-1)
+        cv.putText(self.img, "Prob Gx", (x_start, bar_bottom + 30), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
+
+        # Action 2
+        x_start = x_bar_end + 30
+        for idx, action_prob in enumerate(hl_action_probs[1]):
+            x_bar_start = x_start + idx * (bar_width + separation)
+            x_bar_end = x_bar_start + bar_width
+            cv.rectangle(self.img, (x_bar_start, bar_bottom), (x_bar_end, bar_bottom - int(action_prob * 50)), color=(255, 0, 0), thickness=-1)
+        cv.putText(self.img, "Prob Gy", (x_start, bar_bottom + 30), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
+
+        # Action 3
+        x_start = x_bar_end + 30
+        for idx, action_prob in enumerate(hl_action_probs[2]):
+            x_bar_start = x_start + idx * (bar_width + separation)
+            x_bar_end = x_bar_start + bar_width
+            cv.rectangle(self.img, (x_bar_start, bar_bottom), (x_bar_end, bar_bottom - int(action_prob * 50)), color=(255, 0, 0), thickness=-1)
+        cv.putText(self.img, "Prob Ux", (x_start, bar_bottom + 30), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
+
+        # Action 4
+        x_start = x_bar_end + 30
+        for idx, action_prob in enumerate(hl_action_probs[3]):
+            x_bar_start = x_start + idx * (bar_width + separation)
+            x_bar_end = x_bar_start + bar_width
+            cv.rectangle(self.img, (x_bar_start, bar_bottom), (x_bar_end, bar_bottom - int(action_prob * 50)), color=(255, 0, 0), thickness=-1)
+        cv.putText(self.img, "Prob Uy", (x_start, bar_bottom + 30), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
+
+        # ### Low-level controller ###
+        # x = steering
+        # y = throttle
+
+        # Bounds
+        x_act_min, x_act_max = -0.35, +0.35
+        y_act_min, y_act_max = -0.30, +1.30
+
+        def scale_pos_to_img(v, v_min, v_max, scale):
+            return int(scale * (v - v_min) / (v_max - v_min))
+
+        def scale_std_to_img(v, v_min, v_max, scale):
+            return int(scale * (v) / (v_max - v_min))
+
+        ellipse_scale = 70
+        ellipse_x_pos = scale_pos_to_img(ll_action_mean[0], x_act_min, x_act_max, ellipse_scale)  # int(ellipse_scale * ll_action_mean[0])
+        ellipse_y_pos = scale_pos_to_img(ll_action_mean[1], y_act_min, y_act_max, ellipse_scale)  # int(ellipse_scale * ll_action_mean[1])
+        ellipse_x_len = scale_std_to_img(ll_action_std[0], x_act_min, x_act_max, ellipse_scale)  # int(ellipse_scale * ll_action_std[0])
+        ellipse_y_len = scale_std_to_img(ll_action_std[1], y_act_min, y_act_max, ellipse_scale)  # int(ellipse_scale * ll_action_std[1])
+
+        ellipse_x_pos = ellipse_x_pos + x_bar_end + 100
+        ellipse_y_pos = bar_bottom - ellipse_y_pos
+
+
+        # Relative and scaled
+        x_act_rel_min = scale_pos_to_img(x_act_min, x_act_min, x_act_max, ellipse_scale)
+        x_act_rel_max = scale_pos_to_img(x_act_max, x_act_min, x_act_max, ellipse_scale)
+
+        y_act_rel_min = scale_pos_to_img(y_act_min, y_act_min, y_act_max, ellipse_scale)
+        y_act_rel_max = scale_pos_to_img(y_act_max, y_act_min, y_act_max, ellipse_scale)
+
+        rect_pos_start = (x_act_rel_min + x_bar_end + 100, bar_bottom - y_act_rel_min)
+        rect_pos_end = (x_act_rel_max + x_bar_end + 100, bar_bottom - y_act_rel_max)
+
+        cv.rectangle(self.img, rect_pos_start, rect_pos_end, color=(0, 0, 0), thickness=1)
+
+        # Zero lines
+        x_act_rel_zero = scale_pos_to_img(0.0, x_act_min, x_act_max, ellipse_scale)
+        y_act_rel_zero = scale_pos_to_img(0.0, y_act_min, y_act_max, ellipse_scale)
+        
+        x_zero_start = (x_act_rel_zero + x_bar_end + 100, bar_bottom - y_act_rel_min)
+        x_zero_end = (x_act_rel_zero + x_bar_end + 100, bar_bottom - y_act_rel_max)
+
+        y_zero_start = (x_act_rel_min + x_bar_end + 100, bar_bottom - y_act_rel_zero)
+        y_zero_end = (x_act_rel_max + x_bar_end + 100, bar_bottom - y_act_rel_zero)
+
+        cv.line(self.img, x_zero_start, x_zero_end, color=(0, 0, 255), thickness=1)
+        cv.line(self.img, y_zero_start, y_zero_end, color=(0, 0, 255), thickness=1)
+
+        cv.ellipse(self.img, (ellipse_x_pos, ellipse_y_pos), (ellipse_x_len, ellipse_y_len), float(0.0), 0.0, 360.0, (255, 0, 0), 2)
+        cv.circle(self.img, (ellipse_x_pos, ellipse_y_pos), 1, (255,0,0))
+
+        # # Cutoff
+        # cut_scale = 1.3
+
+        # x_act_rel_min_cut = scale_to_img(cut_scale * x_act_min, x_act_min, x_act_max, ellipse_scale)
+        # x_act_rel_max_cut = scale_to_img(cut_scale * x_act_max, x_act_min, x_act_max, ellipse_scale)
+
+        # y_act_rel_min_cut = scale_to_img(cut_scale * y_act_min, y_act_min, y_act_max, ellipse_scale)
+        # y_act_rel_max_cut = scale_to_img(cut_scale * y_act_max, y_act_min, y_act_max, ellipse_scale)
+
+        # rect_pos_start_cut = (x_act_rel_min_cut + x_bar_end + 100, bar_bottom + y_act_rel_min_cut)
+        # rect_pos_end_cut = (x_act_rel_max_cut + x_bar_end + 100, bar_bottom - y_act_rel_max_cut)
+
+        # cv.rectangle(self.img, rect_pos_start_cut, rect_pos_end_cut, color=(255, 0, 0), thickness=1)
+
+        cv.putText(self.img, "Steer vs. Throttle", (x_act_rel_min + x_bar_end + 65, bar_bottom + 30), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
+
+
+        
+
 
     def _render_interactive(self):
         cv.imshow("dmaracing", self.img)

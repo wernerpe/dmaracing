@@ -377,6 +377,19 @@ class DmarEnvBilevel:
         vec_y_rot = torch.sum(torch.concat((-torch.sin(angle), torch.cos(angle)), dim=-1) * vec, dim=-1)
         return torch.stack([vec_x_rot, vec_y_rot], axis=-1)
 
+    def set_hl_action_probs(self, probs):
+        self._action_probs_hl = probs
+
+    def set_ll_action_stats(self, mean, std):
+        self._action_mean_ll = mean
+        self._action_std_ll = std
+
+        self._action_mean_ll[..., 0] = self.action_scales[0] * self._action_mean_ll[..., 0] + self.default_actions[0]
+        self._action_mean_ll[..., 1] = self.action_scales[1] * self._action_mean_ll[..., 1] + self.default_actions[1]
+
+        self._action_std_ll[..., 0] = self.action_scales[0] * self._action_std_ll[..., 0]
+        self._action_std_ll[..., 1] = self.action_scales[1] * self._action_std_ll[..., 1]
+
     def project_into_track_frame(self, actions_hl):
         actions_hl = actions_hl.clone().to(self.device)
         # actions_hl *= torch.tensor(self.action_scales_hl[:2], device=self.device)
@@ -796,7 +809,7 @@ class DmarEnvBilevel:
         self.reset_buf = self.time_off_track[:, self.trained_agent_slot].view(-1, 1) > self.offtrack_reset
         lapdist = self.track_progress[:,self.trained_agent_slot].view(-1, 1)/self.track_lengths[self.active_track_ids].view(-1,1)
         #self.reset_buf |= lapdist > self.race_length_laps
-        self.reset_buf |= (torch.abs(self.track_progress[:,0] - self.old_track_progress[:,0]).view(-1,1) > 1.0)*(self.episode_length_buf > 2)
+        # self.reset_buf |= (torch.abs(self.track_progress[:,0] - self.old_track_progress[:,0]).view(-1,1) > 1.0)*(self.episode_length_buf > 2)  # NOTE: commented this because it was terminating a lot (maybe due to off-->on track jumps?)
         # self.reset_buf = torch.any(self.time_off_track[:, :] > self.offtrack_reset, dim = 1).view(-1,1)
         self.time_out_buf = self.episode_length_buf > self.max_episode_length
         self.reset_buf |= self.time_out_buf
@@ -1137,11 +1150,15 @@ class DmarEnvBilevel:
             self.viewer.mark_env(self.trained_agent_slot)
             if (self._global_step % self.log_video_freq == 0) and (self._global_step > 0):
                 self.viewer_events = self.viewer.render(
-                    self.states[:, :, [0, 1, 2, 6]], self.slip, self.drag_reduced, self.wheel_locations_world, self.interpolated_centers, self.interpolated_bounds, self.targets_pos_world, self.targets_rew01_local, self.targets_rot_world, self.targets_dist_track, self.actions, 
+                    self.states[:, :, [0, 1, 2, 6]], self.slip, self.drag_reduced, self.wheel_locations_world, self.interpolated_centers, self.interpolated_bounds, 
+                    self.targets_pos_world, self.targets_rew01_local, self.targets_rot_world, self.targets_dist_track, self.actions, self.time_off_track,
+                    self._action_probs_hl, self._action_mean_ll, self._action_std_ll,
                 )
         else:
             self.viewer_events = self.viewer.render(
-                self.states[:, :, [0, 1, 2, 6]], self.slip, self.drag_reduced, self.wheel_locations_world, self.interpolated_centers, self.interpolated_bounds, self.targets_pos_world, self.targets_rew01_local, self.targets_rot_world, self.targets_dist_track, self.actions,
+                self.states[:, :, [0, 1, 2, 6]], self.slip, self.drag_reduced, self.wheel_locations_world, self.interpolated_centers, self.interpolated_bounds, 
+                self.targets_pos_world, self.targets_rew01_local, self.targets_rot_world, self.targets_dist_track, self.actions, self.time_off_track,
+                self._action_probs_hl, self._action_mean_ll, self._action_std_ll,
             )
 
     def simulate(self) -> None:
