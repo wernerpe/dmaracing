@@ -42,7 +42,7 @@ if __name__ == "__main__":
     args.headless = True
     args.device = 'cuda:0'
     path_cfg = os.getcwd() + '/cfg'
-    cfg, cfg_train, logdir_root = getcfg(path_cfg, postfix='_1v1')
+    cfg, cfg_train, logdir_root = getcfg(path_cfg, postfix_train='_1v1')
     cfg['sim']['numAgents'] = 2
     cfg['sim']['collide'] = 1 
     args.override_cfg_with_args(cfg, cfg_train)
