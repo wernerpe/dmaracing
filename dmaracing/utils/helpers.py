@@ -1,4 +1,3 @@
-from numbers import Rational
 import yaml
 import os
 import torch
@@ -116,6 +115,44 @@ def  get_run(logdir, run, chkpt):
         modelnr = chkpt
 
     return model_dir, modelnr
+
+def get_run_bilevel(logdir, run_ll, run_hl, chkpt_ll, chkpt_hl):
+   
+    if type(run_ll) == str:
+        model_dir_ll = logdir + '/' + run_ll + '/ll_model'
+    else:
+        runs = [s for s in os.listdir(logdir) if not ('events' in s or 'laptimes' in s)]
+        runs.sort()
+        runstr = runs[run_ll]
+        model_dir_ll = logdir + '/' + runstr + '/ll_model'
+
+    if chkpt_ll < 0:
+        models = os.listdir(model_dir_ll)
+        models = [i for i in models if 'model' in i]
+        nrs = [int(model[6:-3]) for model in models]
+        nrs.sort()
+        modelnr_ll = int(nrs[chkpt_ll])
+    else:
+        modelnr_ll = chkpt_ll
+    
+    if type(run_hl) == str:
+        model_dir_hl = logdir + '/' + run_hl + '/hl_model'
+    else:
+        runs = [s for s in os.listdir(logdir) if not ('events' in s or 'laptimes' in s)]
+        runs.sort()
+        runstr = runs[run_hl]
+        model_dir_hl = logdir + '/' + runstr + '/hl_model'
+
+    if chkpt_hl < 0:
+        models = os.listdir(model_dir_hl)
+        models = [i for i in models if 'model' in i]
+        nrs = [int(model[6:-3]) for model in models]
+        nrs.sort()
+        modelnr_hl = int(nrs[chkpt_hl])
+    else:
+        modelnr_hl = chkpt_ll
+
+    return model_dir_ll, model_dir_hl, modelnr_ll, modelnr_hl
 
 def  get_all_chckpts_run(logdir, run):
     

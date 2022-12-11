@@ -66,6 +66,24 @@
           "justMyCode": false
         },
         {
+            "name": "train1v1_bilevel",
+            "type": "python",
+            "request": "launch",
+            "program": "scripts/train1v1_bilevel.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": false
+          },
+          {
+            "name": "play1v1_bilevel",
+            "type": "python",
+            "request": "launch",
+            "program": "scripts/play1v1_bilevel.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": false
+          },
+        {
           "name": "trainffa4_bilevel",
           "type": "python",
           "request": "launch",

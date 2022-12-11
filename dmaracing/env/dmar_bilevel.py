@@ -278,6 +278,8 @@ class DmarEnvBilevel:
         self.ll_ep_done = torch.zeros(
             (self.num_envs, self.num_agents, 1), device=self.device, requires_grad=False, dtype=torch.float
         )
+        
+        self._action_probs_hl, self._action_mean_ll, self._action_std_ll, self.targets_rew01_local  = None, None, None, None
 
         self._global_step = 0
         if self.log_video_freq >= 0:

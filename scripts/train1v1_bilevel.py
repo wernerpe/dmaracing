@@ -50,10 +50,10 @@ if __name__ == "__main__":
         cfg['viewer']['logEvery'] = -1
     #cfg_train['runner']['experiment_name'] = '1v1_supercloud'
     #cfg['track']['num_tracks'] = 2
-    cfg_train['runner']['policy_class_hl_name'] = 'BilevelActorCritic'
-    cfg_train['runner']['algorithm_class_hl_name'] = 'BilevelPPO'
-    cfg_train['runner']['policy_class_ll_name'] = 'ActorCritic'
-    cfg_train['runner']['algorithm_class_ll_name'] = 'PPO'
+    # cfg_train['runner']['policy_class_hl_name'] = 'BilevelActorCritic'
+    # cfg_train['runner']['algorithm_class_hl_name'] = 'BilevelPPO'
+    # cfg_train['runner']['policy_class_ll_name'] = 'ActorCritic'
+    # cfg_train['runner']['algorithm_class_ll_name'] = 'PPO'
     set_dependent_cfg_entries(cfg, cfg_train)
     now = datetime.now()
     timestamp = now.strftime("%y_%m_%d_%H_%M_%S")

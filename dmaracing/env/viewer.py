@@ -113,7 +113,7 @@ class Viewer:
                 self.draw_slip_markers()
                 self.draw_multiagent_rep(state)
                 self.draw_lookahead_markers(lookahead, bounds)
-                if targets is not None:
+                if targets_rew01 is not None:
                   self.draw_target_marker(targets, targets_rew01, targets_angle)
             else:
                 self.draw_singleagent_rep(state[:self.num_cars])
