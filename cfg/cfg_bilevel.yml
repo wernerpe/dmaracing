@@ -103,5 +103,5 @@ learn:
   episode_length_ll: 20  # low-level steps in high-level step
 
   timeout: 24.0  # 25.0 #[s]
-  offtrack_reset: 1.0  # 1.0  # 0.8 #[s]
+  offtrack_reset: 0.5  # 1.0  # 0.8 #[s]
   obs_noise_lvl: 0.0  # 1.0  # FIXME: change back?
