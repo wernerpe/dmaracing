@@ -98,7 +98,8 @@ class Viewer:
       state, slip, drag_reduced, wheel_locs, lookahead, bounds, 
       targets=None, targets_rew01=None, targets_angle=None, targets_distance=None, 
       actions=None, time_off_track=None, 
-      hl_action_probs=None, ll_action_mean=None, ll_action_std=None):
+      hl_action_probs=None, ll_action_mean=None, ll_action_std=None,
+      wheels_on_track=None):
         self.state = state.clone()
         self.slip = slip.clone()
         self.wheel_locs = wheel_locs.clone()
@@ -117,18 +118,18 @@ class Viewer:
                   self.draw_target_marker(targets, targets_rew01, targets_angle)
             else:
                 self.draw_singleagent_rep(state[:self.num_cars])
-            cv.putText(self.img, "env:" + str(self.env_idx_render), (50, 50), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
+            cv.putText(self.img, "env: " + str(self.env_idx_render), (50, 50), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
             if targets_distance is not None:
                 target_dist = targets_distance[0, 0, :].cpu().numpy()
-                cv.putText(self.img, "dGx:" + "{:.2f}".format(target_dist[0]), (150, 50), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
-                cv.putText(self.img, "dGy:" + "{:.2f}".format(target_dist[1]), (150, 80), self.font, 0.51, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
+                cv.putText(self.img, "dGx: " + "{:.2f}".format(target_dist[0]), (350, 50), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
+                cv.putText(self.img, "dGy: " + "{:.2f}".format(target_dist[1]), (350, 80), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
             if actions is not None:
                 actions = actions[0, 0, :].cpu().numpy()
-                cv.putText(self.img, "uSt:" + "{:.2f}".format(actions[0]), (250, 50), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
-                cv.putText(self.img, "uTh:" + "{:.2f}".format(actions[1]), (250, 80), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
+                cv.putText(self.img, "uSt: " + "{:.2f}".format(actions[0]), (450, 50), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
+                cv.putText(self.img, "uTh: " + "{:.2f}".format(actions[1]), (450, 80), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
             if time_off_track is not None:
                 time_off_track = time_off_track[0, 0].cpu().numpy()
-                cv.putText(self.img, "off:" + str(int(time_off_track)), (50, 80), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
+                cv.putText(self.img, "off: " + str(int(time_off_track)), (50, 80), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
             self.draw_points()
             self.draw_lines()
             self.draw_string()
@@ -136,6 +137,9 @@ class Viewer:
 
             if hl_action_probs is not None:
                 self.draw_action_distributions(hl_action_probs, ll_action_mean, ll_action_std)
+
+            if wheels_on_track is not None:
+                self.draw_wheel_on_track_indicators(wheels_on_track)
 
         
         #listen for keypressed events
@@ -145,6 +149,37 @@ class Viewer:
             key = self._render_tb()
 
         return key
+
+    def draw_wheel_on_track_indicators(self, wheels_on_track):
+
+        wheels_on_track = wheels_on_track[0, 0].cpu().numpy()
+
+        # cv.putText(self.img, str(int(wheels_on_track[2])), (270, 50), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
+        # cv.putText(self.img, str(int(wheels_on_track[3])), (270, 80), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
+        # cv.rectangle(self.img, (267, 33), (283, 56), color=(0, 0, 0), thickness=1)
+
+        # Specify indicator dimensions
+        id_width = 17
+        id_height = 23
+        id0_start = (214, 33)
+        id1_start = (240, 33)
+        id2_start = (214, 63)
+        id3_start = (240, 63)
+        id0_color = (255 * (1 - int(wheels_on_track[0])), 255 * int(wheels_on_track[0]), 0)
+        id1_color = (255 * (1 - int(wheels_on_track[1])), 255 * int(wheels_on_track[1]), 0)
+        id2_color = (255 * (1 - int(wheels_on_track[2])), 255 * int(wheels_on_track[2]), 0)
+        id3_color = (255 * (1 - int(wheels_on_track[3])), 255 * int(wheels_on_track[3]), 0)
+
+        # Visualize
+        cv.rectangle(self.img, id0_start, (id0_start[0] + id_width, id0_start[1] + id_height), color=id0_color, thickness=-1)
+        cv.rectangle(self.img, id1_start, (id1_start[0] + id_width, id1_start[1] + id_height), color=id1_color, thickness=-1)
+        cv.rectangle(self.img, id2_start, (id2_start[0] + id_width, id2_start[1] + id_height), color=id2_color, thickness=-1)
+        cv.rectangle(self.img, id3_start, (id3_start[0] + id_width, id3_start[1] + id_height), color=id3_color, thickness=-1)
+        
+        # Add description
+        cv.putText(self.img, "Wheels  0  1", (150, 50), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
+        cv.putText(self.img, "on/off  2  3", (150, 80), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
+
 
     def draw_action_distributions(self, hl_action_probs, ll_action_mean, ll_action_std):
 

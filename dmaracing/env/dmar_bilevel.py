@@ -1040,7 +1040,9 @@ class DmarEnvBilevel:
 
         # check if any tire is off track
 
-        self.is_on_track = ~torch.any(~torch.any(self.wheels_on_track_segments, dim=3), dim=2)
+        # self.is_on_track = ~torch.any(~torch.any(self.wheels_on_track_segments, dim=3), dim=2)
+        self.is_on_track_per_wheel = torch.any(self.wheels_on_track_segments, dim=3)
+        self.is_on_track = torch.any(torch.any(self.wheels_on_track_segments, dim=3), dim=2)
         self.time_off_track += 1.0 * ~self.is_on_track
         self.time_off_track *= 1.0 * ~self.is_on_track  # reset if on track again
 
@@ -1153,12 +1155,14 @@ class DmarEnvBilevel:
                     self.states[:, :, [0, 1, 2, 6]], self.slip, self.drag_reduced, self.wheel_locations_world, self.interpolated_centers, self.interpolated_bounds, 
                     self.targets_pos_world, self.targets_rew01_local, self.targets_rot_world, self.targets_dist_track, self.actions, self.time_off_track,
                     self._action_probs_hl, self._action_mean_ll, self._action_std_ll,
+                    self.is_on_track_per_wheel,
                 )
         else:
             self.viewer_events = self.viewer.render(
                 self.states[:, :, [0, 1, 2, 6]], self.slip, self.drag_reduced, self.wheel_locations_world, self.interpolated_centers, self.interpolated_bounds, 
                 self.targets_pos_world, self.targets_rew01_local, self.targets_rot_world, self.targets_dist_track, self.actions, self.time_off_track,
                 self._action_probs_hl, self._action_mean_ll, self._action_std_ll,
+                self.is_on_track_per_wheel,
             )
 
     def simulate(self) -> None:
