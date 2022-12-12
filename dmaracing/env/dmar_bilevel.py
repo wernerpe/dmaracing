@@ -803,6 +803,7 @@ class DmarEnvBilevel:
             self.targets_std_track,
             self.ll_ep_done,
             1.0 * self.train_ll,
+            self.num_wheels_off_track,
         )
 
     def check_termination(self) -> None:
@@ -1044,6 +1045,7 @@ class DmarEnvBilevel:
 
         # self.is_on_track = ~torch.any(~torch.any(self.wheels_on_track_segments, dim=3), dim=2)
         self.is_on_track_per_wheel = torch.any(self.wheels_on_track_segments, dim=3)
+        self.num_wheels_off_track = ((~self.is_on_track_per_wheel) * 1.0).sum(dim=-1)
         self.is_on_track = torch.any(torch.any(self.wheels_on_track_segments, dim=3), dim=2)
         self.time_off_track += 1.0 * ~self.is_on_track
         self.time_off_track *= 1.0 * ~self.is_on_track  # reset if on track again
@@ -1311,10 +1313,14 @@ def compute_rewards_jit(
     targets_std_local: torch.Tensor,
     ll_ep_done: torch.Tensor,
     train_ll: float,
+    num_wheels_off_track: torch.Tensor
 ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
 
     rew_progress = torch.clip(track_progress - old_track_progress, min=-10, max=10) * reward_scales["progress"] * (1.0 - train_ll)
-    rew_on_track = reward_scales["offtrack"] * ~is_on_track * train_ll
+
+    # rew_on_track = reward_scales["offtrack"] * ~is_on_track * train_ll
+    rew_on_track = reward_scales["offtrack"] * (torch.exp(num_wheels_off_track) - 1.0) / 1.0 * train_ll
+
     act_diff = torch.square(actions - last_actions)
     rew_acc = torch.square(vel-last_vel.view(-1,num_agents))*reward_scales['acceleration'] * train_ll
     act_diff[..., 0] *= 5.0  # 25.0
@@ -1333,14 +1339,14 @@ def compute_rewards_jit(
 
     if ranks is not None:
         #compute relative progress
-        rew_rel_prog = -torch.clip(progress_other, -1, 1).sum(dim=-1)* reward_scales["rank"]
+        rew_rel_prog = -torch.clip(progress_other, -1, 1).sum(dim=-1)* reward_scales["rank"] * (1.0 - train_ll)
         
         #rew_rank = 1.0 / num_agents * (num_active_agents.view(-1, 1) / 2.0 - ranks) * reward_scales["rank"]
 
         rew_collision = is_collision * reward_scales["collision"]
 
         rew_buf[..., 0] = torch.clip(
-            rew_progress + rew_on_track + rew_actionrate + 0*rew_rel_prog + rew_acc + 0.15*dt, min=-5*dt, max=None
+            rew_progress + rew_on_track + rew_actionrate + rew_rel_prog + rew_acc + 0.15*dt, min=-5*dt, max=None
         )+ rew_collision + rew_dist
     else:
         #needs to be a tensor

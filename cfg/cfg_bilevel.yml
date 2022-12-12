@@ -21,7 +21,7 @@ sim:
   decimation: 4
   test_mode: False
   collisionstiffness: 80.0
-  filtercollisionstoego: False
+  filtercollisionstoego: True  # False
 
 model:
   dynamics_model_name: kinematic/checkpoints/kinematic.ckpt #higher_roll_loss.ckpt #plastic_wheels.ckpt #
@@ -92,9 +92,9 @@ learn:
   race_length_laps: 1
 
   progressRewardScale: 10.0  # 1.0  # 10.0
-  offtrackRewardScale: -10.0  # -0.1
+  offtrackRewardScale: -1.0  # -0.1
   actionRateRewardScale: 0.1
-  rankRewardScale: 1.0
+  rankRewardScale: 5.0  # 1.0
   collisionRewardScale: -1.0
   accRewardScale: -0.5
   goalRewardScale: 5.0  # 5.0

@@ -54,16 +54,17 @@ def play():
     #ag = 0
     #for idx in range(150):
     obs, _= env.reset()
-    obs = obs[:,0,:]#.view(cfg['sim']['numEnv'],1,-1)
+    # obs = obs[:,0,:]#.view(cfg['sim']['numEnv'],1,-1)
     while True:
         actions_hl_raw = policy_hl(obs)
         #cant do for now with inference policy
         #env.set_hl_action_probs(policy_hl.distribution.probs)
-        for i_ll in range(env.dt_hl):
-            actions_hl = env.project_into_track_frame(actions_hl_raw.view(cfg['sim']['numEnv'],1,-1))                        
-            obs_ll = torch.concat((obs, actions_hl[:,0,:]), dim=-1)
-            actions_ll = policy_ll(obs_ll)
-            obs, _, rewards, dones, infos = env.step(actions_ll)
+        # for i_ll in range(env.dt_hl):
+        actions_hl = env.project_into_track_frame(actions_hl_raw.view(cfg['sim']['numEnv'],1,-1))                        
+        # obs_ll = torch.concat((obs, actions_hl[:,0,:]), dim=-1)
+        obs_ll = torch.concat((obs, actions_hl), dim=-1)
+        actions_ll = policy_ll(obs_ll)
+        obs, _, rewards, dones, infos = env.step(actions_ll)
 
     #     t1 = time.time()
     #     actions = policy(obs)
@@ -143,7 +144,7 @@ if __name__ == "__main__":
     SAVE = False
     args = CmdLineArguments()
     args.device = 'cuda:0'
-    args.headless = False 
+    args.headless = True 
     args.test = True
     path_cfg = os.getcwd() + '/cfg'
 
@@ -163,6 +164,8 @@ if __name__ == "__main__":
 
     if not args.headless:
         cfg['viewer']['logEvery'] = -1
+    else:
+        cfg['viewer']['logEvery'] = 5
     cfg["logdir"] = logdir
     set_dependent_cfg_entries(cfg, cfg_train)
 

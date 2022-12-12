@@ -41,10 +41,10 @@ if __name__ == "__main__":
     #cfg['sim']['numEnv'] = 16
     #cfg['track']['num_tracks'] = 2
 
-    cfg_train['runner']['policy_class_hl_name'] = 'BilevelActorCritic'
-    cfg_train['runner']['algorithm_class_hl_name'] = 'BilevelPPO'
-    cfg_train['runner']['policy_class_ll_name'] = 'ActorCritic'
-    cfg_train['runner']['algorithm_class_ll_name'] = 'PPO'
+    # cfg_train['runner']['policy_class_hl_name'] = 'BilevelActorCritic'
+    # cfg_train['runner']['algorithm_class_hl_name'] = 'BilevelPPO'
+    # cfg_train['runner']['policy_class_ll_name'] = 'ActorCritic'
+    # cfg_train['runner']['algorithm_class_ll_name'] = 'PPO'
     
     set_dependent_cfg_entries(cfg, cfg_train)
     now = datetime.now()
@@ -52,7 +52,7 @@ if __name__ == "__main__":
     logdir = logdir_root +'/'+timestamp
     
     cfg["logdir"] = logdir
-    cfg["viewer"]["logEvery"] = 5  #-1
+    cfg["viewer"]["logEvery"] = 10  #-1
 
     INIT_FROM_CHKPT = False
     #active policies
