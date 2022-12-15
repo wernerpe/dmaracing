@@ -528,6 +528,7 @@ class DmarEnv:
         self.targets_std_track = self.targets_std_local
         self.ll_steps_left = self.ll_episode_length - torch.remainder(self.episode_length_buf.unsqueeze(-1), self.ll_episode_length)
         self.ll_steps_left /= self.ll_episode_length
+        self.ll_steps_left = self.ll_steps_left.tile(1, target_std_local.shape[1], 1)
 
         self.ll_ep_done = 1.0 * (torch.remainder(self.episode_length_buf.unsqueeze(-1), self.ll_episode_length)==0)
 
@@ -700,7 +701,7 @@ class DmarEnv:
                     last_raw_actions,
                     self.targets_dist_track,
                     self.targets_std_track,
-                    self.ll_steps_left.tile(1,2,1),
+                    self.ll_steps_left,  # .tile(1,2,1),
                     self.progress_other * 0.1,
                     self.contouring_err_other * 0.25,
                     torch.sin(rot_other),

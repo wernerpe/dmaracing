@@ -1,15 +1,15 @@
-from dmaracing.utils.rl_helpers import get_bilevel_ppo_runner, get_bima_ppo_runner
+from dmaracing.utils.rl_helpers import get_bima_ppo_runner
 from dmaracing.env.dmar_bilevel import DmarEnvBilevel
 from dmaracing.utils.helpers import *
 from datetime import date, datetime
 import os
-
-# os.environ["CUDA_VISIBLE_DEVICES"]="1"
+import sys
+# os.environ['CUDA_VISIBLE_DEVICES'] = '1'
 
 def train():
     env = DmarEnvBilevel(cfg, args)
-    # runner = get_bilevel_ppo_runner(env, cfg_train, logdir, args.device)
     runner = get_bima_ppo_runner(env, cfg_train, logdir, args.device)
+
     if INIT_FROM_CHKPT:
         #load active policies
         model_paths_hl, model_paths_ll = [], []
@@ -39,45 +39,47 @@ def train():
 
 if __name__ == "__main__":
     args = CmdLineArguments()
+    args.parse(sys.argv[1:])
     args.device = 'cuda:0'
-    args.headless = True 
+    args.headless = True  # False 
     path_cfg = os.getcwd() + '/cfg'
     cfg, cfg_train, logdir_root = getcfg(path_cfg, postfix='_bilevel', postfix_train='_bilevel')
-    cfg['sim']['numAgents'] = 4
-    cfg['sim']['collide'] = 1
-    
-    #cfg['sim']['numEnv'] = 16
-    #cfg['track']['num_tracks'] = 2
+    #cfg['sim']['numAgents'] = 4
+    #cfg['sim']['collide'] = 1
+    if not args.headless:
+        cfg['viewer']['logEvery'] = -1
+    # cfg['sim']['numEnv'] = 16
+    # cfg['track']['num_tracks'] = 2
+    #cfg_train['policy']['teamsize'] = 2
+    #cfg_train['policy']['numteams'] = 2
+    # cfg_train['runner']['policy_class_name'] = 'MultiTeamCMAAC' #MAActorCritic 
+    # cfg_train['runner']['algorithm_class_name'] = 'JRMAPPO' #IMAPPO 
+    #cfg_train['runner']['num_steps_per_env'] = 32
+    #cfg_train['runner']['population_update_interval'] = 5
 
-    # cfg_train['runner']['policy_class_hl_name'] = 'BilevelActorCritic'
-    # cfg_train['runner']['algorithm_class_hl_name'] = 'BilevelPPO'
-    # cfg_train['runner']['policy_class_ll_name'] = 'ActorCritic'
-    # cfg_train['runner']['algorithm_class_ll_name'] = 'PPO'
+    cfg_train['policy']['numteams'] = 2
+    cfg_train['policy']['teamsize'] = 2
+    cfg['learn']['agent_dropout_prob'] = 0.0
 
-    cfg_train['policy']['numteams'] = 4
-    cfg_train['policy']['teamsize'] = 1
-    
+    args.override_cfg_with_args(cfg, cfg_train)
     set_dependent_cfg_entries(cfg, cfg_train)
+
     now = datetime.now()
     timestamp = now.strftime("%y_%m_%d_%H_%M_%S")
-    logdir = logdir_root +'/'+timestamp
-    
+    # logdir = logdir_root +'/'+timestamp+'_no_dist_to_go_' + cfg_train['runner']['algorithm_class_name']+'_'+str(cfg_train['runner']['num_steps_per_env'])
+    # logdir = logdir_root +'/'+timestamp + cfg_train['runner']['algorithm_class_name']+'_'+str(cfg_train['runner']['num_steps_per_env'])
+    logdir = logdir_root +'/'+timestamp + '_bilevel_2v2'
     cfg["logdir"] = logdir
-    cfg["viewer"]["logEvery"] = 10  #-1
 
-    # cfg_train['runner']['iter_per_hl'] = 10
-    # cfg_train['runner']['iter_per_hl'] = 50
 
-    INIT_FROM_CHKPT = True
+    INIT_FROM_CHKPT = False
     #active policies
-    runs_hl = ['22_12_14_18_03_08']*4
-    chkpts_hl = [850, 500, 100, 0]  # [-1] * 4
-    runs_ll = ['22_12_14_18_03_08']*4
-    chkpts_ll = [850, 500, 100, 0]  # [-1] * 4
-    # ##policies to populate adversary buffer
-    # adv_runs_hl = ['22_12_14_10_20_10'] * 10
-    # adv_chkpts_hl = [1000, 1500, 2000, 2200, 2500, 5000, 10000, 11000, 12000, 10500]
-    # adv_runs_ll = ['22_12_14_10_20_10'] * 10
-    # adv_chkpts_ll = [1000, 1500, 2000, 2200, 2500, 5000, 10000, 11000, 12000, 10500]
+    runs_hl = ['22_12_15_09_41_05_bilevel_2v2']*2
+    chkpts_hl = [200, 0]
+    runs_ll = ['22_12_15_09_41_05_bilevel_2v2']*2
+    chkpts_ll = [200, 0]
+    ##policies to populate adversary buffer
+    adv_runs = ['22_12_15_09_41_05_bilevel_2v2'] * 3
+    adv_chkpts = [200, 100, 0]
 
     train()

@@ -60,7 +60,7 @@ if __name__ == "__main__":
     logdir = logdir_root+'/'+timestamp+'_col_'+str(cfg['sim']['collide'])+'_ar_'+str(cfg['learn']['actionRateRewardScale'])+'_rr_'+str(cfg['learn']['rankRewardScale'])
 
     cfg["logdir"] = logdir
-    cfg["viewer"]["logEvery"] = 5  #-1
+    cfg["viewer"]["logEvery"] = 10  #-1
 
     INIT_FROM_CHKPT = False
     #active policies

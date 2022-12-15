@@ -797,13 +797,11 @@ class DmarEnvBilevel:
             self.num_agents,
             self.active_agents,
             self.dt,
-            # self.targets_dist_local,
-            # self.targets_std_local,
             self.targets_dist_track,
             self.targets_std_track,
             self.ll_ep_done,
             1.0 * self.train_ll,
-            self.num_wheels_off_track,
+            self.is_on_track_per_wheel,
         )
 
     def check_termination(self) -> None:
@@ -812,7 +810,7 @@ class DmarEnvBilevel:
         self.reset_buf = self.time_off_track[:, self.trained_agent_slot].view(-1, 1) > self.offtrack_reset
         lapdist = self.track_progress[:,self.trained_agent_slot].view(-1, 1)/self.track_lengths[self.active_track_ids].view(-1,1)
         #self.reset_buf |= lapdist > self.race_length_laps
-        # self.reset_buf |= (torch.abs(self.track_progress[:,0] - self.old_track_progress[:,0]).view(-1,1) > 1.0)*(self.episode_length_buf > 2)  # NOTE: commented this because it was terminating a lot (maybe due to off-->on track jumps?)
+        self.reset_buf |= (torch.abs(self.track_progress[:,0] - self.old_track_progress[:,0]).view(-1,1) > 3.5)*(self.episode_length_buf > 2)  # NOTE: commented this because it was terminating a lot (maybe due to off-->on track jumps?)
         # self.reset_buf = torch.any(self.time_off_track[:, :] > self.offtrack_reset, dim = 1).view(-1,1)
         self.time_out_buf = self.episode_length_buf > self.max_episode_length
         self.reset_buf |= self.time_out_buf
@@ -860,7 +858,7 @@ class DmarEnvBilevel:
                     tile_idx_env[:, 1:] + rands, self.active_track_tile_counts[env_ids].view(-1, 1)
                 )
             else:
-                tile_idx_env = tile_idx_env + 3 * torch.linspace(
+                tile_idx_env = tile_idx_env + 6 * torch.linspace(
                     0, self.num_agents - 1, self.num_agents, device=self.device
                 ).unsqueeze(0).to(dtype=torch.long)
                 tile_idx_env = torch.remainder(tile_idx_env, self.active_track_tile_counts[env_ids].view(-1, 1))
@@ -1313,13 +1311,19 @@ def compute_rewards_jit(
     targets_std_local: torch.Tensor,
     ll_ep_done: torch.Tensor,
     train_ll: float,
-    num_wheels_off_track: torch.Tensor
+    is_on_track_per_wheel: torch.Tensor
 ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
 
     rew_progress = torch.clip(track_progress - old_track_progress, min=-10, max=10) * reward_scales["progress"] * (1.0 - train_ll)
 
+    # ### Off-track penalties ###
     # rew_on_track = reward_scales["offtrack"] * ~is_on_track * train_ll
-    rew_on_track = reward_scales["offtrack"] * (torch.exp(num_wheels_off_track) - 1.0) / 1.0 * train_ll
+    # rew_on_track = reward_scales["offtrack"] * (torch.exp(num_wheels_off_track) - 1.0) / 1.0 * train_ll
+    # Check front axel:
+    front_axel_off_track = (1.0 * ~is_on_track_per_wheel[..., 0]) * (1.0 * ~is_on_track_per_wheel[..., 1])
+    back_axel_off_track = (1.0 * ~is_on_track_per_wheel[..., 2]) * (1.0 * ~is_on_track_per_wheel[..., 3])
+    num_wheels_off_track = ((~is_on_track_per_wheel) * 1.0).sum(dim=-1)
+    rew_on_track = reward_scales["offtrack"] * (1.0*num_wheels_off_track + 5.0*front_axel_off_track + 5.0*back_axel_off_track) * train_ll
 
     act_diff = torch.square(actions - last_actions)
     rew_acc = torch.square(vel-last_vel.view(-1,num_agents))*reward_scales['acceleration'] * train_ll

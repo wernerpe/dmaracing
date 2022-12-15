@@ -2,6 +2,8 @@ seed: 1
 clip_observations: 1000.0
 clip_actions: 4.0
 
+track_cfgs: True
+
 algorithm:
   clip_param: 0.2
   entropy_coef: 0.01  # 0.02
@@ -17,10 +19,10 @@ algorithm:
   use_clipped_value_loss: True
 
 runner:
-  policy_class_hl_name: BilevelActorCritic
-  algorithm_class_hl_name: BilevelPPO
-  policy_class_ll_name: ActorCritic
-  algorithm_class_ll_name: PPO
+  policy_class_hl_name: MultiTeamBilevelActorCritic  # BilevelActorCriticAttention  # BilevelActorCritic
+  algorithm_class_hl_name: BimaPPO  # BilevelPPO
+  policy_class_ll_name: MultiTeamBilevelActorCritic  # BilevelActorCriticAttention  # BilevelActorCritic
+  algorithm_class_ll_name: BimaPPO  # BilevelPPO
   num_steps_per_env_hl: 20  # 64 # per iteration
   num_steps_per_env_ll: 40  # 60
   max_iterations: 2400  # 1200 # 500 # number of policy updates
@@ -44,5 +46,8 @@ policy:
   activation: elu # can be elu, relu, selu, crelu, lrelu, tanh, sigmoid
   init_noise_std: 0.3  # 1.0
   attentive: True
-  encoder_type: attention2  # attention{1, 2}
-  
+  encoder_type: attention4  # attention{1, 2}
+  teamsize: 2
+  numteams: 2
+  numcritics: 1
+  max_num_old_models: 5

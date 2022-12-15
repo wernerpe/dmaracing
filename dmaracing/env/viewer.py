@@ -159,12 +159,12 @@ class Viewer:
         # cv.rectangle(self.img, (267, 33), (283, 56), color=(0, 0, 0), thickness=1)
 
         # Specify indicator dimensions
-        id_width = 17
+        id_width = 26  #17
         id_height = 23
-        id0_start = (214, 33)
-        id1_start = (240, 33)
-        id2_start = (214, 63)
-        id3_start = (240, 63)
+        id0_start = (214, 33)  # ccw: LF
+        id1_start = (248, 33)  # ccw: RF
+        id2_start = (248, 63)  # ccw: RB
+        id3_start = (214, 63)  # ccw: LB
         id0_color = (255 * (1 - int(wheels_on_track[0])), 255 * int(wheels_on_track[0]), 0)
         id1_color = (255 * (1 - int(wheels_on_track[1])), 255 * int(wheels_on_track[1]), 0)
         id2_color = (255 * (1 - int(wheels_on_track[2])), 255 * int(wheels_on_track[2]), 0)
@@ -177,8 +177,9 @@ class Viewer:
         cv.rectangle(self.img, id3_start, (id3_start[0] + id_width, id3_start[1] + id_height), color=id3_color, thickness=-1)
         
         # Add description
-        cv.putText(self.img, "Wheels  0  1", (150, 50), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
-        cv.putText(self.img, "on/off  2  3", (150, 80), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
+        cv.putText(self.img, "Wheels  FL  FR", (150, 50), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
+        cv.putText(self.img, "on/off  BL  BR", (150, 80), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
+
 
 
     def draw_action_distributions(self, hl_action_probs, ll_action_mean, ll_action_std):
