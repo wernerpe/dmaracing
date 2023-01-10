@@ -56,6 +56,10 @@ if __name__ == "__main__":
 
     cfg_train['policy']['numteams'] = 4
     cfg_train['policy']['teamsize'] = 1
+
+    cfg['teams'] = dict()
+    cfg['teams']['numteams'] = cfg_train['policy']['numteams']
+    cfg['teams']['teamsize'] = cfg_train['policy']['teamsize']
     
     set_dependent_cfg_entries(cfg, cfg_train)
     now = datetime.now()
@@ -63,12 +67,12 @@ if __name__ == "__main__":
     logdir = logdir_root +'/'+timestamp
     
     cfg["logdir"] = logdir
-    cfg["viewer"]["logEvery"] = 10  #-1
+    cfg["viewer"]["logEvery"] = 10  # 10  #-1
 
     # cfg_train['runner']['iter_per_hl'] = 10
     # cfg_train['runner']['iter_per_hl'] = 50
 
-    INIT_FROM_CHKPT = True
+    INIT_FROM_CHKPT = False
     #active policies
     runs_hl = ['22_12_14_18_03_08']*4
     chkpts_hl = [850, 500, 100, 0]  # [-1] * 4

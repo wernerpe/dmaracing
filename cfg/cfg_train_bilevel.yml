@@ -27,7 +27,7 @@ runner:
   num_steps_per_env_ll: 40  # 60
   max_iterations: 2400  # 1200 # 500 # number of policy updates
   iter_per_hl: 20
-  iter_per_ll: 100
+  iter_per_ll: 200
   population_update_interval: 100 #number of iterations before the opponent policy is updated
   # logging
   save_interval: 50 # check for potential saves every this many iterations
@@ -42,7 +42,7 @@ runner:
 policy: 
   actor_hidden_dims: [256, 128]
   critic_hidden_dims: [256, 128]
-  encoder_hidden_dims: [64]
+  encoder_hidden_dims: [128]  # [64]
   activation: elu # can be elu, relu, selu, crelu, lrelu, tanh, sigmoid
   init_noise_std: 0.3  # 1.0
   attentive: True

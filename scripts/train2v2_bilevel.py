@@ -4,7 +4,7 @@ from dmaracing.utils.helpers import *
 from datetime import date, datetime
 import os
 import sys
-# os.environ['CUDA_VISIBLE_DEVICES'] = '1'
+# os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
 def train():
     env = DmarEnvBilevel(cfg, args)
@@ -60,6 +60,10 @@ if __name__ == "__main__":
     cfg_train['policy']['numteams'] = 2
     cfg_train['policy']['teamsize'] = 2
     cfg['learn']['agent_dropout_prob'] = 0.0
+
+    cfg['teams'] = dict()
+    cfg['teams']['numteams'] = cfg_train['policy']['numteams']
+    cfg['teams']['teamsize'] = cfg_train['policy']['teamsize']
 
     args.override_cfg_with_args(cfg, cfg_train)
     set_dependent_cfg_entries(cfg, cfg_train)

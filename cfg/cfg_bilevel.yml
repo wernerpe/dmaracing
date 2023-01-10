@@ -11,7 +11,8 @@ sim:
   #dependent on the lookaheadhorizon length and number of ado cars in an env
   #this is done in get_cfg directly
   numObservations: -1
-  numConstantObservations: 6 #vels, rxy, lxy, maxvel, last actions
+  # numConstantObservations: 6 #vels, rxy, lxy, maxvel, last actions
+  numConstantObservations: 8 #vels, rxy, lxy, maxvel, last actions, rank, teamrank
   # numConstantObservations: 7 #vels, rxy, lxy, maxvel, last actions, lltime
   # numConstantObservations: 11 #vels, rxy, lxy, maxvel, last actions, goalpos, goalstd, lltime
   numConstantObservationsLL: 5  # goalpos, goalstd, lltime
@@ -37,7 +38,7 @@ model:
   MASS_SCALE: 40
   MOMENT_OF_INERTIA_SCALE: 7.0
   drag_reduction: 1.3
-  noise_level: 1.0
+  noise_level: 0.5  # 1.0
   col_decay_time: 0.5
   gp_noise_scale: 0.01
 
@@ -72,7 +73,7 @@ track:
   track_poly_spacing: 0.15
   
 learn:
-  steer_ado_with_PPC: False  # True  # FIXME: True currently not supported, setting same action for all
+  steer_ado_with_PPC: True  # True  # FIXME: True currently not supported, setting same action for all
   use_timeouts: True
   use_track_curriculum: True
   #[posx, posy, theta, vellong, vellat, dtheta, steer]
@@ -91,13 +92,13 @@ learn:
   distance_obs_cutoff: 2.0 #[m]
   race_length_laps: 1
 
-  progressRewardScale: 10.0  # 1.0  # 10.0
-  offtrackRewardScale: -1.0  # -0.1
-  actionRateRewardScale: 0.1
-  rankRewardScale: 5.0  # 1.0
+  progressRewardScale: 0.0  # 1.0  # 10.0  # 1.0  # 10.0
+  offtrackRewardScale: -0.2  # -1.0  # -0.1  # -0.1
+  actionRateRewardScale: -0.01  # -0.1
+  rankRewardScale: 2.0  # 5.0  # 5.0  # 1.0
   collisionRewardScale: -1.0
   accRewardScale: -0.5
-  goalRewardScale: 5.0  # 5.0
+  goalRewardScale: 1.0  # 5.0
   horizon: 12  # 15
 
   episode_length_ll: 20  # low-level steps in high-level step
