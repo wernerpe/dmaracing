@@ -42,7 +42,7 @@ model:
 viewer:
   width: 1200  # 1200
   height: 1200  # 1200
-  width_tb: 600  # 1200steer_ado_with_PPC
+  width_tb: 600  # 1200
   height_tb: 600  # 1200
 
   scale: 12.0 #[m/width*px] indicates how wide the window is in pixels

@@ -684,7 +684,7 @@ class DmarEnv:
             )
             last_raw_actions = self.last_actions
             last_raw_actions[:,:,0] = torch.clip(last_raw_actions[:,:,0], min = -0.35, max= 0.35)
-            last_raw_actions[:,:,1] = torch.clip(last_raw_actions[:,:,1], min = -0.3, max= 1.3)
+            last_raw_actions[:,:,1] = torch.clip(last_raw_actions[:,:,1], min = -0.3, max= 1.3)  # FIXME: where/why clip
              
             last_raw_actions[:,:, 0 ] = (last_raw_actions[:,:, 0 ] - self.default_actions[0])/self.action_scales[0]  
             last_raw_actions[:,:, 1] = (last_raw_actions[:,:, 1] - self.default_actions[1])/self.action_scales[1]  

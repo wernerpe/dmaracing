@@ -198,7 +198,7 @@ def get_state_control_tensors(
         dim=2,
     )  # x and y in world frame, dx and dy need to be rotated by theta to be in body frame
     clipped_max = (state[:, :, vn["S_DX"]] < 5.0) * 1.0
-    clipped_min = (state[:, :, vn["S_DX"]] > 0.0) * -1.0
+    clipped_min = (state[:, :, vn["S_DX"]] > -0.1) * -1.0  # 0.0
     dyn_control = torch.cat([torch.clamp(actions[:, :, vn["A_STEER"]], -0.35 , .35).unsqueeze(2), 
                              torch.clip(actions[:, :, vn["A_GAS"]], clipped_min, clipped_max).unsqueeze(2)], dim=2)
    

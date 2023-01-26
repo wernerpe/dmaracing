@@ -36,6 +36,8 @@ class DmarEnvBilevel:
         set_dependent_params(self.modelParameters)
         self.simParameters = cfg["sim"]
 
+        self.log_behavior_freq = cfg["sim"]["logBehaviorEvery"]
+
         # teams
         self.num_teams = cfg['teams']['numteams']
         self.team_size = cfg['teams']['teamsize']
@@ -44,6 +46,7 @@ class DmarEnvBilevel:
         # use bootstrapping on vf
         self.use_timeouts = cfg["learn"]["use_timeouts"]
         self.track_stats = cfg["trackRaceStatistics"]
+        self.log_behavior_stats = cfg["logBehaviorStatistics"]
 
         self.num_states = 0
         self.num_privileged_obs = None
@@ -158,6 +161,7 @@ class DmarEnvBilevel:
         )
         self.time_out_buf = torch_zeros((self.num_envs, 1)) > 1
         self.reset_buf = torch_zeros((self.num_envs, 1)) > 1
+        self.reset_buf_tmp = torch_zeros((self.num_envs, 1)) > 1
         self.agent_left_track = torch_zeros((self.num_envs, self.num_agents)) > 1
         self.episode_length_buf = torch_zeros((self.num_envs, 1))
         self.time_off_track = torch_zeros((self.num_envs, self.num_agents))
@@ -199,6 +203,7 @@ class DmarEnvBilevel:
         self.use_track_curriculum = cfg["learn"]["use_track_curriculum"]
 
         self.steer_ado_ppc = True if self.cfg['learn']['steer_ado_with_PPC'] and self.num_agents>1 else False
+        self.steps_ado_ppc = self.cfg['learn']['steps_ado_with_PPC'] if self.steer_ado_ppc else 0
         
         if self.steer_ado_ppc:
             print('[DMAR] Overriding ado actions with PPC')
@@ -304,6 +309,12 @@ class DmarEnvBilevel:
         self.targets_off_ahead = torch.zeros(
             (self.num_envs, self.num_agents, 1), device=self.device, requires_grad=False, dtype=torch.float
         )
+
+        self.all_targets_pos_world_env0 = []
+        self.all_egoagent_pos_world_env0 = []
+        self.ego_pos_world = torch.zeros(
+            (2,), device=self.device, requires_grad=False, dtype=torch.float
+        )
         
         self._action_probs_hl, self._action_mean_ll, self._action_std_ll, self.targets_rew01_local  = None, None, None, None
 
@@ -328,7 +339,7 @@ class DmarEnvBilevel:
 
         self.trained_agent_slot = 0
 
-        if self.track_stats:
+        if self.log_behavior_stats:
             self.stats_overtakes_current = torch.zeros((self.num_envs), device = self.device)
             self.stats_overtakes_last_race = torch.zeros((self.num_envs), device = self.device)
             self.stats_num_collisions_current = torch.zeros((self.num_envs), device = self.device)
@@ -342,6 +353,15 @@ class DmarEnvBilevel:
             self.stats_lead_time_current = torch.zeros((self.num_envs), device = self.device)
             self.stats_lead_time_last_race = torch.zeros((self.num_envs), device = self.device)
             self.stats_last_ranks = torch.zeros((self.num_envs, self.num_agents), device = self.device)
+
+            self.batch_stats_overtakes = []
+            self.batch_stats_num_collisions = []
+            self.batch_stats_ego_left_track = []
+            self.batch_stats_lead_time = []
+            self.batch_stats_rank_team = []
+            self.batch_stats_rank_lower = []
+
+        if self.track_stats:
             self.stats_percentage_sa_laptime_last_race = torch.zeros((self.num_envs), device = self.device)
             #track_order 
             #track_names = ['sharp_turns_track_ccw', 'sharp_turns_track_cw', 'orca_ccw', 'orca_cw', 'oversize1_ccw', 'oversize1_cw']
@@ -515,7 +535,7 @@ class DmarEnvBilevel:
         theta = self.states[:, :, 2]
         vels = self.states[:, :, 3:6].clone()
         tile_idx_unwrapped = self.active_track_tile.unsqueeze(2) + (
-            4 * torch.arange(self.horizon, device=self.device, dtype=torch.long)
+            4 * torch.arange(self.horizon, device=self.device, dtype=torch.long)  # 4
         ).unsqueeze(0).unsqueeze(0)
         tile_idx = torch.remainder(tile_idx_unwrapped, self.active_track_tile_counts.view(-1, 1, 1))
         centers = self.active_centerlines[:, tile_idx, :]
@@ -762,9 +782,11 @@ class DmarEnvBilevel:
                 * self.active_obs_template
                 * is_other_close
             )
-            last_raw_actions = self.last_actions 
+            last_raw_actions = self.last_actions.clone()
+            # last_raw_actions[:,:,0] = torch.clip(last_raw_actions[:,:,0], min = -0.35, max= 0.35)
+            # last_raw_actions[:,:,1] = torch.clip(last_raw_actions[:,:,1], min = -0.3, max= 1.3)  # FIXME: where/why clip
             
-            last_raw_actions[:,:, 0 ] = (last_raw_actions[:,:, 0 ] - self.default_actions[0])/self.action_scales[0]  
+            last_raw_actions[:,:, 0] = (last_raw_actions[:,:, 0] - self.default_actions[0])/self.action_scales[0]  
             last_raw_actions[:,:, 1] = (last_raw_actions[:,:, 1] - self.default_actions[1])/self.action_scales[1]  
             
             #maxvel obs self.dyn_model.dynamics_integrator.dyn_model.max_vel_vec
@@ -790,9 +812,9 @@ class DmarEnvBilevel:
                 dim=2,
             )
         else:
-            last_raw_actions = self.last_actions 
-            last_raw_actions[:,:,0] = torch.clip(last_raw_actions[:,:,0], min = -0.35, max= 0.35)
-            last_raw_actions[:,:,1] = torch.clip(last_raw_actions[:,:,1], min = -0.3, max= 1.3)
+            last_raw_actions = self.last_actions.clone()
+            # last_raw_actions[:,:,0] = torch.clip(last_raw_actions[:,:,0], min = -0.35, max= 0.35)
+            # last_raw_actions[:,:,1] = torch.clip(last_raw_actions[:,:,1], min = -0.3, max= 1.3)
 
             last_raw_actions[:,:, 0] = (last_raw_actions[:,:, 0] - self.default_actions[0])/self.action_scales[0]  
             last_raw_actions[:,:, 1] = (last_raw_actions[:,:, 1] - self.default_actions[1])/self.action_scales[1]  
@@ -853,8 +875,8 @@ class DmarEnvBilevel:
             self.targets_off_ahead
         )
 
-    def check_progress_jump(self) -> torch.Tensor:
-        return torch.abs(self.track_progress - self.old_track_progress) > 3.5
+    def check_progress_jump(self, progress, old_progress) -> torch.Tensor:
+        return torch.abs(progress - old_progress) > 3.5  # 5.0  # 3.5
 
     def check_termination(self) -> None:
         # # Old
@@ -871,14 +893,18 @@ class DmarEnvBilevel:
 
         # New
         reset_offtrack = self.time_off_track[:, self.trained_agent_slot].view(-1, 1) > self.offtrack_reset
-        reset_progress = (self.check_progress_jump()[..., 0].view(-1, 1))*(self.episode_length_buf > 2)
+        reset_progress = (self.check_progress_jump(self.track_progress, self.old_track_progress)[..., 0].view(-1, 1))*(self.episode_length_buf > 2)
         reset_timeout = self.episode_length_buf > self.max_episode_length
         
         self.reset_cause = 1e0 * reset_offtrack + 1e1 * reset_progress + 1e2 * reset_timeout
-        self.reset_buf = reset_offtrack | reset_progress | reset_timeout
+        self.reset_buf_tmp = reset_offtrack | reset_progress | reset_timeout  # | self.reset_buf_tmp
+
+        self.time_out_buf = reset_timeout
 
         if not self.train_ll:  # FIXME: check this
-            self.reset_buf = torch.logical_and(self.reset_buf, torch.remainder((self.total_step) * torch.ones_like(self.reset_buf), self.dt_hl)==0)
+            self.reset_buf = torch.logical_and(self.reset_buf_tmp, torch.remainder((self.total_step) * torch.ones_like(self.reset_buf), self.dt_hl)==0)
+        else:
+            self.reset_buf = self.reset_buf_tmp
 
     def reset(self) -> Tuple[torch.Tensor, Union[None, torch.Tensor]]:
         print("Resetting")
@@ -1049,6 +1075,9 @@ class DmarEnvBilevel:
         self.last_vel[env_ids, ...] = 0.0
         self.agent_left_track[env_ids, :] = False
 
+        self.reset_buf[env_ids] = False
+        self.reset_buf_tmp[env_ids] = False
+
         self.wheels_on_track_segments[env_ids, ...] = True  # HACK
 
         self.ll_ep_done[env_ids, ...] = 0.0  # FIXME: remove?
@@ -1069,7 +1098,7 @@ class DmarEnvBilevel:
         if actions.requires_grad:
             actions = actions.detach()
 
-        if self.steer_ado_ppc:
+        if self.steer_ado_ppc and (self._global_step < self.steps_ado_ppc or self.steps_ado_ppc==-1):
             actions[:,-((self.num_teams - 1) * self.team_size):,:] = self.ppc.step()[:,-((self.num_teams - 1) * self.team_size):,:]
         if len(actions.shape) == 2:
             self.actions[:, 0, 0] = self.action_scales[0] * actions[..., 0] + self.default_actions[0]
@@ -1113,6 +1142,12 @@ class DmarEnvBilevel:
         self.time_off_track += 1.0 * ~self.is_on_track
         self.time_off_track *= 1.0 * ~self.is_on_track  # reset if on track again
 
+        # Update ego position at end of LL episodes
+        update_ego_pos = self.ll_ep_done[0, 0]
+        self.ego_pos_world = update_ego_pos * self.states[0, 0, :2] + (1.0 - update_ego_pos) * self.ego_pos_world
+        self.all_egoagent_pos_world_env0.append(self.ego_pos_world)
+        self.all_targets_pos_world_env0.append(self.targets_pos_world[0, 0])
+
         # # update drag_reduction
         # self.drag_reduction_points[
         #     :, self.drag_reduction_write_idx : self.drag_reduction_write_idx + self.num_agents, :
@@ -1146,8 +1181,8 @@ class DmarEnvBilevel:
         self.trackdir = torch.stack((torch.cos(angs), torch.sin(angs)), dim=2)
         self.trackperp = torch.stack((-torch.sin(angs), torch.cos(angs)), dim=2)
 
-        increment_idx = torch.where(self.active_track_tile - self.old_active_track_tile < -70)  # avoid farming turns?
-        decrement_idx = torch.where(self.active_track_tile - self.old_active_track_tile > 10)
+        increment_idx = torch.where(self.active_track_tile - self.old_active_track_tile < 15 - self.track_tile_counts[self.active_track_ids].view(-1, 1))  # avoid farming turns? NOTE: track length - buffer
+        decrement_idx = torch.where(self.active_track_tile - self.old_active_track_tile > 15)
         self.lap_counter[increment_idx] += 1
         self.lap_counter[decrement_idx] -= 1
 
@@ -1162,7 +1197,7 @@ class DmarEnvBilevel:
         for team in self.teams:
             self.teamranks[:, team] = torch.min(self.ranks[:, team], dim = 1)[0].reshape(-1,1).type(torch.int)
         
-        if self.track_stats:
+        if self.log_behavior_stats:
             #set to 1 when not starting from rank 1
             idx_uninit = torch.where(self.stats_start_from_behind_current == -1)[0]
             if len(idx_uninit):
@@ -1190,8 +1225,14 @@ class DmarEnvBilevel:
             if 0 in env_ids:
                 self.render()  # Additional render to display reset cause
                 is_reset_frame = True
+                self.viewer.update_attention()
+                self.all_targets_pos_world_env0 = []
+                self.all_egoagent_pos_world_env0 = []
             if self.track_stats:
-                self.reset_stats(env_ids)
+                self.reset_track_stats(env_ids)
+            if self.log_behavior_stats and 0 in env_ids:
+                self.reset_behavior_stats(env_ids)
+                self.write_behavior_stats()
             self.reset_envs(env_ids)
             # Reset vars to track off-track / reset cause
             self.is_on_track_per_wheel[env_ids, ...] = True
@@ -1209,8 +1250,8 @@ class DmarEnvBilevel:
 
         self.vel = torch.norm(self.states[:,:,self.vn['S_DX']:self.vn['S_DY']+1], dim = -1)
 
-        if self.track_stats:
-            self.update_current_stats()
+        if self.log_behavior_stats:
+            self.update_current_behavior_stats()
         self.compute_observations()
         self.compute_rewards()
 
@@ -1238,7 +1279,7 @@ class DmarEnvBilevel:
                     self.targets_pos_world, self.targets_rew01_local, self.targets_rot_world, self.targets_dist_track, self.actions, self.time_off_track,
                     self._action_probs_hl, self._action_mean_ll, self._action_std_ll,
                     self.is_on_track_per_wheel, self.dyn_model.dynamics_integrator.dyn_model.max_vel_vec, self.step_reward_terms, self.reset_cause, self.track_progress, self.active_track_tile,
-                    self.ranks if self.num_agents>1 else None,
+                    self.ranks if self.num_agents>1 else None, self._global_step, self.all_targets_pos_world_env0, self.all_egoagent_pos_world_env0, self.last_actions,
                 )
         else:
             self.viewer_events = self.viewer.render(
@@ -1246,8 +1287,26 @@ class DmarEnvBilevel:
                 self.targets_pos_world, self.targets_rew01_local, self.targets_rot_world, self.targets_dist_track, self.actions, self.time_off_track,
                 self._action_probs_hl, self._action_mean_ll, self._action_std_ll,
                 self.is_on_track_per_wheel, self.dyn_model.dynamics_integrator.dyn_model.max_vel_vec, self.step_reward_terms, self.reset_cause, self.track_progress, self.active_track_tile,
-                self.ranks if self.num_agents>1 else None,
+                self.ranks if self.num_agents>1 else None, self._global_step, self.all_targets_pos_world_env0, self.all_egoagent_pos_world_env0, self.last_actions,
             )
+
+    def write_behavior_stats(self) -> None:
+        if (self._global_step % self.log_behavior_freq == 0) and (self._global_step > 0):
+            self.info["behavior"] = {}
+            self.info["behavior"]["samples"] = len(torch.concat(self.batch_stats_overtakes))
+            self.info["behavior"]["overtakes"] = torch.concat(self.batch_stats_overtakes).mean()
+            self.info["behavior"]["collisions"] = torch.concat(self.batch_stats_num_collisions).mean()
+            self.info["behavior"]["offtrack"] = torch.concat(self.batch_stats_ego_left_track).mean()
+            self.info["behavior"]["leadtime"] = torch.concat(self.batch_stats_lead_time).mean()
+            self.info["behavior"]["teamranks"] = torch.concat(self.batch_stats_rank_team).mean()
+            self.info["behavior"]["lowerrank"] = torch.concat(self.batch_stats_rank_lower).mean()
+
+            self.batch_stats_overtakes = []
+            self.batch_stats_num_collisions = []
+            self.batch_stats_ego_left_track = []
+            self.batch_stats_lead_time = []
+            self.batch_stats_rank_team = []
+            self.batch_stats_rank_lower = []
 
     def simulate(self) -> None:
         # run physics update
@@ -1343,14 +1402,20 @@ class DmarEnvBilevel:
     def set_trained_agent_slot(self, slot):
         self.trained_agent_slot = slot
 
-    def reset_stats(self, env_ids):
+    def reset_behavior_stats(self, env_ids):
+        self.batch_stats_overtakes.append(self.stats_overtakes_current[env_ids])
+        self.batch_stats_num_collisions.append(self.stats_num_collisions_current[env_ids])
+        self.batch_stats_ego_left_track.append(self.stats_ego_left_track_current[env_ids])
+        self.batch_stats_lead_time.append(self.stats_lead_time_current[env_ids])
+        self.batch_stats_rank_team.append((1.0*self.teamranks[env_ids, 0]))
+        self.batch_stats_rank_lower.append((1.0*self.ranks[env_ids, :self.team_size].max(dim=-1)[0]))
+
         self.stats_overtakes_last_race[env_ids] = self.stats_overtakes_current[env_ids]
         self.stats_num_collisions_last_race[env_ids] = self.stats_num_collisions_current[env_ids]
         self.stats_ego_left_track_last_race[env_ids] = self.stats_ego_left_track_current[env_ids]
         self.stats_ado_left_track_last_race[env_ids] = self.stats_ado_left_track_current[env_ids]
         self.stats_win_from_behind_last_race[env_ids] = (self.ranks[env_ids, 0] == 0)*self.stats_start_from_behind_current[env_ids]  -1* (self.ranks[env_ids, 0] != 0)*self.stats_start_from_behind_current[env_ids]
         self.stats_lead_time_last_race[env_ids] = self.stats_lead_time_current[env_ids]
-        self.stats_percentage_sa_laptime_last_race[env_ids] = -1
 
         self.stats_overtakes_current[env_ids] = 0
         self.stats_num_collisions_current[env_ids] = 0
@@ -1359,12 +1424,15 @@ class DmarEnvBilevel:
         self.stats_start_from_behind_current[env_ids] = -1
         self.stats_lead_time_current[env_ids] = 0
 
-    def update_current_stats(self):
-        self.stats_overtakes_current[:] += 1.0*((self.ranks[:,0] - self.stats_last_ranks[:,0]) < 0)
+    def reset_track_stats(self, env_ids):
+        self.stats_percentage_sa_laptime_last_race[env_ids] = -1
+
+    def update_current_behavior_stats(self):
+        self.stats_overtakes_current[:] += 1.0*((self.ranks[:,0] - self.stats_last_ranks[:,0]) < 0)  # FIXME: does not account for rank loss due to off-track switch
         self.stats_num_collisions_current[:] += 1.0 * self.is_collision[:,0]
         self.stats_ego_left_track_current[:] += 1.0 * ~self.is_on_track[:,0]
         self.stats_ado_left_track_current[:] += 1.0 * torch.any(~self.is_on_track[:,1:] , dim =1).view(-1,)
-        self.stats_lead_time_current[:] += self.dt*(self.ranks[:, 0])
+        self.stats_lead_time_current[:] += self.dt*(self.ranks[:, 0]==0)
         
         self.stats_last_ranks[:] = self.ranks[:] 
 
@@ -1400,7 +1468,11 @@ def compute_rewards_jit(
     targets_off_ahead: torch.Tensor,
 ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
 
-    rew_progress = torch.clip(track_progress - old_track_progress, min=-10, max=10) * reward_scales["progress"] * (1.0 - train_ll)
+    delta_progress = track_progress - old_track_progress
+    progress_jump = 1.0 * (torch.abs(delta_progress) > 3.5)
+    rew_progress = torch.clip(delta_progress, min=-10, max=10) * reward_scales["progress"] * (1.0 - progress_jump)
+    rew_progress = -10.0 * progress_jump * reward_scales["progress"]  # NOTE: alternative, penalize reset step
+    rew_progress *= train_ll
 
     # ### Off-track penalties ###
     # rew_on_track = reward_scales["offtrack"] * ~is_on_track * train_ll
@@ -1419,12 +1491,14 @@ def compute_rewards_jit(
     num_active_agents = torch.sum(1.0 * active_agents, dim=1)
 
     # Goal distance reward --> FIXME: does not rotate distribution
+    # targets_dist_local *= 0.5 * 2**(4.0-targets_std_local/0.1)  # new scaling to separate distributions
     exponent = -0.5 * (targets_dist_local / targets_std_local)**2
     pdf_dist = 1.0/(np.sqrt(2.0 * np.pi) * targets_std_local) * torch.exp(exponent)
+    pdf_dist /= 4.0  # max attainable ~1.0
 
     rew_dist_base = pdf_dist * reward_scales['goal']
     # Sparse
-    scale_sparse = ll_ep_done
+    scale_sparse = ll_ep_done* targets_off_ahead / 5.0  # encourage larger offsets (?) [/5.0]
     # Dense
     # scale_dense = (1.0 / (torch.exp(1.0 * torch.norm(targets_dist_local, dim=-1, keepdim=True))))
     scale_dense = 1.0 / torch.exp(5. * (ll_steps_left-0.05))
@@ -1435,8 +1509,8 @@ def compute_rewards_jit(
     # rew_dist = torch.mean(rew_dist, dim=-1)
     # Only reward y proximity if actually close to target
     # rew_dist = rew_dist[..., 0] + 1.0 / (5e1 * targets_dist_local[..., 0].abs() + 1e0) * rew_dist[..., 1]
-    rew_dist = rew_dist[..., 0] * rew_dist[..., 1]
-    rew_dist = rew_dist * targets_off_ahead[..., 0] / 5.0  # encourage larger offsets (?)
+    rew_dist = rew_dist[..., 0] * rew_dist[..., 1]  # *
+    # rew_dist = rew_dist * (targets_off_ahead[..., 0] / 5.0)**2  # encourage larger offsets (?) [/5.0]
 
     if ranks is not None:
         #compute relative progress
@@ -1444,7 +1518,7 @@ def compute_rewards_jit(
         
         #rew_rank = 1.0 / num_agents * (num_active_agents.view(-1, 1) / 2.0 - ranks) * reward_scales["rank"]
         # rew_rank = torch.exp(-2.0 * teamranks) * reward_scales["rank"] * (1.0 - train_ll)
-        rew_rank = torch.exp(-2.0 * ranks) * reward_scales["rank"] * (1.0 - train_ll)
+        rew_rank = torch.exp(-2.0 * ranks) * reward_scales["rank"] * (1.0 - train_ll)  # * ll_ep_done[..., 0]
 
         rew_collision = is_collision * reward_scales["collision"] * train_ll
 

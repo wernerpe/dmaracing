@@ -4,6 +4,7 @@ import numpy as np
 import sys
 
 from matplotlib import pyplot as plt
+from trueskill import TrueSkill
 
 from dmaracing.utils.trackgen import draw_track
 
@@ -104,7 +105,8 @@ class Viewer:
       hl_action_probs=None, ll_action_mean=None, ll_action_std=None,
       wheels_on_track=None, max_vels=None,
       reward_terms=None, reset_cause=None, track_progress=None, active_tile=None,
-      ranks=None):
+      ranks=None, global_step=None, all_targets_pos_world_env0=None, all_egoagent_pos_world_env0=None,
+      last_actions=None,):
         self.state = state.clone()
         self.slip = slip.clone()
         self.wheel_locs = wheel_locs.clone()
@@ -124,6 +126,8 @@ class Viewer:
             else:
                 self.draw_singleagent_rep(state[:self.num_cars])
             cv.putText(self.img, "Env ID: " + str(self.env_idx_render), (15, 50), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
+            if global_step is not None:
+                  cv.putText(self.img, "Gstep: " + str(global_step), (15, 80), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
             # if targets_distance is not None:
             #     target_dist = targets_distance[0, 0, :].cpu().numpy()
             #     cv.putText(self.img, "dGx: " + "{:.2f}".format(target_dist[0]), (350, 50), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
@@ -135,13 +139,15 @@ class Viewer:
             # if time_off_track is not None:
             #     time_off_track = time_off_track[0, 0].cpu().numpy()
             #     cv.putText(self.img, "off: " + str(int(time_off_track)), (35, 80), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
-            self.draw_points()
-            self.draw_lines()
-            self.draw_string()
-            self.draw_marked_agents()
+            
+            # Moved below
+            # self.draw_points()
+            # self.draw_lines()
+            # self.draw_string()
+            # self.draw_marked_agents()
 
             if hl_action_probs is not None:
-                self.draw_action_distributions_new(hl_action_probs, ll_action_mean, ll_action_std, targets_distance, actions)
+                self.draw_action_distributions_new(hl_action_probs, ll_action_mean, ll_action_std, targets_distance, actions, last_actions)
 
             if wheels_on_track is not None:
                 self.draw_wheel_on_track_indicators(wheels_on_track, time_off_track)
@@ -161,8 +167,23 @@ class Viewer:
             if reset_cause is not None:
                 self.draw_reset_cause(reset_cause)
 
-            if track_progress is not None and active_tile is not None:
-                self.draw_track_progress(track_progress, active_tile)
+            # if track_progress is not None and active_tile is not None:
+            #     self.draw_track_progress(track_progress, active_tile)
+
+            if self.attention is not None:
+                self._draw_attention(state)
+
+            if all_targets_pos_world_env0 is not None and all_egoagent_pos_world_env0 is not None:
+                self.draw_all_targets(all_targets_pos_world_env0, all_egoagent_pos_world_env0)
+
+            if False:
+                self.display_ego_state(state)
+            
+
+            self.draw_points()
+            self.draw_lines()
+            self.draw_string()
+            self.draw_marked_agents()
 
         
         #listen for keypressed events
@@ -172,6 +193,43 @@ class Viewer:
             key = self._render_tb()
 
         return key
+
+
+    def display_ego_state(self, states):
+        states = states[self.env_idx_render, 0].cpu().numpy()
+
+        h_diffs = 30
+        h_start = 120  # 100
+        cv.putText(self.img, "Ego state:", (470, h_start), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
+        names = ['px', 'py', 'th']
+        for idx, (name, state) in enumerate(zip(names, states[:3])):
+            strval = "{:+.3f}".format(state)
+            cv.putText(self.img, name + ': ' + strval, (470, h_start + (idx+1) * h_diffs), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
+
+
+    def draw_all_targets(self, all_targets_pos_world_env0, all_egoagent_pos_world_env0):
+        all_targets = torch.stack(all_targets_pos_world_env0, dim=0).cpu().numpy()
+        #project into camera frame%
+        all_targets = self.cords2px_np(all_targets)
+        unique_idx_target = np.unique(all_targets, axis=0, return_index=True)[1]
+        all_targets = all_targets[np.sort(unique_idx_target)]
+
+        all_positions = torch.stack(all_egoagent_pos_world_env0, dim=0).cpu().numpy()
+        #project into camera frame%
+        all_positions = self.cords2px_np(all_positions)
+        unique_idx_position = np.unique(all_positions, axis=0, return_index=True)[1]
+        all_positions = all_positions[np.sort(unique_idx_position)]
+        all_positions = np.concatenate((all_positions, 0 * np.expand_dims(all_positions[0], axis=0)), axis=0)  # skip first entry (want end of LL ep)
+
+        for idx, (target, position) in enumerate(zip(all_targets, all_positions[1:])):
+            scale =  int(80/(self.scale_x))
+            self.img = cv.circle(self.img, (target[0], target[1]), scale, (int(self.colors[-1]),  0, int(self.colors[-1])), -1)
+            cv.putText(self.img, str(idx), (target[0]+5, target[1]-10), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
+            self.img = cv.circle(self.img, (position[0], position[1]), scale, (0,  255, 0), -1)
+            cv.putText(self.img, str(idx), (position[0]+5, position[1]-10), self.font, 0.5,  (0,  255, 0), 1, cv.LINE_AA)
+
+            if idx < len(all_targets)-1:
+                self.img  = cv.line(self.img, target, position, color=(255, 0, 0), thickness=1)
 
     def draw_track_progress(self, track_progress, active_tile):
         track_progress = track_progress[0, 0].cpu().numpy()
@@ -433,7 +491,7 @@ class Viewer:
         cv.putText(self.img, "da=" + da_strval, (15, h_start + 2 * h_diffs), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
 
 
-    def draw_action_distributions_new(self, hl_action_probs, ll_action_mean, ll_action_std, target_dist, actions):
+    def draw_action_distributions_new(self, hl_action_probs, ll_action_mean, ll_action_std, target_dist, actions, last_actions):
 
         hl_action_probs = hl_action_probs[0, 0].cpu().numpy()
         ll_action_mean = ll_action_mean[0, 0].cpu().numpy()
@@ -441,12 +499,21 @@ class Viewer:
 
         target_dist = target_dist[0, 0, :].cpu().numpy()
         actions = actions[0, 0, :].cpu().numpy()
+        last_actions = last_actions[0, 0, :].cpu().numpy()
         # xlabel = np.linspace(1, hl_action_probs.shape[-1], num=hl_action_probs.shape[-1])
 
-        bar_width = 10
         bar_scale = 30
         bar_bottom = self.height - 50
-        separation = 3
+
+        # width budget = 70
+        # per bar = int(width budget / len(hl_action_probs[0]))
+        # separation = int(max(1.0, per bar * 0.2))
+        # bar width = per bar - separation
+
+        width_budget = 65
+        bar_budget = int(width_budget / len(hl_action_probs[0]))
+        separation = int(max(1.0, bar_budget * 0.3))  # 3
+        bar_width = bar_budget - separation  # 10
 
         # ### High-level controller ###
         # Action 1
@@ -517,6 +584,11 @@ class Viewer:
         ellipse_x_pos = ellipse_x_pos + x_ref0
         ellipse_y_pos = bar_bottom - ellipse_y_pos
 
+        last_actions_x_pos = scale_pos_to_img(last_actions[0], x_act_min, x_act_max, ellipse_scale)
+        last_actions_y_pos = scale_pos_to_img(last_actions[1], y_act_min, y_act_max, ellipse_scale)
+        last_actions_x_pos = last_actions_x_pos + x_ref0
+        last_actions_y_pos = bar_bottom - last_actions_y_pos
+
 
         # Relative and scaled
         x_act_rel_min = scale_pos_to_img(x_act_min, x_act_min, x_act_max, ellipse_scale)
@@ -544,7 +616,8 @@ class Viewer:
         cv.line(self.img, y_zero_start, y_zero_end, color=(0, 0, 255), thickness=1)
 
         cv.ellipse(self.img, (ellipse_x_pos, ellipse_y_pos), (ellipse_x_len, ellipse_y_len), float(0.0), 0.0, 360.0, (255, 0, 0), 2)
-        cv.circle(self.img, (ellipse_x_pos, ellipse_y_pos), 1, (255,0,0))
+        cv.circle(self.img, (ellipse_x_pos, ellipse_y_pos), 1, (255,0,0), -1)
+        cv.circle(self.img, (last_actions_x_pos, last_actions_y_pos), 2, (0,0,255), -1)
 
 
 
@@ -855,3 +928,24 @@ class Viewer:
 
         self.img = cv.circle(self.img, (target[0], target[1]), scale, (0, 0, 255), -1)
         self.img = cv.ellipse(self.img, (target[0], target[1]), (target_rew01[0], target_rew01[1]), float(target_angle), 0.0, 360.0, (0, 0, 255), 1)
+
+    def update_attention(self, attention=None):
+        if attention is not None:
+            self.attention = attention.detach().cpu().numpy().mean(axis=0)
+        else:
+            self.attention = None
+
+    def _draw_attention(self, states):
+        state = states[self.env_idx_render, :, 0:2].cpu().numpy()
+        for ado_id in range(self.num_agents-1):
+            endpoints = np.array([state[0], state[ado_id+1]])
+            if self.attention[ado_id].item() >= 0.01:
+                color = self.rgb_convert(self.attention[ado_id])
+                self.add_lines(endpoints=endpoints.squeeze(), color = color, thickness= int(5*self.attention[ado_id].item()))
+
+    def rgb_convert(self, value, minimum=0.0, maximum=1.0):
+        ratio = 2 * (value-minimum) / (maximum - minimum)
+        b = int(max(0, 255*(1 - ratio)))
+        r = int(max(0, 255*(ratio - 1)))
+        g = 255 - b - r
+        return r, g, b
