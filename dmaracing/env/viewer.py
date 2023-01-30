@@ -85,6 +85,8 @@ class Viewer:
         if not self._headless:
             cv.imshow('dmaracing', self.track_canvas)
 
+        self.attention = None
+
     def center_cam(self, state):
         self.scale_x /= 0.7
         self.scale_y /= 0.7 
@@ -564,8 +566,8 @@ class Viewer:
         # y = throttle
 
         # Bounds
-        x_act_min, x_act_max = -0.35, +0.35
-        y_act_min, y_act_max = -0.30, +1.30
+        x_act_min, x_act_max = -0.5, +0.5  # -0.35, +0.35
+        y_act_min, y_act_max = -0.3, +0.5  # +1.30
         x_off_bar = 50
         x_ref0 = 25  # x_bar_end + x_off_bar
 

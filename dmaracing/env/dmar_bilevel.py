@@ -37,6 +37,7 @@ class DmarEnvBilevel:
         self.simParameters = cfg["sim"]
 
         self.log_behavior_freq = cfg["sim"]["logBehaviorEvery"]
+        self.reset_timeout_only = cfg["sim"]["reset_timeout_only"]
 
         # teams
         self.num_teams = cfg['teams']['numteams']
@@ -838,7 +839,8 @@ class DmarEnvBilevel:
 
         if self.obs_noise_lvl>0 and not self.test_mode:
 
-            noise_vec = torch.randn_like(self.obs_buf) * 0.1 * self.obs_noise_lvl
+            # noise_vec = torch.randn_like(self.obs_buf) * 0.1 * self.obs_noise_lvl
+            noise_vec = self.obs_noise_lvl * (2.0 * (torch.rand(self.obs_buf.size(), device=self.obs_buf.device) - 0.5))
             self.obs_buf += noise_vec
 
 
@@ -897,7 +899,11 @@ class DmarEnvBilevel:
         reset_timeout = self.episode_length_buf > self.max_episode_length
         
         self.reset_cause = 1e0 * reset_offtrack + 1e1 * reset_progress + 1e2 * reset_timeout
-        self.reset_buf_tmp = reset_offtrack | reset_progress | reset_timeout  # | self.reset_buf_tmp
+        # self.reset_buf_tmp = reset_offtrack | reset_progress | reset_timeout  # | self.reset_buf_tmp
+        if self.reset_timeout_only:
+            self.reset_buf_tmp = reset_timeout
+        else:
+            self.reset_buf_tmp = reset_offtrack | reset_progress | reset_timeout
 
         self.time_out_buf = reset_timeout
 
@@ -1470,8 +1476,9 @@ def compute_rewards_jit(
 
     delta_progress = track_progress - old_track_progress
     progress_jump = 1.0 * (torch.abs(delta_progress) > 3.5)
-    rew_progress = torch.clip(delta_progress, min=-10, max=10) * reward_scales["progress"] * (1.0 - progress_jump)
-    rew_progress = -10.0 * progress_jump * reward_scales["progress"]  # NOTE: alternative, penalize reset step
+    rew_progress = 0.0
+    rew_progress += torch.clip(delta_progress, min=-10, max=10) * reward_scales["progress"] * (1.0 - progress_jump)
+    rew_progress += -10.0 * progress_jump * reward_scales["progress"]  # NOTE: alternative, penalize reset step
     rew_progress *= train_ll
 
     # ### Off-track penalties ###
@@ -1480,25 +1487,25 @@ def compute_rewards_jit(
     front_axel_off_track = (1.0 * ~is_on_track_per_wheel[..., 0]) * (1.0 * ~is_on_track_per_wheel[..., 1])
     back_axel_off_track = (1.0 * ~is_on_track_per_wheel[..., 2]) * (1.0 * ~is_on_track_per_wheel[..., 3])
     num_wheels_off_track = ((~is_on_track_per_wheel) * 1.0).sum(dim=-1)
-    rew_on_track = reward_scales["offtrack"] * (1.0*num_wheels_off_track + 5.0*front_axel_off_track + 5.0*back_axel_off_track) * train_ll
+    rew_on_track = reward_scales["offtrack"] * (0.1*num_wheels_off_track + 1.0*front_axel_off_track + 1.0*back_axel_off_track) * train_ll
 
     act_diff = torch.square(actions - last_actions)
     rew_acc = torch.square(vel-last_vel.view(-1,num_agents))*reward_scales['acceleration'] * train_ll
-    act_diff[..., 0] *= 1.0  # 5.0  # 25.0
-    act_diff[..., 1] *= 1.0  # 10.0
+    act_diff[..., 0] *= 2.0  # 5.0  # 25.0
+    act_diff[..., 1] *= 2.0  # 10.0
     rew_actionrate = torch.sum(act_diff, dim=2) * reward_scales["actionrate"] * train_ll
     #rew_energy = -torch.sum(torch.square(states[:, :, vn["S_W0"] : vn["S_W3"] + 1]), dim=2) * reward_scales["energy"]
     num_active_agents = torch.sum(1.0 * active_agents, dim=1)
 
     # Goal distance reward --> FIXME: does not rotate distribution
-    # targets_dist_local *= 0.5 * 2**(4.0-targets_std_local/0.1)  # new scaling to separate distributions
+    targets_dist_local *= 2**(2.0-0.75*targets_std_local/0.1)  # new scaling to separate distributions
     exponent = -0.5 * (targets_dist_local / targets_std_local)**2
     pdf_dist = 1.0/(np.sqrt(2.0 * np.pi) * targets_std_local) * torch.exp(exponent)
-    pdf_dist /= 4.0  # max attainable ~1.0
+    pdf_dist /= 3.0  # 4.0 = max attainable ~1.0
 
     rew_dist_base = pdf_dist * reward_scales['goal']
     # Sparse
-    scale_sparse = ll_ep_done* targets_off_ahead / 5.0  # encourage larger offsets (?) [/5.0]
+    scale_sparse = 0.1 * ll_ep_done #* targets_off_ahead / 5.0  # encourage larger offsets (?) [/5.0]
     # Dense
     # scale_dense = (1.0 / (torch.exp(1.0 * torch.norm(targets_dist_local, dim=-1, keepdim=True))))
     scale_dense = 1.0 / torch.exp(5. * (ll_steps_left-0.05))
@@ -1510,20 +1517,23 @@ def compute_rewards_jit(
     # Only reward y proximity if actually close to target
     # rew_dist = rew_dist[..., 0] + 1.0 / (5e1 * targets_dist_local[..., 0].abs() + 1e0) * rew_dist[..., 1]
     rew_dist = rew_dist[..., 0] * rew_dist[..., 1]  # *
-    # rew_dist = rew_dist * (targets_off_ahead[..., 0] / 5.0)**2  # encourage larger offsets (?) [/5.0]
+    # rew_dist = rew_dist * (targets_off_ahead[..., 0] / 5.0)  # encourage larger offsets (?) [/5.0]
 
     if ranks is not None:
         #compute relative progress
         rew_rel_prog = 0.0*rew_on_track  # -torch.clip(progress_other, -1, 1).sum(dim=-1)* reward_scales["rank"] * (1.0 - train_ll)
         
         #rew_rank = 1.0 / num_agents * (num_active_agents.view(-1, 1) / 2.0 - ranks) * reward_scales["rank"]
-        # rew_rank = torch.exp(-2.0 * teamranks) * reward_scales["rank"] * (1.0 - train_ll)
-        rew_rank = torch.exp(-2.0 * ranks) * reward_scales["rank"] * (1.0 - train_ll)  # * ll_ep_done[..., 0]
+        # rew_rank = torch.exp(-2.0 * teamranks) * reward_scales["rank"] * (1.0 - train_ll) * ll_ep_done[..., 0]
+        # rew_rank = torch.exp(-2.0 * ranks) * reward_scales["rank"] * (1.0 - train_ll) * ll_ep_done[..., 0]
+        rew_rank = (1.2*torch.exp(-1.0 * ranks) - 0.2) * reward_scales["rank"] * (1.0 - train_ll) * ll_ep_done[..., 0]
 
         rew_collision = is_collision * reward_scales["collision"] * train_ll
 
+        rew_baseline = 0.15*dt * (train_ll + (1.0 - train_ll) * ll_ep_done[..., 0])
+
         rew_buf[..., 0] = torch.clip(
-            rew_progress + rew_on_track + rew_actionrate + rew_rel_prog + rew_acc + 0.15*dt, min=-5*dt, max=None
+            rew_progress + rew_on_track + rew_actionrate + rew_rel_prog + rew_acc + rew_baseline, min=-5*dt, max=None
         ) + rew_collision + rew_dist + rew_rank
     else:
         #needs to be a tensor

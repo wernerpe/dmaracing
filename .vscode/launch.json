@@ -102,6 +102,15 @@
           "justMyCode": false
         },
         {
+          "name": "eval2v2_bilevel",
+          "type": "python",
+          "request": "launch",
+          "program": "scripts/eval2v2_bilevel.py",
+          "console": "integratedTerminal",
+          "cwd": "${workspaceFolder}",
+          "justMyCode": false
+        },
+        {
             "name": "train1v1",
             "type": "python",
             "request": "launch",

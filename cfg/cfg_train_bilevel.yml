@@ -5,15 +5,15 @@ clip_actions: 4.0
 track_cfgs: True
 
 algorithm:
-  clip_param: 0.2
-  entropy_coef: 0.01  # 0.01  # 0.02
+  # clip_param: 0.2
+  # entropy_coef: 0.01  # 0.01  # 0.02
   num_learning_epochs: 15
   num_mini_batches: 6 # this is per agent
   learning_rate: 5.e-5
-  schedule: adaptive # could be adaptive, linear or fixed
+  # schedule: adaptive # could be adaptive, linear or fixed
   gamma: 0.99
   lam: 0.95
-  desired_kl: 0.008
+  desired_kl: 0.02  # 0.008
   value_loss_coef: 1.0
   max_grad_norm: 0.5  # 0.5
   use_clipped_value_loss: True
@@ -23,15 +23,15 @@ runner:
   algorithm_class_hl_name: BimaPPO  # BilevelPPO
   policy_class_ll_name: MultiTeamBilevelActorCritic  # BilevelActorCriticAttention  # BilevelActorCritic
   algorithm_class_ll_name: BimaPPO  # BilevelPPO
-  num_steps_per_env_hl: 20  # 64 # per iteration
+  num_steps_per_env_hl: 5  # 20  # 64 # per iteration
   num_steps_per_env_ll: 40  # 40  # 60
-  max_iterations: 2400  # 1200 # 500 # number of policy updates
-  iter_per_hl: 20  # 1  # 20
-  iter_per_ll: 200  # 10  # 200
-  pretrain_ll_iter: 100  # 1000
-  warmup_hl_iter: 100
+  max_iterations: 2400  # 2400  # 1200 # 500 # number of policy updates
+  iter_per_hl: 10  # 20  # 1  # 20
+  iter_per_ll: 200  # 200  # 10  # 200
+  pretrain_ll_iter: 1  # 200  # 1000
+  warmup_hl_iter: 1  # 200
   warmup_hl_ini: 1.0  # 0.5
-  population_update_interval: 50  # 100 #number of iterations before the opponent policy is updated
+  population_update_interval: 100  # 100 #number of iterations before the opponent policy is updated
   # logging
   save_interval: 100  # 100  # 50 # check for potential saves every this many iterations
   experiment_name: 'tri_single_blr_hierarchical'
@@ -43,8 +43,8 @@ runner:
   resume_path: None # updated from load_run and chkpt
 
 policy: 
-  actor_hidden_dims: [256, 128]  # [256, 128]
-  critic_hidden_dims: [256, 128]  # [256, 128]
+  actor_hidden_dims: [512, 512]  # [256, 128]
+  critic_hidden_dims: [512, 512]  # [256, 128]
   encoder_hidden_dims: [128]  # [128]  # [64]
   activation: elu # can be elu, relu, selu, crelu, lrelu, tanh, sigmoid
   init_noise_std: 0.3  # 1.0
