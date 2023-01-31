@@ -457,28 +457,24 @@ class DmarEnvBilevel:
 
         # target_offset_on_centerline_track = target_offset_on_centerline_track.unsqueeze(dim=1)  # NOTE: changed for multi-agent
         
-        tile_idx_unwrapped = self.active_track_tile.unsqueeze(2) + (
-            4 * torch.arange(self.horizon, device=self.device, dtype=torch.long)
-        ).unsqueeze(0).unsqueeze(0)
-        tile_idx = torch.remainder(tile_idx_unwrapped, self.active_track_tile_counts.view(-1, 1, 1))
-        centers = self.active_centerlines[:, tile_idx, :]
-        centers = centers[self.all_envs, self.all_envs, ...]
-        angles_at_centers = self.active_alphas[:, tile_idx]
-        angles_at_centers = angles_at_centers[self.all_envs, self.all_envs, ...]
-        self.trackdir_lookahead = torch.stack((torch.cos(angles_at_centers), torch.sin(angles_at_centers)), dim=3)
-        self.interpolated_centers = centers + self.trackdir_lookahead * self.sub_tile_progress.view(
-            self.num_envs, self.num_agents, 1, 1
-        )
+        # tile_idx_unwrapped = self.active_track_tile.unsqueeze(2) + (
+        #     4 * torch.arange(self.horizon, device=self.device, dtype=torch.long)
+        # ).unsqueeze(0).unsqueeze(0)
+        # tile_idx = torch.remainder(tile_idx_unwrapped, self.active_track_tile_counts.view(-1, 1, 1))
+        
+        center = self.active_centerlines[self.all_envs.view(-1,1), self.active_track_tile]
+        angle = self.active_alphas[self.all_envs.view(-1,1), self.active_track_tile]
 
-        car_offset_from_center_world = self.states[:, :, :2] - centers[:, :, 0]
-        car_offset_from_center_local = self.coord_trafo(car_offset_from_center_world, angles_at_centers[:, :, 0].unsqueeze(-1))  # relative pos in local ~= track
+        #use subtile progress?
+        car_offset_from_center_world = self.states[:, :, :2] - center
+        car_offset_from_center_local = self.coord_trafo(car_offset_from_center_world, angle.unsqueeze(-1))  # relative pos in local ~= track
         target_offset_from_car_track = car_offset_from_center_local + target_offset_on_centerline_track
         target_offset_from_car_tiles = torch.div(target_offset_from_car_track[..., 0], self.tile_len, rounding_mode="floor")
         target_offset_from_center_track = torch.zeros_like(target_offset_from_car_track)
         target_offset_from_center_track[..., 0] = torch.remainder(target_offset_from_car_track[..., 0], self.tile_len)
         target_offset_from_center_track[..., 1] = target_offset_on_centerline_track[..., 1]
 
-        target_tile_idx = torch.remainder(tile_idx[..., 0] + target_offset_from_car_tiles, self.active_track_tile_counts.view(-1, 1)).type(torch.long)
+        target_tile_idx = torch.remainder(self.active_track_tile + target_offset_from_car_tiles, self.active_track_tile_counts.view(-1, 1)).type(torch.long)
         target_tile_center = self.active_centerlines[:, target_tile_idx, :]
         target_tile_center = target_tile_center[self.all_envs, self.all_envs, ...]
         target_rot_world = self.active_alphas[:, target_tile_idx]
@@ -499,7 +495,9 @@ class DmarEnvBilevel:
         self.targets_off_ahead = update_target * target_offset_on_centerline_track[..., 0].unsqueeze(dim=-1) + (1.0 - update_target) * self.targets_off_ahead
 
         # Compute distance to target in track coordinates
-        target_tiles_from_car = torch.remainder(self.targets_tile_idx.squeeze(-1) - tile_idx[..., 0], self.active_track_tile_counts.view(-1, 1))  # account for wrap-around
+        target_tiles_from_car = self.targets_tile_idx.squeeze(-1) - self.active_track_tile
+        target_tiles_from_car += self.active_track_tile_counts.view(-1, 1) * (target_tiles_from_car < -self.active_track_tile_counts.view(-1, 1)/2.0)
+        target_tiles_from_car -= self.active_track_tile_counts.view(-1, 1) * (target_tiles_from_car > +self.active_track_tile_counts.view(-1, 1)/2.0)
         target_dist_track_x = self.targets_tile_pos[..., 0] - car_offset_from_center_local[..., 0] + self.tile_len * target_tiles_from_car
         target_dist_track_y = self.targets_tile_pos[..., 1] - car_offset_from_center_local[..., 1]
         target_dist_track = torch.stack([target_dist_track_x, target_dist_track_y], dim=-1)
@@ -868,7 +866,7 @@ class DmarEnvBilevel:
             self.num_agents,
             self.active_agents,
             self.dt,
-            self.targets_dist_track,
+            self.targets_dist_track.clone(),
             self.targets_std_track,
             self.ll_ep_done,
             self.ll_steps_left,

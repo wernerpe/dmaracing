@@ -1,5 +1,6 @@
 import torch
 from dmaracing.env.dmar import DmarEnv
+from dmaracing.env.dmar_bilevel import DmarEnvBilevel
 from dmaracing.utils.helpers import *
 import os
 import numpy as np
@@ -7,7 +8,7 @@ import time
 from dmaracing.controllers.purepursuit import PPController
 
 def play():
-    env = DmarEnv(cfg, args)
+    env = DmarEnvBilevel(cfg, args)
     obs = env.obs_buf
     ppc = PPController(env,
                        lookahead_dist=1.5,
@@ -26,12 +27,19 @@ def play():
 
     print('###########################')
     idx2 = 0
+    hl_actions = torch.zeros((env.num_envs, env.num_agents, env.num_actions_hl), device=env.device)
+    hl_actions[:,:,0] = 3.0
+    hl_actions[:,:,2:] = 0.1
+    
+    env.project_into_track_frame(hl_actions)
+
     while True:
+        env.project_into_track_frame(hl_actions)
         t1 = time.time()
         actions[0 , ag, 0] = steer_cmd
         actions[0 , ag, 1] = vel_cmd
         if USE_PPC:
-            actions[:,1:,:] = ppc.step()[:,1:,:]
+            actions[:,:,:] = ppc.step()[:,:,:]
         #env.states[0,0,0:3] = 0
         #env.states[0,0,0] = 2
         #env.states[0,0,0] = -0.05
@@ -52,24 +60,25 @@ def play():
         #print(env.active_agents[env.viewer.env_idx_render])
         viewermsg = [
                      #(f"""{'rewards:':>{10}}{' '}{100*rewnp[env.viewer.env_idx_render]:.2f}"""   ),
-                     (f"""{'velocity x:':>{10}}{' '}{env.states[0, 0, 3].item():.2f}"""),
+                     #(f"""{'velocity x:':>{10}}{' '}{env.states[0, 0, 3].item():.2f}"""),
                      #(f"""{'velocity y:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 1]:.2f}"""),
                      #(f"""{'ang vel:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 2]:.2f}"""),
                      #(f"""{'steer:':>{10}}{' '}{states[env.viewer.env_idx_render, 0, env.vn['S_STEER']]:.2f}"""),
                      #(f"""{'gas:':>{10}}{' '}{states[env.viewer.env_idx_render, 0, env.vn['S_GAS']]:.2f}"""),
                      #(f"""{'gas state:':>{10}}{' '}{states[env.viewer.env_idx_render, ag, env.vn['S_GAS']]:.2f}"""),
-                     (f"""{'gas act:':>{10}}{' '}{act[env.vn['A_GAS']]:.2f}"""),
-                     (f"""{'steer act:':>{10}}{' '}{act[ env.vn['A_STEER']]:.2f}"""),
-                     (f"""{'maxvel 0:':>{10}}{' '}{env.dyn_model.dynamics_integrator.dyn_model.max_vel_vec[env.viewer.env_idx_render,0].item():.2f}"""),
-                     (f"""{'maxvel 1:':>{10}}{' '}{env.dyn_model.dynamics_integrator.dyn_model.max_vel_vec[env.viewer.env_idx_render,1].item():.2f}"""),
-                     (f"""{'maxvel 2:':>{10}}{' '}{env.dyn_model.dynamics_integrator.dyn_model.max_vel_vec[env.viewer.env_idx_render,2].item():.2f}"""),
+                     #(f"""{'gas act:':>{10}}{' '}{act[env.vn['A_GAS']]:.2f}"""),
+                     #(f"""{'steer act:':>{10}}{' '}{act[ env.vn['A_STEER']]:.2f}"""),
+                     #(f"""{'maxvel 0:':>{10}}{' '}{env.dyn_model.dynamics_integrator.dyn_model.max_vel_vec[env.viewer.env_idx_render,0].item():.2f}"""),
+                     #(f"""{'maxvel 1:':>{10}}{' '}{env.dyn_model.dynamics_integrator.dyn_model.max_vel_vec[env.viewer.env_idx_render,1].item():.2f}"""),
+                     #(f"""{'maxvel 2:':>{10}}{' '}{env.dyn_model.dynamics_integrator.dyn_model.max_vel_vec[env.viewer.env_idx_render,2].item():.2f}"""),
                      #(f"""{'gas:':>{10}}{' '}{env.states[env.viewer.env_idx_render, ag, env.vn['S_GAS']].item():.2f}"""),
-                     (f"""{'ctorque:':>{10}}{' '}{env.contact_wrenches[env.viewer.env_idx_render, ag, 2].item():.2f}"""),
-                     (f"""{'idx:':>{10}}{' '}{idx2:.2f}"""),
+                     #(f"""{'ctorque:':>{10}}{' '}{env.contact_wrenches[env.viewer.env_idx_render, ag, 2].item():.2f}"""),
+                     #(f"""{'idx:':>{10}}{' '}{idx2:.2f}"""),
                      #(f"""{'omega mean:':>{10}}{' '}{om_mean:.2f}"""),
                      #(f"""{'omega mean:':>{10}}{' '}{om_mean:.2f}"""),
                      #(f"""{'velother x:':>{10}}{' '}{vel_other[0]:.2f}"""),
                      #(f"""{'velother y:':>{10}}{' '}{vel_other[1]:.2f}"""),
+                     (f"""{'dist totarget:':>{10}}{' '}{env.targets_dist_track[0,0,0].item():.2f}"""),
                      #(f"""{'lap:':>{10}}{' '}{env.lap_counter[0, ag]:.2f}"""),
                      #(f"""{'rank ag 0 :':>{10}}{' '}{1+env.ranks[env.viewer.env_idx_render, ag].item():.2f}"""),
                      ]
@@ -82,12 +91,18 @@ def play():
         wheelloc = (env.wheel_locations_world[env.viewer.env_idx_render, ag, 1, :].view(1,2)).cpu().numpy()
         env.viewer.add_point(wheelloc, 2,(222,10,0), 2)
         #env.track_centerlines
+        
+        # self.targets_pos_world, self.targets_rew01_local, self.targets_rot_world, self.targets_dist_track, self.actions, self.time_off_track,
+        #             self._action_probs_hl, self._action_mean_ll, self._action_std_ll,
+        #             self.is_on_track_per_wheel, self.dyn_model.dynamics_integrator.dyn_model.max_vel_vec, self.step_reward_terms, self.reset_cause, self.track_progress, self.active_track_tile,
+        #             self.ranks if self.num_agents>1 else None, self._global_step, self.all_targets_pos_world_env0, self.all_egoagent_pos_world_env0, self.last_actions
+        #env.viewer.draw_target_marker(env.targets_pos_world, env.targets_rew01_local, env.targets_rot_world)
 
 
         env.viewer.clear_string()
         for msg in viewermsg:
-            env.viewer.add_string(msg)
-
+             env.viewer.add_string(msg)
+       
         evt = env.viewer_events
         if evt == 105:
             vel_cmd += 0.03
@@ -121,11 +136,11 @@ if __name__ == "__main__":
     args.headless = False
 
     path_cfg = os.getcwd() + '/cfg'
-    cfg, cfg_train, logdir = getcfg(path_cfg)
+    cfg, cfg_train, logdir = getcfg(path_cfg, postfix='_bilevel', postfix_train='_bilevel')
     cfg["viewer"]["logEvery"] = -1
     cfg["track"]['OFFTRACK_FRICTION_SCALE'] = 1.0
     cfg['sim']['numEnv'] = 3
-    cfg['sim']['numAgents'] = 3
+    cfg['sim']['numAgents'] = 4
     #cfg['track']['num_tracks'] = 7
     #cfg['track']['num_tracks'] = 3
     cfg['viewer']['multiagent'] = True
@@ -139,5 +154,8 @@ if __name__ == "__main__":
     cfg['model']['OFFTRACK_FRICTION_SCALE'] = 1
     cfg['model']['drag_reduction'] = 1.0
     cfg['test'] = False
+    cfg['teams'] = dict()
+    cfg['teams']['numteams'] = cfg_train['policy']['numteams']
+    cfg['teams']['teamsize'] = cfg_train['policy']['teamsize']
     set_dependent_cfg_entries(cfg, cfg_train)
     play()
