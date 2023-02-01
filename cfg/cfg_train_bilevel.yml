@@ -9,7 +9,7 @@ algorithm:
   # entropy_coef: 0.01  # 0.01  # 0.02
   num_learning_epochs: 15
   num_mini_batches: 6 # this is per agent
-  learning_rate: 5.e-5
+  learning_rate: 5.e-5  # 5.e-5
   # schedule: adaptive # could be adaptive, linear or fixed
   gamma: 0.99
   lam: 0.95
@@ -26,8 +26,8 @@ runner:
   num_steps_per_env_hl: 10  # 20  # 64 # per iteration
   num_steps_per_env_ll: 40  # 40  # 60
   max_iterations: 2400  # 2400  # 1200 # 500 # number of policy updates
-  iter_per_hl: 10  # 20  # 1  # 20
-  iter_per_ll: 200  # 200  # 10  # 200
+  iter_per_hl: 200  # 20  # 1  # 20
+  iter_per_ll: 1000  # 200  # 10  # 200
   pretrain_ll_iter: 1  # 200  # 1000
   warmup_hl_iter: 1  # 200
   warmup_hl_ini: 1.0  # 0.5

@@ -86,22 +86,22 @@ learn:
   #resetrand: [0.00, 0.0, 0., 0.0, 0.0,  0., 0.0]
   reset_tile_rand: 180
   resetgrid: True
-  defaultactions: [0.0, 0.2, 0.0]  # [0., 0.5, 0.0]
-  actionscale: [0.5, 0.5, 0.2]  # [0.3, 1.0, 0.2]
+  defaultactions: [0.0, 0.1, 0.0]  # [0., 0.5, 0.0]
+  actionscale: [0.5, 0.4, 0.2]  # [0.3, 1.0, 0.2]
   defaultactionshl: [0., 0., 0.5, 0.5]
   actionscalehl: [1.0, 1.0, 1.0, 1.0]
-  actionsminhl: [4.0, -0.5, 0.1, 0.05]  # [3.0, -0.55, 0.1, 0.1]  # [4.0, -0.55, 0.1, 0.05]  # [3.0, -0.6, 0.1, 0.1]
-  actionsmaxhl: [6.0, +0.5, 0.5, 0.3]  # [7.0, +0.55, 0.5, 0.3]  # [6.0, +0.55, 0.5, 0.3]  # [5.0, +0.6, 0.7, 0.7]
+  actionsminhl: [3.0, -0.5, 0.1, 0.05]  # [3.0, -0.55, 0.1, 0.1]  # [4.0, -0.55, 0.1, 0.05]  # [3.0, -0.6, 0.1, 0.1]
+  actionsmaxhl: [7.0, +0.5, 0.5, 0.3]  # [7.0, +0.55, 0.5, 0.3]  # [6.0, +0.55, 0.5, 0.3]  # [5.0, +0.6, 0.7, 0.7]
   actionsinihl: [+0.0, +0.0, 0.5, 0.5]
   agent_dropout_prob: 0.1
   distance_obs_cutoff: 2.0 #[m]
   race_length_laps: 1
 
-  progressRewardScale: 0.1  # 0.1  # 0.0  # 1.0  # 10.0  # 1.0  # 10.0
+  progressRewardScale: 1.0  # 0.1  # 0.0  # 1.0  # 10.0  # 1.0  # 10.0
   offtrackRewardScale: -0.2  # -0.2  # -0.2  # -1.0  # -0.1  # -0.1
-  actionRateRewardScale: -0.01  # -0.1
+  actionRateRewardScale: -0.1  # -0.01  # -0.1
   rankRewardScale: 1.0  # 1.0  # 5.0  # 5.0  # 1.0
-  collisionRewardScale: -0.02  # -0.2
+  collisionRewardScale: -0.2  # -0.02  # -0.2
   accRewardScale: -0.1  # -0.5
   goalRewardScale: 1.0  # 1.0  # 5.0
   horizon: 12  # 12  # 15

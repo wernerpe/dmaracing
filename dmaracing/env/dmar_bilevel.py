@@ -1480,7 +1480,7 @@ def compute_rewards_jit(
     progress_jump = 1.0 * (torch.abs(delta_progress) > 3.5)
     rew_progress = 0.0
     rew_progress += torch.clip(delta_progress, min=-10, max=10) * reward_scales["progress"] * (1.0 - progress_jump)
-    rew_progress += -10.0 * progress_jump * reward_scales["progress"]  # NOTE: alternative, penalize reset step
+    rew_progress += -5.0 * progress_jump * reward_scales["progress"]  # NOTE: alternative, penalize reset step
     rew_progress *= train_ll
 
     # ### Off-track penalties ###
@@ -1494,7 +1494,7 @@ def compute_rewards_jit(
     act_diff = torch.square(actions - last_actions)
     rew_acc = torch.square(vel-last_vel.view(-1,num_agents))*reward_scales['acceleration'] * train_ll
     act_diff[..., 0] *= 1.0  # 5.0  # 25.0
-    act_diff[..., 1] *= 2.0  # 10.0
+    act_diff[..., 1] *= 1.0  # 10.0
     rew_actionrate = torch.sum(act_diff, dim=2) * reward_scales["actionrate"] * train_ll
     #rew_energy = -torch.sum(torch.square(states[:, :, vn["S_W0"] : vn["S_W3"] + 1]), dim=2) * reward_scales["energy"]
     num_active_agents = torch.sum(1.0 * active_agents, dim=1)
