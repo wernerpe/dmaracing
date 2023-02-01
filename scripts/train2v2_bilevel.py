@@ -59,7 +59,8 @@ if __name__ == "__main__":
 
     cfg_train['policy']['numteams'] = 2
     cfg_train['policy']['teamsize'] = 2
-    cfg['learn']['agent_dropout_prob'] = 0.0
+    cfg['learn']['agent_dropout_prob'] = 0.0  # 0.0
+    # cfg['viewer']['logEvery'] = 1
 
     cfg['teams'] = dict()
     cfg['teams']['numteams'] = cfg_train['policy']['numteams']

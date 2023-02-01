@@ -502,6 +502,8 @@ class DmarEnvBilevel:
         target_dist_track_y = self.targets_tile_pos[..., 1] - car_offset_from_center_local[..., 1]
         target_dist_track = torch.stack([target_dist_track_x, target_dist_track_y], dim=-1)
 
+        # self.target_tiles_from_car  # NOTE: debug
+
         # Set observation data
         self.targets_dist_track = target_dist_track
         self.targets_std_track = self.targets_std_local
@@ -867,7 +869,7 @@ class DmarEnvBilevel:
             self.active_agents,
             self.dt,
             self.targets_dist_track.clone(),
-            self.targets_std_track,
+            self.targets_std_track.clone(),
             self.ll_ep_done,
             self.ll_steps_left,
             1.0 * self.train_ll,
@@ -1284,6 +1286,7 @@ class DmarEnvBilevel:
                     self._action_probs_hl, self._action_mean_ll, self._action_std_ll,
                     self.is_on_track_per_wheel, self.dyn_model.dynamics_integrator.dyn_model.max_vel_vec, self.step_reward_terms, self.reset_cause, self.track_progress, self.active_track_tile,
                     self.ranks if self.num_agents>1 else None, self._global_step, self.all_targets_pos_world_env0, self.all_egoagent_pos_world_env0, self.last_actions,
+                    self.active_track_tile, self.targets_tile_idx,
                 )
         else:
             self.viewer_events = self.viewer.render(
@@ -1292,6 +1295,7 @@ class DmarEnvBilevel:
                 self._action_probs_hl, self._action_mean_ll, self._action_std_ll,
                 self.is_on_track_per_wheel, self.dyn_model.dynamics_integrator.dyn_model.max_vel_vec, self.step_reward_terms, self.reset_cause, self.track_progress, self.active_track_tile,
                 self.ranks if self.num_agents>1 else None, self._global_step, self.all_targets_pos_world_env0, self.all_egoagent_pos_world_env0, self.last_actions,
+                self.active_track_tile, self.targets_tile_idx,
             )
 
     def write_behavior_stats(self) -> None:
@@ -1489,7 +1493,7 @@ def compute_rewards_jit(
 
     act_diff = torch.square(actions - last_actions)
     rew_acc = torch.square(vel-last_vel.view(-1,num_agents))*reward_scales['acceleration'] * train_ll
-    act_diff[..., 0] *= 2.0  # 5.0  # 25.0
+    act_diff[..., 0] *= 1.0  # 5.0  # 25.0
     act_diff[..., 1] *= 2.0  # 10.0
     rew_actionrate = torch.sum(act_diff, dim=2) * reward_scales["actionrate"] * train_ll
     #rew_energy = -torch.sum(torch.square(states[:, :, vn["S_W0"] : vn["S_W3"] + 1]), dim=2) * reward_scales["energy"]

@@ -108,7 +108,7 @@ class Viewer:
       wheels_on_track=None, max_vels=None,
       reward_terms=None, reset_cause=None, track_progress=None, active_tile=None,
       ranks=None, global_step=None, all_targets_pos_world_env0=None, all_egoagent_pos_world_env0=None,
-      last_actions=None,):
+      last_actions=None, tile_idx_car=None, tile_idx_trg=None):
         self.state = state.clone()
         self.slip = slip.clone()
         self.wheel_locs = wheel_locs.clone()
@@ -168,6 +168,9 @@ class Viewer:
             
             if reset_cause is not None:
                 self.draw_reset_cause(reset_cause)
+
+            if tile_idx_car is not None and tile_idx_trg is not None:
+                self.draw_tile_idx(tile_idx_car, tile_idx_trg)
 
             # if track_progress is not None and active_tile is not None:
             #     self.draw_track_progress(track_progress, active_tile)
@@ -253,6 +256,13 @@ class Viewer:
         cause += "T" if self.get_digit(reset_cause, 2) > 0 else ""
 
         cv.putText(self.img, "Reset=" + cause, (470, 50), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
+
+    def draw_tile_idx(self, tile_idx_car, tile_idx_trg):
+        tile_idx_car = int(tile_idx_car[0, 0].cpu().numpy())
+        tile_idx_trg = int(tile_idx_trg[0, 0].cpu().numpy())
+
+        cv.putText(self.img, "CarIdx=" + str(tile_idx_car), (470, 80), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
+        cv.putText(self.img, "TrgIdx=" + str(tile_idx_trg), (470, 110), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
 
     def draw_max_vel(self, max_vels):
 

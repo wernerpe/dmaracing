@@ -23,7 +23,7 @@ runner:
   algorithm_class_hl_name: BimaPPO  # BilevelPPO
   policy_class_ll_name: MultiTeamBilevelActorCritic  # BilevelActorCriticAttention  # BilevelActorCritic
   algorithm_class_ll_name: BimaPPO  # BilevelPPO
-  num_steps_per_env_hl: 5  # 20  # 64 # per iteration
+  num_steps_per_env_hl: 10  # 20  # 64 # per iteration
   num_steps_per_env_ll: 40  # 40  # 60
   max_iterations: 2400  # 2400  # 1200 # 500 # number of policy updates
   iter_per_hl: 10  # 20  # 1  # 20
@@ -34,7 +34,7 @@ runner:
   population_update_interval: 100  # 100 #number of iterations before the opponent policy is updated
   # logging
   save_interval: 100  # 100  # 50 # check for potential saves every this many iterations
-  experiment_name: 'tri_single_blr_hierarchical'
+  experiment_name: 'tri_multiagent_blr_hierarchical'  # 'tri_single_blr_hierarchical'
   run_name: ''
   # load and resume
   resume: False
@@ -43,8 +43,8 @@ runner:
   resume_path: None # updated from load_run and chkpt
 
 policy: 
-  actor_hidden_dims: [512, 512]  # [256, 128]
-  critic_hidden_dims: [512, 512]  # [256, 128]
+  actor_hidden_dims: [256, 128]  # [256, 128]
+  critic_hidden_dims: [256, 128]  # [256, 128]
   encoder_hidden_dims: [128]  # [128]  # [64]
   activation: elu # can be elu, relu, selu, crelu, lrelu, tanh, sigmoid
   init_noise_std: 0.3  # 1.0
