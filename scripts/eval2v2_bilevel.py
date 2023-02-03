@@ -20,6 +20,15 @@ def eval():
         model_paths_ll.append("{}/model_{}.pt".format(dir_ll, modelnr_ll))
         print("Loading LL model" + model_paths_ll[-1])
     runner.load_multi_path(model_paths_hl, model_paths_ll, load_optimizer=True)
+
+
+    # ### Save jit models to original folder
+    policy_hl_jit = torch.jit.script(runner.alg_hl.actor_critic.teamacs[0].ac.actor.to('cpu'))
+    policy_hl_jit.save(logdir.replace('eval/', '') + "/hl_model/jit_model_" +str(modelnr_hl)+".pt")
+
+    policy_ll_jit = torch.jit.script(runner.alg_ll.actor_critic.teamacs[0].ac.actor.to('cpu'))
+    policy_ll_jit.save(logdir.replace('eval/', '') + "/ll_model/jit_model_" +str(modelnr_ll)+".pt")
+
     
     #populate adversary buffer
     adv_model_paths_hl, adv_model_paths_ll = [], []
@@ -75,9 +84,9 @@ if __name__ == "__main__":
 
 
     # ### Run information
-    exp_name = 'tri_single_blr_hierarchical'
-    timestamp ='23_01_31_14_30_58_bilevel_2v2'  # '23_01_31_11_54_24_bilevel_2v2'
-    checkpoint = 500  # 1300
+    exp_name = 'tri_multiagent_blr_hierarchical'  # 'tri_single_blr_hierarchical'
+    timestamp = '23_02_02_11_14_46_bilevel_2v2'  # '23_01_31_14_30_58_bilevel_2v2'  # '23_01_31_11_54_24_bilevel_2v2'
+    checkpoint = 500  # 500  # 1300
     #active policies
     runs_hl = [timestamp]*2
     chkpts_hl = [checkpoint, checkpoint]
@@ -108,7 +117,7 @@ if __name__ == "__main__":
 
     # logdir = logdir_root +'/'+timestamp+'_no_dist_to_go_' + cfg_train['runner']['algorithm_class_name']+'_'+str(cfg_train['runner']['num_steps_per_env'])
     # logdir = logdir_root +'/'+timestamp + cfg_train['runner']['algorithm_class_name']+'_'+str(cfg_train['runner']['num_steps_per_env'])
-    logdir = logdir_root +'/eval/'+timestamp + '_bilevel_2v2'
+    logdir = logdir_root +'/eval/'+timestamp
     cfg["logdir"] = logdir
 
     eval()

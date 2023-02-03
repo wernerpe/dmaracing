@@ -203,10 +203,10 @@ class DmarEnvBilevel:
         self.obs_noise_lvl = cfg["learn"]["obs_noise_lvl"]
         self.use_track_curriculum = cfg["learn"]["use_track_curriculum"]
 
-        self.steer_ado_ppc = True if self.cfg['learn']['steer_ado_with_PPC'] and self.num_agents>1 else False
-        self.steps_ado_ppc = self.cfg['learn']['steps_ado_with_PPC'] if self.steer_ado_ppc else 0
+        self.steer_ado_ppc = True
+        self.iters_ado_ppc = self.cfg['learn']['iters_ado_with_PPC'] if (self.cfg['learn']['steer_ado_with_PPC'] and self.num_agents>1) else 0
         
-        if self.steer_ado_ppc:
+        if self.iters_ado_ppc != 0:
             print('[DMAR] Overriding ado actions with PPC')
             self.ppc = PPController(self,
                        lookahead_dist=1.5,
@@ -841,6 +841,7 @@ class DmarEnvBilevel:
 
             # noise_vec = torch.randn_like(self.obs_buf) * 0.1 * self.obs_noise_lvl
             noise_vec = self.obs_noise_lvl * (2.0 * (torch.rand(self.obs_buf.size(), device=self.obs_buf.device) - 0.5))
+            noise_vec[..., -21:] *= self.active_obs_template.repeat(1, 1, 7)  # HACK: hard-coded setting ado noise 0
             self.obs_buf += noise_vec
 
 
@@ -924,8 +925,8 @@ class DmarEnvBilevel:
         if self.track_stats:
             last_track_ids = self.active_track_ids[env_ids].clone()
         self.resample_track(env_ids)
-        self.active_agents[env_ids, 1:] = (
-            torch.rand((len(env_ids), self.num_agents - 1), device=self.device) > self.agent_dropout_prob
+        self.active_agents[env_ids, self.team_size:] = (
+            torch.rand((len(env_ids), self.num_agents - self.team_size), device=self.device) > self.agent_dropout_prob
         )
         max_start_tile = 100  # Avoid init lap mismatch via grid across finish line
         tile_idx_env = (
@@ -1021,6 +1022,7 @@ class DmarEnvBilevel:
         
         self.info["episode"] = {}
 
+        self.info["episode"]["rewards"] = torch.mean(torch.stack(list(self.reward_terms.values()), dim=0).sum(dim=0)[env_ids, 0] / self.timeout_s).view(-1, 1)
         for key in self.reward_terms.keys():
             self.info["episode"]["reward_" + key] = (
                 torch.mean(self.reward_terms[key][env_ids, 0]) / self.timeout_s
@@ -1099,12 +1101,15 @@ class DmarEnvBilevel:
             self.viewer._frames = []
             self._global_step += 1
 
+    def set_steer_ado_ppc(self, steer_ado_ppc):
+        self.steer_ado_ppc = steer_ado_ppc
+
     def step(self, actions) -> Tuple[torch.Tensor, Union[None, torch.Tensor], torch.Tensor, Dict[str, float]]:
         actions = actions.clone().to(self.device)
         if actions.requires_grad:
             actions = actions.detach()
 
-        if self.steer_ado_ppc and (self._global_step < self.steps_ado_ppc or self.steps_ado_ppc==-1):
+        if self.steer_ado_ppc:
             actions[:,-((self.num_teams - 1) * self.team_size):,:] = self.ppc.step()[:,-((self.num_teams - 1) * self.team_size):,:]
         if len(actions.shape) == 2:
             self.actions[:, 0, 0] = self.action_scales[0] * actions[..., 0] + self.default_actions[0]
@@ -1250,7 +1255,7 @@ class DmarEnvBilevel:
 
         self.active_obs_template[...] = 1.0
         idx_1, idx_2 = torch.where(~self.active_agents)
-        # remove ado observations of deactivated envs for active ones
+        # remove ado observations of deactivated envs for active ones  -->  FIXME: doesn't seem quite right from ado team perspective
         for ag in range(self.num_agents):
             self.active_obs_template[idx_1, ag, self.ado_idx_lookup[idx_2, ag]] = 0
 
@@ -1480,8 +1485,11 @@ def compute_rewards_jit(
     progress_jump = 1.0 * (torch.abs(delta_progress) > 3.5)
     rew_progress = 0.0
     rew_progress += torch.clip(delta_progress, min=-10, max=10) * reward_scales["progress"] * (1.0 - progress_jump)
-    rew_progress += -5.0 * progress_jump * reward_scales["progress"]  # NOTE: alternative, penalize reset step
     rew_progress *= train_ll
+
+    pen_progress = -5.0 * progress_jump * reward_scales["progress"]  # NOTE: alternative, penalize reset step
+    pen_progress *= (train_ll + (1.0-train_ll) * 1.0 / dt)
+    rew_progress += pen_progress
 
     # ### Off-track penalties ###
     # rew_on_track = reward_scales["offtrack"] * ~is_on_track * train_ll
@@ -1489,11 +1497,11 @@ def compute_rewards_jit(
     front_axel_off_track = (1.0 * ~is_on_track_per_wheel[..., 0]) * (1.0 * ~is_on_track_per_wheel[..., 1])
     back_axel_off_track = (1.0 * ~is_on_track_per_wheel[..., 2]) * (1.0 * ~is_on_track_per_wheel[..., 3])
     num_wheels_off_track = ((~is_on_track_per_wheel) * 1.0).sum(dim=-1)
-    rew_on_track = reward_scales["offtrack"] * (0.1*num_wheels_off_track + 1.0*front_axel_off_track + 1.0*back_axel_off_track) * train_ll
+    rew_on_track = reward_scales["offtrack"] * (0.5*num_wheels_off_track + 1.0*front_axel_off_track + 1.0*back_axel_off_track) * train_ll
 
     act_diff = torch.square(actions - last_actions)
     rew_acc = torch.square(vel-last_vel.view(-1,num_agents))*reward_scales['acceleration'] * train_ll
-    act_diff[..., 0] *= 1.0  # 5.0  # 25.0
+    act_diff[..., 0] *= 20.0  # 5.0  # 25.0
     act_diff[..., 1] *= 1.0  # 10.0
     rew_actionrate = torch.sum(act_diff, dim=2) * reward_scales["actionrate"] * train_ll
     #rew_energy = -torch.sum(torch.square(states[:, :, vn["S_W0"] : vn["S_W3"] + 1]), dim=2) * reward_scales["energy"]
@@ -1507,7 +1515,7 @@ def compute_rewards_jit(
 
     rew_dist_base = pdf_dist * reward_scales['goal']
     # Sparse
-    scale_sparse = 0.1 * ll_ep_done #* targets_off_ahead / 5.0  # encourage larger offsets (?) [/5.0]
+    scale_sparse = 0.3 * ll_ep_done / dt # *0.1  # * targets_off_ahead / 5.0  # encourage larger offsets (?) [/5.0]
     # Dense
     # scale_dense = (1.0 / (torch.exp(1.0 * torch.norm(targets_dist_local, dim=-1, keepdim=True))))
     scale_dense = 1.0 / torch.exp(5. * (ll_steps_left-0.05))
@@ -1528,7 +1536,7 @@ def compute_rewards_jit(
         #rew_rank = 1.0 / num_agents * (num_active_agents.view(-1, 1) / 2.0 - ranks) * reward_scales["rank"]
         # rew_rank = torch.exp(-2.0 * teamranks) * reward_scales["rank"] * (1.0 - train_ll) * ll_ep_done[..., 0]
         # rew_rank = torch.exp(-2.0 * ranks) * reward_scales["rank"] * (1.0 - train_ll) * ll_ep_done[..., 0]
-        rew_rank = (1.2*torch.exp(-1.0 * ranks) - 0.2) * reward_scales["rank"] * (1.0 - train_ll) * ll_ep_done[..., 0]
+        rew_rank = (1.2*torch.exp(-1.0 * ranks) - 0.2) * reward_scales["rank"] * (1.0 - train_ll) * ll_ep_done[..., 0] / dt
 
         rew_collision = is_collision * reward_scales["collision"] * train_ll
 

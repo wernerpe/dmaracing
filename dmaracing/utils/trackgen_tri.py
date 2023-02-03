@@ -213,12 +213,12 @@ def get_tri_track_ensemble(device, track_half_width, track_poly_spacing):
                   #  #"maps/sharp corners.csv", 
                   #  #"maps/sharp_turns_track.csv",
                   # #  "maps/orca.csv",
-                  "maps/orca_dense.csv",  # NOTE: this
+                  # "maps/orca_dense.csv",  # NOTE: this
                   #  #"maps/oval_diag.csv",
                   #  #"maps/triangle.csv",
                   #  #"maps/complicated.csv",
                   # #  "maps/oversize1.csv",
-                   "maps/oversize1_dense.csv",  # NOTE: this
+                  #  "maps/oversize1_dense.csv",  # NOTE: this
                   #  #"maps/slider.csv",
                   #  #"maps/h_track.csv",
                    ]
