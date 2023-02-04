@@ -97,7 +97,7 @@ learn:
   distance_obs_cutoff: 2.0 #[m]
   race_length_laps: 1
 
-  progressRewardScale: 1.0  # 0.1  # 0.0  # 1.0  # 10.0  # 1.0  # 10.0
+  progressRewardScale: 2.0  # 0.1  # 0.0  # 1.0  # 10.0  # 1.0  # 10.0
   offtrackRewardScale: -1.0  # -0.2  # -0.2  # -1.0  # -0.1  # -0.1
   actionRateRewardScale: -0.1  # -0.01  # -0.1
   rankRewardScale: 1.0  # 1.0  # 5.0  # 5.0  # 1.0
