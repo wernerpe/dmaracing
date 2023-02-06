@@ -85,8 +85,8 @@ if __name__ == "__main__":
 
     # ### Run information
     exp_name = 'tri_multiagent_blr_hierarchical'  # 'tri_single_blr_hierarchical'
-    timestamp = '23_02_02_11_14_46_bilevel_2v2'  # '23_01_31_14_30_58_bilevel_2v2'  # '23_01_31_11_54_24_bilevel_2v2'
-    checkpoint = 500  # 500  # 1300
+    timestamp = '23_02_03_09_25_19_bilevel_2v2'  # '23_01_31_14_30_58_bilevel_2v2'  # '23_01_31_11_54_24_bilevel_2v2'
+    checkpoint = 300  # 500  # 1300
     #active policies
     runs_hl = [timestamp]*2
     chkpts_hl = [checkpoint, checkpoint]
