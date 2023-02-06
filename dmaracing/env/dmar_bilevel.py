@@ -158,14 +158,11 @@ class DmarEnvBilevel:
         self.time_out_buf = torch_zeros((self.num_envs, 1)) > 1
         self.reset_buf = torch_zeros((self.num_envs, 1)) > 1
         self.reset_buf_tmp = torch_zeros((self.num_envs, 1)) > 1
+        self.update_data = 1.0 + torch_zeros((self.num_envs, 1))
         self.agent_left_track = torch_zeros((self.num_envs, self.num_agents)) > 1
         self.episode_length_buf = torch_zeros((self.num_envs, 1))
         self.time_off_track = torch_zeros((self.num_envs, self.num_agents))
         self.dt = cfg["sim"]["dt"]
-
-        self.obs_buf_filtered = torch_zeros((self.num_envs, self.num_agents, self.num_obs))
-        self.rew_buf_filtered = torch_zeros((self.num_envs, self.num_agents, 2))
-        self.reset_buf_filtered = torch_zeros((self.num_envs, 1)) > 1
 
         self.reset_cause = torch_zeros((self.num_envs, 1))
 
@@ -1008,10 +1005,7 @@ class DmarEnvBilevel:
 
         self.reset_buf[env_ids] = False
         self.reset_buf_tmp[env_ids] = False
-
-        self.obs_buf_filtered[env_ids] = 0.0
-        self.rew_buf_filtered[env_ids] = 0.0
-        self.reset_buf_filtered[env_ids] = False
+        self.update_data[env_ids] = 1.0
 
         self.wheels_on_track_segments[env_ids, ...] = True  # HACK
 
@@ -1060,16 +1054,7 @@ class DmarEnvBilevel:
         # else:
         #     return self.obs_buf[:,0,:].clone(), self.privileged_obs, self.rew_buf[:,0].clone(), self.reset_buf[:,0].clone(), self.info
 
-        # return self.obs_buf.clone(), self.privileged_obs, self.rew_buf.clone(), self.reset_buf.clone(), self.info
-
-        # NOTE: account for termination during HL episode substeps
-        update_data = (1.0 - 1.0 * self.reset_buf_tmp * (1.0 - 1.0 * self.reset_buf))  # NOTE: don't update if reset within HL episode
-        self.obs_buf_filtered = update_data.view(-1, 1, 1) * self.obs_buf.clone() + (1.0 - update_data.view(-1, 1, 1)) * self.obs_buf_filtered
-        self.rew_buf_filtered = update_data.view(-1, 1, 1) * self.rew_buf.clone()  #  + (1.0 - update_data.view(-1, 1, 1)) * self.rew_buf_filtered
-        # self.reset_buf_filtered = update_data.view(-1, 1) * self.reset_buf.clone() + (1.0 - update_data.view(-1, 1)) * self.reset_buf_filtered
-
-        # FIXME: privileged obs and info NOT filtered!!!
-        return self.obs_buf_filtered.clone(), self.privileged_obs, self.rew_buf_filtered.clone(), self.reset_buf.clone(), self.info
+        return self.obs_buf.clone(), self.privileged_obs, self.rew_buf.clone(), self.reset_buf.clone(), self.info
 
     def post_physics_step(self) -> None:
         self.total_step += 1
@@ -1132,10 +1117,10 @@ class DmarEnvBilevel:
 
         self.contouring_err = torch.einsum("eac, eac-> ea", self.trackperp, self.tile_car_vec)
 
-
-        # NEW
+        # Compute reward terms
         self.vel = torch.norm(self.states[:,:,self.vn['S_DX']:self.vn['S_DY']+1], dim = -1)
         self.compute_rewards()
+        self.rew_buf = self.rew_buf * self.update_data.view(-1, 1, 1)  # mask HL obs that terminated
         if self.log_behavior_stats:
             self.update_current_behavior_stats()
         
@@ -1198,6 +1183,8 @@ class DmarEnvBilevel:
         self.last_steer[:,:,0] = self.actions[..., self.vn['A_STEER']]
         self.last_last_steer[:] = self.last_steer[:]
         self.last_vel[:] = self.vel
+
+        self.update_data = 1.0 * (self.reset_buf_tmp == self.reset_buf)
 
     def render(
         self,
