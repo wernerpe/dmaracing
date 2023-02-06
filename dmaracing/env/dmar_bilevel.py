@@ -1,3 +1,4 @@
+from cgitb import enable
 import torch
 from torch._C import device, dtype
 #from gym import spaces
@@ -153,13 +154,7 @@ class DmarEnvBilevel:
         self.ll_steps_left = torch_zeros((self.num_envs, self.num_agents, 1))
         
         self.obs_buf = torch_zeros((self.num_envs, self.num_agents, self.num_obs))
-        self.rew_buf = torch_zeros(
-            (
-                self.num_envs,
-                self.num_agents,
-                2
-            )
-        )
+        self.rew_buf = torch_zeros((self.num_envs, self.num_agents, 2))
         self.time_out_buf = torch_zeros((self.num_envs, 1)) > 1
         self.reset_buf = torch_zeros((self.num_envs, 1)) > 1
         self.reset_buf_tmp = torch_zeros((self.num_envs, 1)) > 1
@@ -167,6 +162,10 @@ class DmarEnvBilevel:
         self.episode_length_buf = torch_zeros((self.num_envs, 1))
         self.time_off_track = torch_zeros((self.num_envs, self.num_agents))
         self.dt = cfg["sim"]["dt"]
+
+        self.obs_buf_filtered = torch_zeros((self.num_envs, self.num_agents, self.num_obs))
+        self.rew_buf_filtered = torch_zeros((self.num_envs, self.num_agents, 2))
+        self.reset_buf_filtered = torch_zeros((self.num_envs, 1)) > 1
 
         self.reset_cause = torch_zeros((self.num_envs, 1))
 
@@ -445,23 +444,10 @@ class DmarEnvBilevel:
 
         target_offset_on_centerline_track = actions_hl[..., 0:2]
         target_std_local = actions_hl[..., 2:4]  # .unsqueeze(dim=1)  # NOTE: changed for multi-agent
-        # self.ll_steps_left = actions_hl[..., 4]
-        # self.ll_steps_left = (self.dt_hl - torch.remainder(self.total_step * torch.ones_like(self.last_steer), self.dt_hl)) / self.dt_hl
-        # self.ll_steps_left = self.ll_steps_left.unsqueeze(dim=1)
-        # self.ll_steps_left = (self.dt_hl - torch.remainder(self.total_step * torch.ones_like(self.ll_steps_left), self.dt_hl)) / self.dt_hl
+        
         self.ll_steps_left *= 0.0
         self.ll_steps_left += (self.dt_hl - torch.remainder(self.episode_length_buf.unsqueeze(dim=1), self.dt_hl)) / self.dt_hl
 
-
-        # target_offset_on_centerline_track[..., 0] += 4.0
-
-        # target_offset_on_centerline_track = target_offset_on_centerline_track.unsqueeze(dim=1)  # NOTE: changed for multi-agent
-        
-        # tile_idx_unwrapped = self.active_track_tile.unsqueeze(2) + (
-        #     4 * torch.arange(self.horizon, device=self.device, dtype=torch.long)
-        # ).unsqueeze(0).unsqueeze(0)
-        # tile_idx = torch.remainder(tile_idx_unwrapped, self.active_track_tile_counts.view(-1, 1, 1))
-        
         center = self.active_centerlines[self.all_envs.view(-1,1), self.active_track_tile]
         angle = self.active_alphas[self.all_envs.view(-1,1), self.active_track_tile]
 
@@ -696,10 +682,10 @@ class DmarEnvBilevel:
                 * self.active_obs_template - 2.5*(1-self.active_obs_template)
             )
 
-            self.progress_other_w_laps = (
-                torch.clip(torch.cat(tuple([prog for prog in other_progress_w_laps]), dim=1), min=-2.5, max=2.5)
-                * self.active_obs_template - 2.5*(1-self.active_obs_template)
-            )
+            # self.progress_other_w_laps = (
+            #     torch.clip(torch.cat(tuple([prog for prog in other_progress_w_laps]), dim=1), min=-2.5, max=2.5)
+            #     * self.active_obs_template - 2.5*(1-self.active_obs_template)
+            # )
             self.contouring_err_other = (
                 torch.clip(torch.cat(tuple([err for err in other_contouringerr]), dim=1), min=-1, max=1)
                 * self.active_obs_template
@@ -764,6 +750,7 @@ class DmarEnvBilevel:
             # noise_vec = torch.randn_like(self.obs_buf) * 0.1 * self.obs_noise_lvl
             noise_vec = self.obs_noise_lvl * (2.0 * (torch.rand(self.obs_buf.size(), device=self.obs_buf.device) - 0.5))
             noise_vec[..., -21:] *= self.active_obs_template.repeat(1, 1, 7)  # HACK: hard-coded setting ado noise 0
+            noise_vec[..., -26:-21] = 0.0
             self.obs_buf += noise_vec
 
 
@@ -774,7 +761,7 @@ class DmarEnvBilevel:
             self.rew_buf,
             self.track_progress,
             self.old_track_progress,
-            self.progress_other_w_laps if self.num_agents>1 else None,
+            # self.progress_other_w_laps if self.num_agents>1 else None,
             self.is_on_track,
             self.reward_scales,
             self.actions,
@@ -804,19 +791,6 @@ class DmarEnvBilevel:
         return torch.abs(progress - old_progress) > 3.5  # 5.0  # 3.5
 
     def check_termination(self) -> None:
-        # # Old
-        # # dithering step
-        # # self.reset_buf = torch.rand((self.num_envs, 1), device=self.device) < 0.00005
-        # self.reset_buf = self.time_off_track[:, self.trained_agent_slot].view(-1, 1) > self.offtrack_reset
-        # # self.reset_buf = torch.any(self.time_off_track[:, :self.team_size] > self.offtrack_reset, dim=-1).view(-1, 1)
-        # # lapdist = self.track_progress[:,self.trained_agent_slot].view(-1, 1)/self.track_lengths[self.active_track_ids].view(-1,1)
-        # #self.reset_buf |= lapdist > self.race_length_laps
-        # self.reset_buf |= (torch.abs(self.track_progress[:,0] - self.old_track_progress[:,0]).view(-1,1) > 3.5)*(self.episode_length_buf > 2)  # NOTE: commented this because it was terminating a lot (maybe due to off-->on track jumps?)
-        # # self.reset_buf = torch.any(self.time_off_track[:, :] > self.offtrack_reset, dim = 1).view(-1,1)
-        # self.time_out_buf = self.episode_length_buf > self.max_episode_length
-        # self.reset_buf |= self.time_out_buf
-
-        # New
         reset_offtrack = self.time_off_track[:, self.trained_agent_slot].view(-1, 1) > self.offtrack_reset
         reset_progress = (self.check_progress_jump(self.track_progress, self.old_track_progress)[..., 0].view(-1, 1))*(self.episode_length_buf > 2)
         reset_timeout = self.episode_length_buf > self.max_episode_length
@@ -824,9 +798,9 @@ class DmarEnvBilevel:
         self.reset_cause = 1e0 * reset_offtrack + 1e1 * reset_progress + 1e2 * reset_timeout
         # self.reset_buf_tmp = reset_offtrack | reset_progress | reset_timeout  # | self.reset_buf_tmp
         if self.reset_timeout_only:
-            self.reset_buf_tmp = reset_timeout
+            self.reset_buf_tmp = reset_timeout | self.reset_buf_tmp
         else:
-            self.reset_buf_tmp = reset_offtrack | reset_progress | reset_timeout
+            self.reset_buf_tmp = reset_offtrack | reset_progress | reset_timeout | self.reset_buf_tmp
 
         self.time_out_buf = reset_timeout
 
@@ -850,9 +824,9 @@ class DmarEnvBilevel:
         self.active_agents[env_ids, self.team_size:] = (
             torch.rand((len(env_ids), self.num_agents - self.team_size), device=self.device) > self.agent_dropout_prob
         )
-        max_start_tile = 100  # Avoid init lap mismatch via grid across finish line
+        max_start_tile = self.active_track_tile_counts[env_ids].view(-1, 1) - 8 * self.num_agents  # Avoid init lap mismatch via grid across finish line
         tile_idx_env = (
-            torch.rand((len(env_ids), 1), device=self.device) * (max_start_tile + 0*self.active_track_tile_counts[env_ids].view(-1, 1))
+            torch.rand((len(env_ids), 1), device=self.device) * max_start_tile  # (max_start_tile + 0*self.active_track_tile_counts[env_ids].view(-1, 1))
         ).to(dtype=torch.long)
         if self.test_mode:
             tile_idx_env *=0 
@@ -991,13 +965,38 @@ class DmarEnvBilevel:
             self.dyn_model.dynamics_integrator.dyn_model.max_vel_vec[env_ids].clone()]
             
         #dynamics randomization
-        self.dyn_model.dynamics_integrator.dyn_model.update_noise_vec(env_ids, self.noise_level) 
+        self.dyn_model.dynamics_integrator.dyn_model.update_noise_vec(env_ids, self.noise_level)
+
+        # ### Update quantities on reset ###
+        # get current tile positions
+        dists = torch.norm(self.states[env_ids, :, 0:2].unsqueeze(2) - self.active_centerlines[env_ids, ...].unsqueeze(1), dim=3)
+        sort = torch.sort(dists, dim=2)
+        self.active_track_tile[env_ids] = sort[1][:, :, 0]
+
+        # compute closest point on centerline
+        self.tile_points = self.active_centerlines[:, self.active_track_tile, :][self.all_envs, self.all_envs]
+        tile_car_vec = self.states[env_ids, :, 0:2] - self.tile_points[env_ids]
+        angs = self.active_alphas[env_ids.view(-1, 1), self.active_track_tile[env_ids]]
+        trackdir = torch.stack((torch.cos(angs), torch.sin(angs)), dim=2)
+        # self.trackperp = torch.stack((-torch.sin(angs), torch.cos(angs)), dim=2)
+
+        sub_tile_progress = torch.einsum("eac, eac-> ea", trackdir, tile_car_vec)
+        self.track_progress_no_laps[env_ids] = self.active_track_tile[env_ids] * self.tile_len + sub_tile_progress
+        self.track_progress[env_ids, ...] = self.track_progress_no_laps[env_ids, ...]
+        dist_sort, ranks = torch.sort(self.track_progress[env_ids, ...]*self.active_agents[env_ids], dim=1, descending=True)
+        self.ranks[env_ids, ...] = torch.sort(ranks, dim=1)[1].to(self.ranks.dtype)
+
+        for team in self.teams:
+            self.teamranks[:, team] = torch.min(self.ranks[:, team], dim = 1)[0].reshape(-1,1).type(torch.int)
+
+        self.is_collision[env_ids, ...] = False
+        # #####################################
 
         self.lap_counter[env_ids, :] = 0
         self.episode_length_buf[env_ids] = 0.0
-        self.old_track_progress[env_ids] = 0.0
-        self.track_progress[env_ids] = 0.0
-        self.track_progress_no_laps[env_ids] = 0.0
+        self.old_track_progress[env_ids] = self.track_progress[env_ids]
+        # self.track_progress[env_ids] = 0.0
+        # self.track_progress_no_laps[env_ids] = 0.0
         self.time_off_track[env_ids, :] = 0.0
         self.last_actions[env_ids, :, :] = 0.0
         self.last_steer[env_ids, :, :] = 0.0
@@ -1007,6 +1006,10 @@ class DmarEnvBilevel:
 
         self.reset_buf[env_ids] = False
         self.reset_buf_tmp[env_ids] = False
+
+        self.obs_buf_filtered[env_ids] = 0.0
+        self.rew_buf_filtered[env_ids] = 0.0
+        self.reset_buf_filtered[env_ids] = False
 
         self.wheels_on_track_segments[env_ids, ...] = True  # HACK
 
@@ -1035,13 +1038,12 @@ class DmarEnvBilevel:
             actions[:,-((self.num_teams - 1) * self.team_size):,:] = self.ppc.step()[:,-((self.num_teams - 1) * self.team_size):,:]
         if len(actions.shape) == 2:
             self.actions[:, 0, 0] = self.action_scales[0] * actions[..., 0] + self.default_actions[0]
-            self.actions[:, 0, 1] = self.action_scales[1] * actions[..., 1] + self.default_actions[1]
-        #    self.actions[:, 0, 2] = self.action_scales[2] * actions[..., 2] + self.default_actions[2]
-            #self.actions = torch.clamp(self.actions, min = -1, max = 1)        
+            self.actions[:, 0, 1] = self.action_scales[1] * actions[..., 1] + self.default_actions[1] 
+            # self.actions[:, 0, 2] = self.action_scales[2] * actions[..., 2] + self.default_actions[2]      
         else:
             self.actions[:, :, 0] = self.action_scales[0] * actions[..., 0] + self.default_actions[0]
             self.actions[:, :, 1] = self.action_scales[1] * actions[..., 1] + self.default_actions[1]
-        #    self.actions[:, :, 2] = self.action_scales[2] * actions[..., 2] + self.default_actions[2]
+            # self.actions[:, :, 2] = self.action_scales[2] * actions[..., 2] + self.default_actions[2]
 
         # reset collision detection
         self.is_collision = self.is_collision < 0
@@ -1055,7 +1057,17 @@ class DmarEnvBilevel:
         #     return self.obs_buf.clone(), self.privileged_obs, self.rew_buf.clone(), self.reset_buf.clone(), self.info
         # else:
         #     return self.obs_buf[:,0,:].clone(), self.privileged_obs, self.rew_buf[:,0].clone(), self.reset_buf[:,0].clone(), self.info
-        return self.obs_buf.clone(), self.privileged_obs, self.rew_buf.clone(), self.reset_buf.clone(), self.info
+
+        # return self.obs_buf.clone(), self.privileged_obs, self.rew_buf.clone(), self.reset_buf.clone(), self.info
+
+        # NOTE: account for termination during HL episode substeps
+        update_data = (1.0 - 1.0 * self.reset_buf_tmp * (1.0 - 1.0 * self.reset_buf))  # NOTE: don't update if reset within HL episode
+        self.obs_buf_filtered = update_data.view(-1, 1, 1) * self.obs_buf.clone() + (1.0 - update_data.view(-1, 1, 1)) * self.obs_buf_filtered
+        self.rew_buf_filtered = update_data.view(-1, 1, 1) * self.rew_buf.clone()  #  + (1.0 - update_data.view(-1, 1, 1)) * self.rew_buf_filtered
+        # self.reset_buf_filtered = update_data.view(-1, 1) * self.reset_buf.clone() + (1.0 - update_data.view(-1, 1)) * self.reset_buf_filtered
+
+        # FIXME: privileged obs and info NOT filtered!!!
+        return self.obs_buf_filtered.clone(), self.privileged_obs, self.rew_buf_filtered.clone(), self.reset_buf.clone(), self.info
 
     def post_physics_step(self) -> None:
         self.total_step += 1
@@ -1080,28 +1092,6 @@ class DmarEnvBilevel:
         self.ego_pos_world = update_ego_pos * self.states[0, 0, :2] + (1.0 - update_ego_pos) * self.ego_pos_world
         self.all_egoagent_pos_world_env0.append(self.ego_pos_world)
         self.all_targets_pos_world_env0.append(self.targets_pos_world[0, 0])
-
-        # # update drag_reduction
-        # self.drag_reduction_points[
-        #     :, self.drag_reduction_write_idx : self.drag_reduction_write_idx + self.num_agents, :
-        # ] = self.states[:, :, 0:2]
-        # self.drag_reduction_write_idx = (
-        #     self.drag_reduction_write_idx + self.num_agents
-        # ) % self.drag_reduction_points.shape[1]
-        # leading_pts = self.states[:, :, 0:2] + 5 * torch.cat(
-        #     (
-        #         torch.cos(self.states[:, :, 2].view(self.num_envs, self.num_agents, 1)),
-        #         torch.sin(self.states[:, :, 2].view(self.num_envs, self.num_agents, 1)),
-        #     ),
-        #     dim=2,
-        # )
-
-        # dists = leading_pts.view(self.num_envs, self.num_agents, 1, 2) - self.drag_reduction_points.view(
-        #     self.num_envs, 1, -1, 2
-        # )
-        # dists = torch.min(torch.norm(dists, dim=3), dim=2)[0]
-        # self.drag_reduced[:] = False
-        # self.drag_reduced = dists <= 3.0
 
         self.info["agent_active"] = self.active_agents
 
@@ -1139,6 +1129,13 @@ class DmarEnvBilevel:
                 self.stats_overtakes_current[idx_uninit] = 0
 
         self.contouring_err = torch.einsum("eac, eac-> ea", self.trackperp, self.tile_car_vec)
+
+
+        # NEW
+        self.vel = torch.norm(self.states[:,:,self.vn['S_DX']:self.vn['S_DY']+1], dim = -1)
+        self.compute_rewards()
+        if self.log_behavior_stats:
+            self.update_current_behavior_stats()
         
         # get env_ids to reset
         self.time_out_buf *= False
@@ -1181,12 +1178,12 @@ class DmarEnvBilevel:
         for ag in range(self.num_agents):
             self.active_obs_template[idx_1, ag, self.ado_idx_lookup[idx_2, ag]] = 0
 
-        self.vel = torch.norm(self.states[:,:,self.vn['S_DX']:self.vn['S_DY']+1], dim = -1)
+        # self.vel = torch.norm(self.states[:,:,self.vn['S_DX']:self.vn['S_DY']+1], dim = -1)
 
-        if self.log_behavior_stats:
-            self.update_current_behavior_stats()
+        # if self.log_behavior_stats:
+        #     self.update_current_behavior_stats()
         self.compute_observations()
-        self.compute_rewards()
+        # self.compute_rewards()
 
         # render before resetting values
         # if not self.headless:
@@ -1377,7 +1374,7 @@ def compute_rewards_jit(
     rew_buf: torch.Tensor,
     track_progress: torch.Tensor,
     old_track_progress: torch.Tensor,
-    progress_other: torch.Tensor,
+    # progress_other: torch.Tensor,
     is_on_track: torch.Tensor,
     reward_scales: Dict[str, float],
     actions: torch.Tensor,
@@ -1410,7 +1407,7 @@ def compute_rewards_jit(
     rew_progress *= train_ll
 
     pen_progress = -5.0 * progress_jump * reward_scales["progress"]  # NOTE: alternative, penalize reset step
-    pen_progress *= (train_ll + (1.0-train_ll) * 1.0 / dt)
+    pen_progress *= (train_ll + (1.0-train_ll))  #  * 1.0 / dt)
     rew_progress += pen_progress
 
     # ### Off-track penalties ###
@@ -1437,7 +1434,7 @@ def compute_rewards_jit(
 
     rew_dist_base = pdf_dist * reward_scales['goal']
     # Sparse
-    scale_sparse = 0.3 * ll_ep_done / dt # *0.1  # * targets_off_ahead / 5.0  # encourage larger offsets (?) [/5.0]
+    scale_sparse = 0.3 * ll_ep_done  #  / dt # *0.1  # * targets_off_ahead / 5.0  # encourage larger offsets (?) [/5.0]
     # Dense
     # scale_dense = (1.0 / (torch.exp(1.0 * torch.norm(targets_dist_local, dim=-1, keepdim=True))))
     scale_dense = 1.0 / torch.exp(5. * (ll_steps_left-0.05))
@@ -1458,7 +1455,7 @@ def compute_rewards_jit(
         #rew_rank = 1.0 / num_agents * (num_active_agents.view(-1, 1) / 2.0 - ranks) * reward_scales["rank"]
         # rew_rank = torch.exp(-2.0 * teamranks) * reward_scales["rank"] * (1.0 - train_ll) * ll_ep_done[..., 0]
         # rew_rank = torch.exp(-2.0 * ranks) * reward_scales["rank"] * (1.0 - train_ll) * ll_ep_done[..., 0]
-        rew_rank = (1.2*torch.exp(-1.0 * ranks) - 0.2) * reward_scales["rank"] * (1.0 - train_ll) * ll_ep_done[..., 0] / dt
+        rew_rank = (1.2*torch.exp(-1.0 * ranks) - 0.2) * reward_scales["rank"] * (1.0 - train_ll) * ll_ep_done[..., 0]  #  / dt
 
         rew_collision = is_collision * reward_scales["collision"] * train_ll
 

@@ -16,7 +16,7 @@ sim:
   numConstantObservations: 8 #vels, rxy, lxy, maxvel, last actions, rank, teamrank
   # numConstantObservations: 7 #vels, rxy, lxy, maxvel, last actions, lltime
   # numConstantObservations: 11 #vels, rxy, lxy, maxvel, last actions, goalpos, goalstd, lltime
-  numConstantObservationsLL: 5  # goalpos, goalstd, lltime
+  numConstantObservationsLL: 5  #  5  # goalpos, goalstd, lltime
   numActions: 2
   numActionsHL: 4  # goalpos, goalstd
   collide: 1
@@ -101,9 +101,9 @@ learn:
   offtrackRewardScale: -1.0  # -0.2  # -0.2  # -1.0  # -0.1  # -0.1
   actionRateRewardScale: -0.1  # -0.01  # -0.1
   rankRewardScale: 1.0  # 1.0  # 5.0  # 5.0  # 1.0
-  collisionRewardScale: -0.2  # -0.02  # -0.2
+  collisionRewardScale: -0.2  #-0.2  # -0.02  # -0.2
   accRewardScale: -0.1  # -0.5
-  goalRewardScale: 1.0  # 1.0  # 5.0
+  goalRewardScale: 1.0  # 1.0  # 1.0  # 1.0  # 5.0
   horizon: 12  # 12  # 15
 
   episode_length_ll: 20  # 20  # low-level steps in high-level step

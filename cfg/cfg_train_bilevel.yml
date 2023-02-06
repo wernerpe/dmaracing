@@ -23,12 +23,12 @@ runner:
   algorithm_class_hl_name: BimaPPO  # BilevelPPO
   policy_class_ll_name: MultiTeamBilevelActorCritic  # BilevelActorCriticAttention  # BilevelActorCritic
   algorithm_class_ll_name: BimaPPO  # BilevelPPO
-  num_steps_per_env_hl: 10  # 20  # 64 # per iteration
+  num_steps_per_env_hl: 3  # 20  # 64 # per iteration
   num_steps_per_env_ll: 40  # 40  # 60
-  max_iterations: 2400  # 2400  # 1200 # 500 # number of policy updates
+  max_iterations: 500  # 2400  # 1200 # 500 # number of policy updates
   iter_per_hl: 10  # 20  # 1  # 20
-  iter_per_ll: 50  # 200  # 10  # 200
-  pretrain_ll_iter: 1  # 200  # 1000
+  iter_per_ll: 100  # 300  # 200  # 10  # 200
+  pretrain_ll_iter: 0  # 200  # 1000
   warmup_hl_iter: 1  # 200
   warmup_hl_ini: 1.0  # 0.5
   population_update_interval: 50  # 100 #number of iterations before the opponent policy is updated
