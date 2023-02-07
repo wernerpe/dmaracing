@@ -41,7 +41,7 @@ if __name__ == "__main__":
     args = CmdLineArguments()
     args.parse(sys.argv[1:])
     args.device = 'cuda:0'
-    args.headless = True  # False 
+    args.headless = False 
     path_cfg = os.getcwd() + '/cfg'
     cfg, cfg_train, logdir_root = getcfg(path_cfg, postfix='_bilevel', postfix_train='_bilevel')
     #cfg['sim']['numAgents'] = 4
@@ -59,12 +59,15 @@ if __name__ == "__main__":
 
     cfg_train['policy']['numteams'] = 2
     cfg_train['policy']['teamsize'] = 2
-    cfg['learn']['agent_dropout_prob'] = 0.0  # 0.0
+    #cfg['learn']['agent_dropout_prob'] = 0.0  # 0.0
     # cfg['viewer']['logEvery'] = 1
 
     cfg['teams'] = dict()
     cfg['teams']['numteams'] = cfg_train['policy']['numteams']
     cfg['teams']['teamsize'] = cfg_train['policy']['teamsize']
+
+    #config 1
+
 
     args.override_cfg_with_args(cfg, cfg_train)
     set_dependent_cfg_entries(cfg, cfg_train)

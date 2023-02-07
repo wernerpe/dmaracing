@@ -908,7 +908,7 @@ class DmarEnvBilevel:
         if len(idx_inactive):
             self.states[
                 env_ids[idx_inactive], idx2_inactive, self.vn["S_X"] : self.vn["S_Y"] + 1
-            ] = 10000.0 + 1000 * torch.rand((len(idx2_inactive), 2), device=self.device, requires_grad=False)
+            ] = 100000.0 + 100 * torch.rand((len(idx2_inactive), 2), device=self.device, requires_grad=False)
 
         dists = torch.norm(
             self.states[env_ids, :, 0:2].unsqueeze(2) - self.active_centerlines[env_ids].unsqueeze(1), dim=3
