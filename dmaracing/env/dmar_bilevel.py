@@ -1076,9 +1076,9 @@ class DmarEnvBilevel:
 
         # Update ego position at end of LL episodes
         update_ego_pos = self.ll_ep_done[0, 0]
-        self.ego_pos_world = update_ego_pos * self.states[0, 0, :2] + (1.0 - update_ego_pos) * self.ego_pos_world
-        self.all_egoagent_pos_world_env0.append(self.ego_pos_world)
-        self.all_targets_pos_world_env0.append(self.targets_pos_world[0, 0])
+        # ego_pos_world = update_ego_pos * self.states[0, 0, :2]  #  + (1.0 - update_ego_pos) * self.ego_pos_world
+        self.all_egoagent_pos_world_env0.append(update_ego_pos * self.states[0, 0, :2])
+        self.all_targets_pos_world_env0.append(update_ego_pos * self.targets_pos_world[0, 0])
 
         self.info["agent_active"] = self.active_agents
 
@@ -1423,7 +1423,7 @@ def compute_rewards_jit(
 
     rew_dist_base = pdf_dist * reward_scales['goal']
     # Sparse
-    scale_sparse = 0.3 * ll_ep_done  #  / dt # *0.1  # * targets_off_ahead / 5.0  # encourage larger offsets (?) [/5.0]
+    scale_sparse = 0.3 * ll_ep_done * targets_off_ahead / 4.0 #  / dt # *0.1  # * targets_off_ahead / 5.0  # encourage larger offsets (?) [/5.0]
     # Dense
     # scale_dense = (1.0 / (torch.exp(1.0 * torch.norm(targets_dist_local, dim=-1, keepdim=True))))
     scale_dense = 1.0 / torch.exp(5. * (ll_steps_left-0.05))
