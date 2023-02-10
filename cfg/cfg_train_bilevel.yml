@@ -33,7 +33,7 @@ runner:
   warmup_hl_ini: 1.0  # 0.5
   population_update_interval: 500  # 100 #number of iterations before the opponent policy is updated
   # logging
-  save_interval: 200  # 100  # 50 # check for potential saves every this many iterations
+  save_interval: 100  # 100  # 50 # check for potential saves every this many iterations
   experiment_name: 'tri_multiagent_blr_hierarchical'  # 'tri_single_blr_hierarchical'
   run_name: ''
   # load and resume

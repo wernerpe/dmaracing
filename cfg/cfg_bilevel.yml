@@ -12,10 +12,7 @@ sim:
   #dependent on the lookaheadhorizon length and number of ado cars in an env
   #this is done in get_cfg directly
   numObservations: -1
-  # numConstantObservations: 6 #vels, rxy, lxy, maxvel, last actions
   numConstantObservations: 8 #vels, rxy, lxy, maxvel, last actions, rank, teamrank
-  # numConstantObservations: 7 #vels, rxy, lxy, maxvel, last actions, lltime
-  # numConstantObservations: 11 #vels, rxy, lxy, maxvel, last actions, goalpos, goalstd, lltime
   numConstantObservationsLL: 5  #  5  # goalpos, goalstd, lltime
   numActions: 2
   numActionsHL: 4  # goalpos, goalstd
@@ -29,19 +26,6 @@ sim:
   logBehaviorEvery: 10
 
 model:
-  #dynamics_model_name: kinematic/checkpoints/kinematic.ckpt #higher_roll_loss.ckpt #plastic_wheels.ckpt #
-  #hparams_path: kinematic/hparams.yaml
-  #SIZE: 0.02 #[px/m]
-  #BREAKFORCE: 100
-  #ENGINE_POWER_SCALE: 150000000
-  #WHEEL_MOMENT_OF_INERTIA_SCALE: 2000
-  #FRICTION_LIMIT_SCALE: 10000000
-  #OFFTRACK_FRICTION_SCALE: 0.2
-  #WHEEL_R_SCALE: 27
-  #LENGTH_SCALE: 200
-  #MASS_SCALE: 40
-  #MOMENT_OF_INERTIA_SCALE: 7.0
-  #drag_reduction: 1.3
   lr: 0.14
   lf: 0.19
   W_coll: 0.35

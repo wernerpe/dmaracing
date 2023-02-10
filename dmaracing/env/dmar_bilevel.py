@@ -14,14 +14,11 @@ import random
 # Add Dynamics directory to python path. Change this path to match that of your local system!
 import sys
 from gym import spaces
-#sys.path.insert(1, "/home/thomasbalch/tri_workspace/dynamics_model_learning/scripts")
-# Import Dynamics encoder from TRI dynamics library.
 from dmaracing.env.car_dynamics_utils import (get_varnames, set_dependent_params, 
 allocate_car_dynamics_tensors, SwitchedBicycleKinodynamicModel)
 #from dynamics_lib import DynamicsEncoder
 from dmaracing.env.car_dynamics import step_cars
 from dmaracing.controllers.purepursuit import PPController
-
 
 class DmarEnvBilevel:
     def __init__(self, cfg, args) -> None:
@@ -1066,11 +1063,6 @@ class DmarEnvBilevel:
             self.is_collision |= torch.norm(self.contact_wrenches, dim=2) > 0
 
         self.post_physics_step()
-        # if self.num_agents>1:
-        #     return self.obs_buf.clone(), self.privileged_obs, self.rew_buf.clone(), self.reset_buf.clone(), self.info
-        # else:
-        #     return self.obs_buf[:,0,:].clone(), self.privileged_obs, self.rew_buf[:,0].clone(), self.reset_buf[:,0].clone(), self.info
-
         return self.obs_buf.clone(), self.privileged_obs, self.rew_buf.clone(), self.reset_buf.clone(), self.info
 
     def post_physics_step(self) -> None:
@@ -1149,11 +1141,7 @@ class DmarEnvBilevel:
         # env_ids = torch.where(self.reset_buf_hl)[0]  # NOTE: step LL env until HL update
         self.info = {}
         self.agent_left_track |= self.time_off_track[:, :] > self.offtrack_reset
-        # ids_report = torch.where(self.rank_reporting_active * (~all_agents_on_track|self.reset_buf))[0]
-        # self.rank_reporting_active *= all_agents_on_track
-        # if len(ids_report):
-        #    self.info['ranking'] = [torch.mean(1.0*self.ranks[ids_report, :], dim = 0), 1.0*len(ids_report)/(1.0*len(self.reset_buf))]
-
+    
         is_reset_frame = False
         if len(env_ids):
             if 0 in env_ids:
@@ -1182,15 +1170,9 @@ class DmarEnvBilevel:
         for ag in range(self.num_agents):
             self.active_obs_template[idx_1, ag, self.ado_idx_lookup[idx_2, ag]] = 0
 
-        # self.vel = torch.norm(self.states[:,:,self.vn['S_DX']:self.vn['S_DY']+1], dim = -1)
-
-        # if self.log_behavior_stats:
-        #     self.update_current_behavior_stats()
         self.compute_observations()
-        # self.compute_rewards()
-
+        
         # render before resetting values
-        # if not self.headless:
         if not is_reset_frame:
             self.render()
 
