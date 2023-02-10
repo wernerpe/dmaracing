@@ -132,7 +132,7 @@ def get_state_control_tensors(
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
 
     theta = state[:, :, vn["S_THETA"]]
-    delta = state[:, :, vn["S_STEER"]]
+    #delta = state[:, :, vn["S_STEER"]]
 
     state[:, :, vn["S_STEER"]] = torch.clamp(actions[:, :, vn["A_STEER"]], -0.35 , .35)
 
@@ -157,10 +157,10 @@ def get_state_control_tensors(
     )
     wheels_on_track_segments[:] = torch.einsum("jt, eawt -> eawj", S_track, wheels_on_track_segments_concat) >= 3.5
     
-    yaw = state[:, :, vn["S_THETA"]]  # atan2(2 * q1 * q2 + 2 * q0 * q3, q1 * q1 + q0 * q0 - q3 * q3 - q2 * q2)
-    #roll = torch.atan2(2 * q2 * q3 + 2 * q0 * q1, q3 * q3 - q2 * q2 - q1 * q1 + q0 * q0)
-    roll = 0*state[:, :, vn["S_THETA"]]
-    yaw_rate = state[:, :, vn["S_DTHETA"]]
+    # yaw = state[:, :, vn["S_THETA"]]  # atan2(2 * q1 * q2 + 2 * q0 * q3, q1 * q1 + q0 * q0 - q3 * q3 - q2 * q2)
+    # #roll = torch.atan2(2 * q2 * q3 + 2 * q0 * q1, q3 * q3 - q2 * q2 - q1 * q1 + q0 * q0)
+    # roll = 0*state[:, :, vn["S_THETA"]]
+    # yaw_rate = state[:, :, vn["S_DTHETA"]]
 
     dyn_state = state
     # =torch.cat(
