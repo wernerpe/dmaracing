@@ -53,9 +53,10 @@ class Viewer:
             self.num_cars = min(self.max_agents, self.num_envs)
         
         #bounding box of car in model frame
-        w = self.cfg['model']['W']
-        lf = self.cfg['model']['lf']  
-        lr = self.cfg['model']['lr']
+    
+        w = self.cfg['model']['W_coll']
+        lf = self.cfg['model']['L_coll']/2  
+        lr = self.cfg['model']['L_coll']/2
         self.car_box_m = torch.tensor([[lf, -w/2],[lf, w/2],[-lr, w/2], [-lr, -w/2]], device = self.device)
         self.car_box_m = self.car_box_m.unsqueeze(2).repeat(1, 1, self.num_cars)
         self.car_box_m = torch.transpose(self.car_box_m, 0,1) 
@@ -214,27 +215,29 @@ class Viewer:
 
     def draw_all_targets(self, all_targets_pos_world_env0, all_egoagent_pos_world_env0):
         all_targets = torch.stack(all_targets_pos_world_env0, dim=0).cpu().numpy()
+        all_targets = all_targets[~(all_targets==0).all(1)]
         #project into camera frame%
         all_targets = self.cords2px_np(all_targets)
-        unique_idx_target = np.unique(all_targets, axis=0, return_index=True)[1]
-        all_targets = all_targets[np.sort(unique_idx_target)]
+        # unique_idx_target = np.unique(all_targets, axis=0, return_index=True)[1]
+        # all_targets = all_targets[np.sort(unique_idx_target)]
 
         all_positions = torch.stack(all_egoagent_pos_world_env0, dim=0).cpu().numpy()
+        all_positions = all_positions[~(all_positions==0).all(1)]
         #project into camera frame%
         all_positions = self.cords2px_np(all_positions)
-        unique_idx_position = np.unique(all_positions, axis=0, return_index=True)[1]
-        all_positions = all_positions[np.sort(unique_idx_position)]
-        all_positions = np.concatenate((all_positions, 0 * np.expand_dims(all_positions[0], axis=0)), axis=0)  # skip first entry (want end of LL ep)
+        # unique_idx_position = np.unique(all_positions, axis=0, return_index=True)[1]
+        # all_positions = all_positions[np.sort(unique_idx_position)]
+        # all_positions = np.concatenate((all_positions, 0 * np.expand_dims(all_positions[0], axis=0)), axis=0)  # skip first entry (want end of LL ep)
 
-        for idx, (target, position) in enumerate(zip(all_targets, all_positions[1:])):
+        for idx, (target, position) in enumerate(zip(all_targets, all_positions[0:])):
             scale =  int(80/(self.scale_x))
             self.img = cv.circle(self.img, (target[0], target[1]), scale, (int(self.colors[-1]),  0, int(self.colors[-1])), -1)
             cv.putText(self.img, str(idx), (target[0]+5, target[1]-10), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
             self.img = cv.circle(self.img, (position[0], position[1]), scale, (0,  255, 0), -1)
             cv.putText(self.img, str(idx), (position[0]+5, position[1]-10), self.font, 0.5,  (0,  255, 0), 1, cv.LINE_AA)
 
-            if idx < len(all_targets)-1:
-                self.img  = cv.line(self.img, target, position, color=(255, 0, 0), thickness=1)
+            # if idx < len(all_targets)-1:
+            self.img  = cv.line(self.img, target, position, color=(255, 0, 0), thickness=1)
 
     def draw_track_progress(self, track_progress, active_tile):
         track_progress = track_progress[0, 0].cpu().numpy()

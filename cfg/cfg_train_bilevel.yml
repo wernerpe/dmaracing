@@ -11,7 +11,7 @@ algorithm:
   num_mini_batches: 6 # this is per agent
   learning_rate: 1.e-4  # 5.e-5
   # schedule: adaptive # could be adaptive, linear or fixed
-  gamma: 0.99
+  # gamma: 0.99
   lam: 0.95
   desired_kl: 0.02  # 0.008
   value_loss_coef: 1.0
@@ -23,11 +23,11 @@ runner:
   algorithm_class_hl_name: BimaPPO  # BilevelPPO
   policy_class_ll_name: MultiTeamBilevelActorCritic  # BilevelActorCriticAttention  # BilevelActorCritic
   algorithm_class_ll_name: BimaPPO  # BilevelPPO
-  num_steps_per_env_hl: 3  # 20  # 64 # per iteration
+  num_steps_per_env_hl: 5  # 20  # 64 # per iteration
   num_steps_per_env_ll: 40  # 40  # 60
-  max_iterations: 500  # 2400  # 1200 # 500 # number of policy updates
-  iter_per_hl: 1  # 20  # 1  # 20
-  iter_per_ll: 500  # 300  # 200  # 10  # 200
+  max_iterations: 1000  # 2400  # 1200 # 500 # number of policy updates
+  iter_per_hl: 10  # 20  # 1  # 20
+  iter_per_ll: 500 # 300  # 200  # 10  # 200
   pretrain_ll_iter: 0  # 200  # 1000
   warmup_hl_iter: 1  # 200
   warmup_hl_ini: 1.0  # 0.5

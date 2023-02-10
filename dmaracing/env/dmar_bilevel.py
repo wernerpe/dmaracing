@@ -16,8 +16,9 @@ import sys
 from gym import spaces
 #sys.path.insert(1, "/home/thomasbalch/tri_workspace/dynamics_model_learning/scripts")
 # Import Dynamics encoder from TRI dynamics library.
-from dmaracing.env.car_dynamics_utils import get_varnames, set_dependent_params, allocate_car_dynamics_tensors
-from dynamics_lib import DynamicsEncoder
+from dmaracing.env.car_dynamics_utils import (get_varnames, set_dependent_params, 
+allocate_car_dynamics_tensors, SwitchedBicycleKinodynamicModel)
+#from dynamics_lib import DynamicsEncoder
 from dmaracing.env.car_dynamics import step_cars
 from dmaracing.controllers.purepursuit import PPController
 
@@ -65,17 +66,35 @@ class DmarEnvBilevel:
         self.num_obs_add_ll = self.simParameters["numConstantObservationsLL"]
 
         # Import TRI dynamics model and weights
-        self.dyn_model = DynamicsEncoder.load_from_checkpoint(
-            #"/home/peter/git/dynamics_model_learning/sample_models/fixed_integration_current_v25.ckpt").to(self.device)
-            "dynamics_models/"+cfg['model']['dynamics_model_name'],
-            hparams_file="dynamics_models/"+cfg['model']['hparams_path'], strict=False).to(self.device)
-        self.dyn_model.integration_function.initialize_lstm_states(torch.zeros((self.num_envs * self.num_agents, 50, 6)).to(self.device))
+        # self.dyn_model = DynamicsEncoder.load_from_checkpoint(
+        #     #"/home/peter/git/dynamics_model_learning/sample_models/fixed_integration_current_v25.ckpt").to(self.device)
+        #     "dynamics_models/"+cfg['model']['dynamics_model_name'],
+        #     hparams_file="dynamics_models/"+cfg['model']['hparams_path'], strict=False).to(self.device)
+        # self.dyn_model.integration_function.initialize_lstm_states(torch.zeros((self.num_envs * self.num_agents, 50, 6)).to(self.device))
+        
+        self.dyn_model = SwitchedBicycleKinodynamicModel( num_states = self.cfg['sim']['numStates'],
+                                                          num_actions = self.cfg['sim']['numActions'],
+                                                          num_agents = self.cfg['sim']['numAgents'],
+                                                          dt = self.cfg['sim']['dt'],
+                                                          mass = self.cfg['model']['mass'],
+                                                          lf = self.cfg['model']['lf'],
+                                                          lr = self.cfg['model']['lr'],
+                                                          Iz = self.cfg['model']['Iz'],
+                                                          max_vel = self.cfg['model']['max_vel'],
+                                                          Br = self.cfg['model']['max_vel'],
+                                                          Cf = self.cfg['model']['Cf'],
+                                                          Cr = self.cfg['model']['Cr'],
+                                                          Df = self.cfg['model']['Df'],
+                                                          Dr = self.cfg['model']['Dr'],
+                                                          vn = self.vn,
+                                                          device=self.device
+                                                         )
         
         if self.test_mode:
-            self.dyn_model.dynamics_integrator.dyn_model.set_test_mode()
-        self.dyn_model.dynamics_integrator.dyn_model.num_agents = self.num_agents
-        self.dyn_model.dynamics_integrator.dyn_model.init_noise_vec(self.num_envs, self.device)
-        self.dyn_model.integration_function.dyn_model.init_col_switch(self.num_envs, self.cfg['model']['col_decay_time'], self.device)
+            self.dyn_model.set_test_mode()
+        # self.dyn_model.num_agents = self.num_agents
+        self.dyn_model.init_noise_vec(self.num_envs, self.device)
+        self.dyn_model.init_col_switch(self.num_envs, self.cfg['model']['col_decay_time'], self.device)
         #self.dyn_model.integration_function.dyn_model.gp.noise_lvl = self.cfg['model']['gp_noise_scale']
         
         self.noise_level = self.cfg['model']['noise_level']
@@ -158,14 +177,11 @@ class DmarEnvBilevel:
         self.time_out_buf = torch_zeros((self.num_envs, 1)) > 1
         self.reset_buf = torch_zeros((self.num_envs, 1)) > 1
         self.reset_buf_tmp = torch_zeros((self.num_envs, 1)) > 1
+        self.update_data = 1.0 + torch_zeros((self.num_envs, 1))
         self.agent_left_track = torch_zeros((self.num_envs, self.num_agents)) > 1
         self.episode_length_buf = torch_zeros((self.num_envs, 1))
         self.time_off_track = torch_zeros((self.num_envs, self.num_agents))
         self.dt = cfg["sim"]["dt"]
-
-        self.obs_buf_filtered = torch_zeros((self.num_envs, self.num_agents, self.num_obs))
-        self.rew_buf_filtered = torch_zeros((self.num_envs, self.num_agents, 2))
-        self.reset_buf_filtered = torch_zeros((self.num_envs, 1)) > 1
 
         self.reset_cause = torch_zeros((self.num_envs, 1))
 
@@ -389,7 +405,7 @@ class DmarEnvBilevel:
         self.render()
         print(10*'#'+' Randomized Vars '+10*'#')
         print('dynamics model:\n')
-        print(self.dyn_model.integration_function.dyn_model.randomized_params)
+        print(self.dyn_model.randomized_params)
         print('env:\n')
         print('obs noise' if self.test_mode else '')
 
@@ -706,7 +722,7 @@ class DmarEnvBilevel:
                     lookahead_rbound_scaled[:,:,:,1], 
                     lookahead_lbound_scaled[:,:,:,0], 
                     lookahead_lbound_scaled[:,:,:,1],
-                    self.dyn_model.dynamics_integrator.dyn_model.max_vel_vec,
+                    self.dyn_model.max_vel_vec,
                     last_raw_actions,
                     self.ranks.view(-1, self.num_agents, 1),
                     self.teamranks.view(-1, self.num_agents, 1),
@@ -734,7 +750,7 @@ class DmarEnvBilevel:
                 lookahead_rbound_scaled[:,:,:,1], 
                 lookahead_lbound_scaled[:,:,:,0], 
                 lookahead_lbound_scaled[:,:,:,1],
-                self.dyn_model.dynamics_integrator.dyn_model.max_vel_vec, 
+                self.dyn_model.max_vel_vec, 
                 last_raw_actions,
                 # self.targets_dist_world,
                 # self.targets_std_world,
@@ -817,7 +833,7 @@ class DmarEnvBilevel:
         return self.obs_buf, self.privileged_obs
 
     def reset_envs(self, env_ids) -> None:
-        self.dyn_model.integration_function.dyn_model.reset(env_ids)
+        self.dyn_model.reset(env_ids)
         if self.track_stats:
             last_track_ids = self.active_track_ids[env_ids].clone()
         self.resample_track(env_ids)
@@ -945,7 +961,7 @@ class DmarEnvBilevel:
         #        self.info['percentage_max_episode_length'] = 1.0*self.episode_length_buf[env_ids]/(self.max_episode_length)
         if self.track_stats:
             #compute percentage of laptime achieved
-            mv = self.dyn_model.dynamics_integrator.dyn_model.max_vel_vec[env_ids, 0]
+            mv = self.dyn_model.max_vel_vec[env_ids, 0]
             X = torch.cat(tuple([mv.view(-1,1)**idx for idx in range(3)]), dim = -1)
             w = self.maxvel_to_laptime_in_s_model[last_track_ids, :]
             sa_lap_time_targets = torch.einsum('ef, ef -> e', X, w)
@@ -962,10 +978,10 @@ class DmarEnvBilevel:
             self.track_progress_no_laps[env_ids].clone(),
             self.track_lengths[last_track_ids],
             #env_ids.clone(),
-            self.dyn_model.dynamics_integrator.dyn_model.max_vel_vec[env_ids].clone()]
+            self.dyn_model.max_vel_vec[env_ids].clone()]
             
         #dynamics randomization
-        self.dyn_model.dynamics_integrator.dyn_model.update_noise_vec(env_ids, self.noise_level)
+        self.dyn_model.update_noise_vec(env_ids, self.noise_level)
 
         # ### Update quantities on reset ###
         # get current tile positions
@@ -1006,10 +1022,7 @@ class DmarEnvBilevel:
 
         self.reset_buf[env_ids] = False
         self.reset_buf_tmp[env_ids] = False
-
-        self.obs_buf_filtered[env_ids] = 0.0
-        self.rew_buf_filtered[env_ids] = 0.0
-        self.reset_buf_filtered[env_ids] = False
+        self.update_data[env_ids] = 1.0
 
         self.wheels_on_track_segments[env_ids, ...] = True  # HACK
 
@@ -1058,16 +1071,7 @@ class DmarEnvBilevel:
         # else:
         #     return self.obs_buf[:,0,:].clone(), self.privileged_obs, self.rew_buf[:,0].clone(), self.reset_buf[:,0].clone(), self.info
 
-        # return self.obs_buf.clone(), self.privileged_obs, self.rew_buf.clone(), self.reset_buf.clone(), self.info
-
-        # NOTE: account for termination during HL episode substeps
-        update_data = (1.0 - 1.0 * self.reset_buf_tmp * (1.0 - 1.0 * self.reset_buf))  # NOTE: don't update if reset within HL episode
-        self.obs_buf_filtered = update_data.view(-1, 1, 1) * self.obs_buf.clone() + (1.0 - update_data.view(-1, 1, 1)) * self.obs_buf_filtered
-        self.rew_buf_filtered = update_data.view(-1, 1, 1) * self.rew_buf.clone()  #  + (1.0 - update_data.view(-1, 1, 1)) * self.rew_buf_filtered
-        # self.reset_buf_filtered = update_data.view(-1, 1) * self.reset_buf.clone() + (1.0 - update_data.view(-1, 1)) * self.reset_buf_filtered
-
-        # FIXME: privileged obs and info NOT filtered!!!
-        return self.obs_buf_filtered.clone(), self.privileged_obs, self.rew_buf_filtered.clone(), self.reset_buf.clone(), self.info
+        return self.obs_buf.clone(), self.privileged_obs, self.rew_buf.clone(), self.reset_buf.clone(), self.info
 
     def post_physics_step(self) -> None:
         self.total_step += 1
@@ -1089,9 +1093,9 @@ class DmarEnvBilevel:
 
         # Update ego position at end of LL episodes
         update_ego_pos = self.ll_ep_done[0, 0]
-        self.ego_pos_world = update_ego_pos * self.states[0, 0, :2] + (1.0 - update_ego_pos) * self.ego_pos_world
-        self.all_egoagent_pos_world_env0.append(self.ego_pos_world)
-        self.all_targets_pos_world_env0.append(self.targets_pos_world[0, 0])
+        # ego_pos_world = update_ego_pos * self.states[0, 0, :2]  #  + (1.0 - update_ego_pos) * self.ego_pos_world
+        self.all_egoagent_pos_world_env0.append(update_ego_pos * self.states[0, 0, :2])
+        self.all_targets_pos_world_env0.append(update_ego_pos * self.targets_pos_world[0, 0])
 
         self.info["agent_active"] = self.active_agents
 
@@ -1130,10 +1134,10 @@ class DmarEnvBilevel:
 
         self.contouring_err = torch.einsum("eac, eac-> ea", self.trackperp, self.tile_car_vec)
 
-
-        # NEW
+        # Compute reward terms
         self.vel = torch.norm(self.states[:,:,self.vn['S_DX']:self.vn['S_DY']+1], dim = -1)
         self.compute_rewards()
+        self.rew_buf = self.rew_buf * self.update_data.view(-1, 1, 1)  # mask HL obs that terminated
         if self.log_behavior_stats:
             self.update_current_behavior_stats()
         
@@ -1197,6 +1201,8 @@ class DmarEnvBilevel:
         self.last_last_steer[:] = self.last_steer[:]
         self.last_vel[:] = self.vel
 
+        self.update_data = 1.0 * (self.reset_buf_tmp == self.reset_buf)
+
     def render(
         self,
     ) -> None:
@@ -1208,7 +1214,7 @@ class DmarEnvBilevel:
                     self.states[:, :, [0, 1, 2, 6]], self.slip, self.drag_reduced, self.wheel_locations_world, self.interpolated_centers, self.interpolated_bounds, 
                     self.targets_pos_world, self.targets_rew01_local, self.targets_rot_world, self.targets_dist_track, self.actions, self.time_off_track,
                     self._action_probs_hl, self._action_mean_ll, self._action_std_ll,
-                    self.is_on_track_per_wheel, self.dyn_model.dynamics_integrator.dyn_model.max_vel_vec, self.step_reward_terms, self.reset_cause, self.track_progress, self.active_track_tile,
+                    self.is_on_track_per_wheel, self.dyn_model.max_vel_vec, self.step_reward_terms, self.reset_cause, self.track_progress, self.active_track_tile,
                     self.ranks if self.num_agents>1 else None, self._global_step, self.all_targets_pos_world_env0, self.all_egoagent_pos_world_env0, self.last_actions,
                     self.active_track_tile, self.targets_tile_idx,
                 )
@@ -1217,7 +1223,7 @@ class DmarEnvBilevel:
                 self.states[:, :, [0, 1, 2, 6]], self.slip, self.drag_reduced, self.wheel_locations_world, self.interpolated_centers, self.interpolated_bounds, 
                 self.targets_pos_world, self.targets_rew01_local, self.targets_rot_world, self.targets_dist_track, self.actions, self.time_off_track,
                 self._action_probs_hl, self._action_mean_ll, self._action_std_ll,
-                self.is_on_track_per_wheel, self.dyn_model.dynamics_integrator.dyn_model.max_vel_vec, self.step_reward_terms, self.reset_cause, self.track_progress, self.active_track_tile,
+                self.is_on_track_per_wheel, self.dyn_model.max_vel_vec, self.step_reward_terms, self.reset_cause, self.track_progress, self.active_track_tile,
                 self.ranks if self.num_agents>1 else None, self._global_step, self.all_targets_pos_world_env0, self.all_egoagent_pos_world_env0, self.last_actions,
                 self.active_track_tile, self.targets_tile_idx,
             )
@@ -1244,9 +1250,9 @@ class DmarEnvBilevel:
         # run physics update
         act = self.last_actions.clone()
         act[..., self.vn['A_STEER']] = self.last_last_steer[..., 0]
-
+        
         (
-            self.states,
+            self.states[:],
             self.contact_wrenches,
             self.shove,
             self.wheels_on_track_segments,
@@ -1280,9 +1286,9 @@ class DmarEnvBilevel:
             self.track_S,  # how to sum
             self.dyn_model,
         )
-
-    def reset_lstm(self):
-        self.dyn_model.integration_function.initialize_lstm_states(torch.zeros((self.num_envs * self.num_agents, 50, 6)).to(self.device))
+     
+    # def reset_lstm(self):
+    #     self.dyn_model.initialize_lstm_states(torch.zeros((self.num_envs * self.num_agents, 50, 6)).to(self.device))
 
     def resample_track(self, env_ids) -> None:
         success = self.episode_length_buf[env_ids]> 0.9*self.max_episode_length
@@ -1434,7 +1440,7 @@ def compute_rewards_jit(
 
     rew_dist_base = pdf_dist * reward_scales['goal']
     # Sparse
-    scale_sparse = 0.3 * ll_ep_done  #  / dt # *0.1  # * targets_off_ahead / 5.0  # encourage larger offsets (?) [/5.0]
+    scale_sparse = 0.3 * ll_ep_done * targets_off_ahead / 4.0 #  / dt # *0.1  # * targets_off_ahead / 5.0  # encourage larger offsets (?) [/5.0]
     # Dense
     # scale_dense = (1.0 / (torch.exp(1.0 * torch.norm(targets_dist_local, dim=-1, keepdim=True))))
     scale_dense = 1.0 / torch.exp(5. * (ll_steps_left-0.05))

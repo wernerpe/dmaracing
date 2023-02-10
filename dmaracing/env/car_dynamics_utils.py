@@ -1,8 +1,13 @@
 import torch
 import numpy as np
 from typing import List, Tuple, Dict
-
+from dmaracing.env.throttle_encoder import get_throttle_encoder 
+import torch.nn as nn 
 from torch import device
+
+def torch_unif_rand(shape, min, max, device):
+    rnd = torch.rand(shape, device=device)
+    return (max-min) * rnd + min
 
 def get_varnames()->Dict[str, int]:
     varnames = {}
@@ -12,11 +17,11 @@ def get_varnames()->Dict[str, int]:
     varnames['S_DX'] = 3
     varnames['S_DY'] = 4
     varnames['S_DTHETA'] = 5
+    varnames['S_STEER'] = 6
     #varnames['S_W0'] = 6
     #varnames['S_W1'] = 7
     #varnames['S_W2'] = 8
     #varnames['S_W3'] = 9
-    varnames['S_STEER'] = 6
     # varnames['S_GAS'] = 7
     
     varnames['A_STEER'] = 0
@@ -28,14 +33,15 @@ def allocate_car_dynamics_tensors(task):
     task.R = torch.zeros((task.num_envs, task.num_agents, 2, 2), dtype = torch.float, device = task.device, requires_grad=False)
     task.zero_pad = torch.zeros((task.num_envs, 5,1), device =task.device, requires_grad=False) 
 
-    task.P_tot, task.D_tot, task.S_mat, task.Repf_mat, task.Ds = build_col_poly_eqns(1.1*task.modelParameters['W'], 1.1*(task.modelParameters['lr'] + task.modelParameters['lf']), task.device, task.num_envs)
+    task.P_tot, task.D_tot, task.S_mat, task.Repf_mat, task.Ds = build_col_poly_eqns(1.1*task.modelParameters['W_coll'], 1.1*(task.modelParameters['L_coll']), task.device, task.num_envs)
     task.collision_pairs = get_collision_pairs(task.num_agents, task.cfg['sim']['filtercollisionstoego'], task.team_size)
-    task.collision_verts = get_car_vert_mat(task.modelParameters['W'], 
-                                            task.modelParameters['lf']+task.modelParameters['lr'], 
+    task.collision_verts = get_car_vert_mat(task.modelParameters['W_coll'], 
+                                            #task.modelParameters['lf']+task.modelParameters['lr'], 
+                                            task.modelParameters['L_coll'],
                                             task.num_envs, 
                                             task.device)
-    L = task.modelParameters['L']
-    W = task.modelParameters['W']
+    L = task.modelParameters['L_coll']
+    W = task.modelParameters['W_coll']
     task.wheel_locations = torch.zeros((4,2), device = task.device, dtype=torch.float, requires_grad=False)
     task.wheel_locations[0, 0] = L/2.0 
     task.wheel_locations[0, 1] = W/2.0 
@@ -55,20 +61,18 @@ def allocate_car_dynamics_tensors(task):
     
 
 def set_dependent_params(mod_par):
-    SIZE = mod_par['SIZE']
-    mod_par['ENGINE_POWER'] = mod_par['ENGINE_POWER_SCALE']*SIZE**2
-    mod_par['WHEEL_MOMENT_OF_INERTIA'] = mod_par['WHEEL_MOMENT_OF_INERTIA_SCALE']*SIZE**2
-    mod_par['FRICTION_LIMIT'] = mod_par['FRICTION_LIMIT_SCALE'] * SIZE * SIZE
-    mod_par['WHEEL_R'] = SIZE*mod_par['WHEEL_R_SCALE']
-    L = 0.58
-    W = 0.35
-    M = L*W *mod_par['MASS_SCALE']
-    mod_par['M'] = M
-    mod_par['L'] = L
-    mod_par['W'] = W 
-    mod_par['I'] = mod_par['MOMENT_OF_INERTIA_SCALE']*M*(L**2 + W**2 )/12.0
-    mod_par['lf'] = L/2
-    mod_par['lr'] = L/2
+    # SIZE = mod_par['SIZE']
+    # mod_par['ENGINE_POWER'] = mod_par['ENGINE_POWER_SCALE']*SIZE**2
+    # mod_par['WHEEL_MOMENT_OF_INERTIA'] = mod_par['WHEEL_MOMENT_OF_INERTIA_SCALE']*SIZE**2
+    # mod_par['FRICTION_LIMIT'] = mod_par['FRICTION_LIMIT_SCALE'] * SIZE * SIZE
+    # mod_par['WHEEL_R'] = SIZE*mod_par['WHEEL_R_SCALE']
+    # M = L*W *mod_par['MASS_SCALE']
+    # mod_par['M'] = M
+    mod_par['L'] = mod_par['lf'] + mod_par['lr']
+    # mod_par['W'] = W 
+    # mod_par['I'] = mod_par['MOMENT_OF_INERTIA_SCALE']*M*(L**2 + W**2 )/12.0
+    # mod_par['lf'] = L/2
+    # mod_par['lr'] = L/2
     
 #only used for collsion checking, only one car per env needed for pairwise checking
 def get_car_vert_mat(w, l, num_envs, device):
@@ -432,3 +436,212 @@ def resolve_collsions(contact_wrenches : torch.Tensor,
     shove[:, :, 2]  = .5 * contact_wrenches[:,:,2] / (stiffness*Iz)          
     return contact_wrenches, shove
 
+class SwitchedBicycleKinodynamicModel(nn.Module):
+    def __init__(self,
+                 num_states=7,
+                 num_actions=2,
+                 num_agents=1,
+                 dt = 0.02, 
+                 mass=None, 
+                 lf=None, 
+                 lr=None, 
+                 Iz=None,
+                 max_vel=3.5,
+                 Bf = 0.711,
+                 Br = 2.482,
+                 Cf = 1.414,
+                 Cr = 1.343,
+                 Df = 0.892,
+                 Dr = 0.892,
+                 vn = None,
+                 device = 'cuda:0'
+                 ):
+
+        super().__init__()
+        self.num_states = num_states
+        self.num_actions = num_actions
+        self.num_agents = num_agents
+        #self.parameter = torch.nn.Parameter(torch.tensor([1.0], dtype=torch.float))
+        self.dt = dt
+        self.max_steer_rate = 2.1 #rad/s
+        self.max_d_steer = self.dt*self.max_steer_rate
+        self.max_vel = max_vel
+        self.M = mass
+        self.lf = lf
+        self.lr = lr
+        self.Iz = Iz
+        self.L = lf + lr
+        self.lr_noise = 0
+        self.lf_noise = 0
+        self.gas_noise = 0
+        self.steering_offset_noise = 0
+        self.max_vel_vec = self.max_vel
+        self.device = device
+        
+        self.throttle_encoder = get_throttle_encoder()
+        self.throttle_encoder.to(self.device)
+        self.test = False
+        self.use_collisions = False
+        self.Bf = Bf
+        self.Br = Br
+        self.Cf = Cf
+        self.Cr = Cr
+        self.Df = Df
+        self.Dr = Dr
+
+        self.vn = vn
+        #BLR ModelParameters for TRI KART
+        self.alphaf_model_mean = torch.tensor([-0.16356078,  0.23466891,  0.47629134], device=self.device)
+        self.alphaf_model_std = torch.tensor([[ 0.07033759, -0.0210406 , -0.10337932],
+                                            [-0.0210406 ,  0.01222755, -0.00317403],
+                                            [-0.10337932, -0.00317403,  0.52084342]], device=self.device)
+        
+        self.randomized_params = ['max_vel'] if self.test else ['max_vel', 'lf', 'lb', 'steering_offset', 'throttlecmd', 'w_blr']
+  
+    def set_parameters(self, par, vn):
+        self.par = par
+        self.vn = vn
+
+    def get_state_derivative(self, state, actions, col_wrenches):
+        # https://onlinelibrary.wiley.com/doi/pdf/10.1002/oca.2123
+        # 
+        # [x, y, theta, xdot, ydot, thetadot]
+        #fitted steering model
+        steer = 1.5739 *actions[:, :, self.vn['A_STEER']] - 0.044971
+        steer = torch.clip(steer-self.last_steer, -self.max_d_steer, self.max_d_steer) + steer
+
+        fast_fwd = state[:, :, self.vn['S_DX']] > self.max_vel_vec.squeeze()
+        fast_bwd = -state[:, :, self.vn['S_DX']] > 0.01
+        gas = actions[:, :, self.vn['A_GAS']]
+        gas_clip = 1.0*fast_fwd*torch.clip(gas, -1,0) + 1.0*fast_bwd*torch.clip(gas, 0,1) + ~(fast_fwd|fast_bwd) *  torch.clip(gas, -1.0, 0.3)
+        gas_features = torch.cat((state[:, :, self.vn['S_DX']].unsqueeze(2), 
+                                  actions[:, :, self.vn['A_STEER']].unsqueeze(2), 
+                                  gas_clip.unsqueeze(2)), dim = -1)
+        
+        gas_features += self.gas_noise
+        
+        ddx = self.throttle_encoder(gas_features).detach()
+
+        v_bax = state[:, :, self.vn['S_DX']]
+        v = v_bax.view(-1,self.num_agents,1)
+        d = steer.view(-1,self.num_agents,1)
+        X = torch.cat((d,
+                        d*v, 
+                        d**3), dim = -1)
+
+        slip_angle = -torch.einsum('eac, epc -> ea', X, self.w_sample)
+        beta = torch.arctan((self.lr+self.lr_noise)*torch.tan(steer + self.steering_offset_noise+slip_angle)/(self.L+self.lf_noise + self.lr_noise))
+        ddy = 0*ddx
+        dx = v_bax*torch.cos(state[:, :, self.vn['S_THETA']] + beta)
+        dy = v_bax*torch.sin(state[:, :, self.vn['S_THETA']] + beta)
+        
+        #evaluate BLR model
+        angle = steer + self.steering_offset_noise + slip_angle 
+        dtheta = v_bax*(torch.tan(angle)/torch.sqrt((self.L+self.lf_noise + self.lr_noise)**2 + ((self.lr+self.lr_noise)*torch.tan(angle))**2))
+        
+        ddtheta = 0*ddx
+        
+        ddelta = 0 * ddtheta
+
+        dstate = torch.cat((dx.view(-1,self.num_agents, 1),
+                            dy.view(-1,self.num_agents, 1),
+                            dtheta.view(-1,self.num_agents, 1),
+                            ddx.view(-1,self.num_agents, 1),
+                            ddy.view(-1,self.num_agents, 1),
+                            ddtheta.view(-1,self.num_agents, 1),
+                            ddelta.view(-1,self.num_agents, 1)
+                            ), dim=2)
+
+        #dynamic part
+        if self.use_collisions:
+            lf_perturbed = self.lf + self.lf_noise
+            lr_perturbed = self.lr + self.lr_noise
+            steer = steer.view(-1,self.num_agents)
+            alphaf = -torch.atan2(state[:, :, self.vn['S_DTHETA']]*lf_perturbed + state[:, :, self.vn['S_DY']], state[:, :, self.vn['S_DX']] ) + steer
+            alphar = torch.atan2(state[:, :, self.vn['S_DTHETA']]*lr_perturbed - state[:, :, self.vn['S_DY']], state[:, :, self.vn['S_DX']])
+            Ffy = self.Df * torch.sin(self.Cf*torch.atan(self.Bf*alphaf)) 
+            Fry = self.Dr * torch.sin(self.Cr*torch.atan(self.Br*alphar))  
+            Frx = ddx.squeeze()*self.M*0.5
+            Ffx = ddx.squeeze()*self.M*0.5
+            dx_dyn = state[:, :, self.vn['S_DX']] * torch.cos(state[:, :, self.vn['S_THETA']]) - \
+            state[:, :, self.vn['S_DY']] * torch.sin(state[:, :, self.vn['S_THETA']])
+            dy_dyn = state[:, :, self.vn['S_DX']] * torch.sin(state[:, :, self.vn['S_THETA']]) + \
+                state[:, :, self.vn['S_DY']] * torch.cos(state[:, :, self.vn['S_THETA']])
+            dtheta_dyn = state[:, :, self.vn['S_DTHETA']]
+
+            ddx_dyn = 1 / self.M * ( Frx + Ffx*torch.cos(steer) - Ffy*torch.sin(steer)  + self.M * (state[:, :, self.vn['S_DY']]*state[:, :, self.vn['S_DTHETA']])  \
+                            +   (torch.cos(state[:, :, self.vn['S_THETA']]) * col_wrenches[:, :, 0] + torch.sin(state[:, :, self.vn['S_THETA']])* col_wrenches[:, :, 1]  \
+                            - 0.1  * (state[:, :, self.vn['S_DX']]>0) +  0.1  * (state[:, :, self.vn['S_DX']]<0)) )
+
+            ddy_dyn = 1 / self.M * (Fry + Ffx*torch.sin(steer) + Ffy * torch.cos(steer) - self.M * (state[:, :, self.vn['S_DX']] * state[:, :, self.vn['S_DTHETA']])
+                                - (torch.sin(state[:, :, self.vn['S_THETA']]) * col_wrenches[:, :, 0] + torch.cos(state[:, :, self.vn['S_THETA']]) * col_wrenches[:, :, 1]))
+
+            ddtheta_dyn = 1 / self.Iz * \
+                (Ffy * lf_perturbed* torch.cos(steer) - Fry * lr_perturbed + 5.0*col_wrenches[:, :, 2])
+            ddelta_dyn = 0 * ddtheta
+
+            dstate_dyn = torch.cat((dx_dyn.view(-1,self.num_agents, 1),
+                                dy_dyn.view(-1,self.num_agents, 1),
+                                dtheta_dyn.view(-1,self.num_agents, 1),
+                                ddx_dyn.view(-1,self.num_agents, 1),
+                                ddy_dyn.view(-1,self.num_agents, 1),
+                                ddtheta_dyn.view(-1,self.num_agents, 1),
+                                ddelta_dyn.view(-1,self.num_agents, 1)
+                                ), dim=2)
+
+            is_col = torch.any(col_wrenches, dim =-1)
+            
+            self.time_since_col *= (~is_col).view(-1, self.num_agents)  
+            model_switch = ((self.time_since_col < self.col_decay_time)*(torch.abs(alphar).view(-1, self.num_agents)>0.1)).view(-1,self.num_agents,1)
+
+            dstate = model_switch*dstate_dyn + ~model_switch*dstate
+            self.time_since_col += self.dt
+
+        self.last_steer = steer.view(-1, self.num_agents)
+
+        return dstate
+
+    def forward(self, state, actions, col_wrenches, shove):
+        d_state = self.get_state_derivative(state, actions, col_wrenches)
+        next_state = state + self.dt * d_state
+        next_state[..., self.vn['S_X']:self.vn['S_Y'] + 1] += shove[...,:2]
+        next_state[:, :, self.vn['S_THETA']] += 0.8*shove[:,:,2]
+        #put in steer angle for rendering
+        #next_state[:,:,-1] = actions[:,:,-1]
+        return next_state
+    
+    def update_noise_vec(self, envs, noise_level):
+        if not self.test:
+            self.lf_noise[envs] = torch_unif_rand((len(envs), 1), -0.02*noise_level, 0.02*noise_level, device=self.device)
+            self.lr_noise[envs] = torch_unif_rand((len(envs), 1), -0.02*noise_level, 0.02*noise_level, device=self.device)
+            self.steering_offset_noise[envs] = torch_unif_rand((len(envs), 1 ), -0.03*noise_level, 0.03*noise_level, device=self.device)
+            self.gas_noise[envs] = torch_unif_rand((len(envs), self.num_agents, 1), -0.15*noise_level, 0.05*noise_level, device=self.device)
+        self.max_vel_vec[envs] = self.max_vel*(1 - 0.5 * noise_level) + torch_unif_rand((len(envs), self.num_agents, 1), 0, 0.5*self.max_vel*noise_level, device=self.device)
+
+    def init_noise_vec(self, num_envs, device):
+        self.device = device
+        self.lf_noise = torch.zeros((num_envs,  self.num_agents, ), dtype=torch.float, device= device)
+        self.lr_noise = torch.zeros((num_envs,  self.num_agents, ), dtype=torch.float, device= device)
+        self.gas_noise = torch.zeros((num_envs, self.num_agents, 1), dtype=torch.float, device= device)
+        
+        self.steering_offset_noise = torch.zeros((num_envs, self.num_agents, ), dtype=torch.float, device= device)
+        self.max_vel_vec = self.max_vel*torch.ones((num_envs, self.num_agents, 1), dtype=torch.float, device= device)
+        self.alphaf_model_mean = torch.tile(self.alphaf_model_mean, (num_envs, 1)).view(-1,1, len(self.alphaf_model_mean))
+        self.w_sample = self.alphaf_model_mean.clone()
+        self.last_steer = torch.zeros((num_envs, self.num_agents), dtype=torch.float, device= device)
+
+    def init_col_switch(self, num_envs, col_decay_time, device):
+        self.use_collisions = True
+        self.device = device
+        self.time_since_col = 100.*torch.ones((num_envs, self.num_agents), dtype=torch.float, device= device)
+        self.col_decay_time = col_decay_time
+
+    def set_test_mode(self, ):
+        self.test = True
+    
+    def reset(self, envs):
+        if not self.test:
+            self.w_sample[envs] = torch.distributions.MultivariateNormal(self.alphaf_model_mean[envs, ...], self.alphaf_model_std).sample().view(-1, 1, self.alphaf_model_mean.shape[2])
+        if self.use_collisions:
+            self.time_since_col[envs, ...] = 100.0
+        self.last_steer[envs] = 0

@@ -41,7 +41,7 @@ if __name__ == "__main__":
     args = CmdLineArguments()
     args.parse(sys.argv[1:])
     args.device = 'cuda:0'
-    args.headless = False 
+    args.headless = True 
     path_cfg = os.getcwd() + '/cfg'
     cfg, cfg_train, logdir_root = getcfg(path_cfg, postfix='_bilevel', postfix_train='_bilevel')
     #cfg['sim']['numAgents'] = 4
@@ -76,7 +76,7 @@ if __name__ == "__main__":
     timestamp = now.strftime("%y_%m_%d_%H_%M_%S")
     # logdir = logdir_root +'/'+timestamp+'_no_dist_to_go_' + cfg_train['runner']['algorithm_class_name']+'_'+str(cfg_train['runner']['num_steps_per_env'])
     # logdir = logdir_root +'/'+timestamp + cfg_train['runner']['algorithm_class_name']+'_'+str(cfg_train['runner']['num_steps_per_env'])
-    logdir = logdir_root +'/'+timestamp + '_bilevel_2v2'
+    logdir = logdir_root +'/'+timestamp + '_bilevel_2v2_no_goal'
     cfg["logdir"] = logdir
 
 

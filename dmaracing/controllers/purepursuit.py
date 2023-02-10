@@ -52,5 +52,5 @@ class PPController:
 
     def get_vel_error(self, ang_error):
         vel = torch.norm(self.env.states[..., 3:5], dim =-1) 
-        return torch.clip((1-0.4*torch.abs(ang_error)), max =1, min = 0.2)*self.env.dyn_model.dynamics_integrator.dyn_model.max_vel_vec.squeeze()-vel 
+        return torch.clip((1-0.4*torch.abs(ang_error)), max =1, min = 0.2)*self.env.dyn_model.max_vel_vec.squeeze()-vel 
         #return torch.clip((1-0.4*torch.abs(ang_error)), max =1, min = 0.2)*self.maxvel-vel 

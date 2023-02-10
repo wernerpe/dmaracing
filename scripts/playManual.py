@@ -39,7 +39,7 @@ def play():
         actions[0 , ag, 0] = steer_cmd
         actions[0 , ag, 1] = vel_cmd
         if USE_PPC:
-            actions[:,:,:] = ppc.step()[:,:,:]
+            actions[:,1:,:] = ppc.step()[:,1:,:]
         #env.states[0,0,0:3] = 0
         #env.states[0,0,0] = 2
         #env.states[0,0,0] = -0.05
@@ -58,7 +58,8 @@ def play():
         #print(states[env.viewer.env_idx_render,0, env.vn['S_W0']:env.vn['S_W3'] +1 ])
 
         #print(env.active_agents[env.viewer.env_idx_render])
-        viewermsg = [
+        viewermsg = [ (f"""{'vbax:':>{10}}{' '}{env.states[0,0,3].item():.2f}"""),
+                    
                      #(f"""{'rewards:':>{10}}{' '}{100*rewnp[env.viewer.env_idx_render]:.2f}"""   ),
                      #(f"""{'velocity x:':>{10}}{' '}{env.states[0, 0, 3].item():.2f}"""),
                      #(f"""{'velocity y:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 1]:.2f}"""),
@@ -125,8 +126,8 @@ def play():
         #print('dt ', t2-t1)
         realtime = t2-t1-time_per_step
         
-        # if realtime < 0:
-        #      time.sleep(-realtime)
+        if realtime < 0:
+             time.sleep(-realtime)
         idx2 +=1
 
 if __name__ == "__main__":

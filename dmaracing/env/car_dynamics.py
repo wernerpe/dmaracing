@@ -9,6 +9,8 @@ from dmaracing.env.car_dynamics_utils import resolve_collsions
 # Import Dynamics encoder from TRI dynamics library.
 from dynamics_lib import DynamicsEncoder
 
+from dmaracing.env.car_dynamics_utils import SwitchedBicycleKinodynamicModel
+
 #@torch.jit.script
 def step_cars(
     state: torch.Tensor,
@@ -36,7 +38,7 @@ def step_cars(
     A_track: torch.Tensor,
     b_track: torch.Tensor,
     S_track: torch.Tensor,
-    dyn_model: DynamicsEncoder,
+    dyn_model: SwitchedBicycleKinodynamicModel,
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
 
     dyn_state, dyn_control, slip, wheel_locations_world = get_state_control_tensors(
@@ -55,34 +57,39 @@ def step_cars(
         b_track,
         S_track,
     )
+    # TODO: PETER Fix this with new dynamics model
+    #dyn_state_shape = dyn_state.shape
+    #contact_wrenches_shape = contact_wrenches.shape
+    #input_state_shape = [dyn_state_shape[0] * dyn_state_shape[1], dyn_state_shape[2]]
+    #dyn_control_shape = dyn_control.shape
+    #input_control_shape = [dyn_control_shape[0] * dyn_control_shape[1], dyn_control_shape[2]]
+    #col_shape = [contact_wrenches_shape[0] * contact_wrenches_shape[1], contact_wrenches_shape[2]]
     
-    dyn_state_shape = dyn_state.shape
-    contact_wrenches_shape = contact_wrenches.shape
-    input_state_shape = [dyn_state_shape[0] * dyn_state_shape[1], dyn_state_shape[2]]
-    dyn_control_shape = dyn_control.shape
-    input_control_shape = [dyn_control_shape[0] * dyn_control_shape[1], dyn_control_shape[2]]
-    col_shape = [contact_wrenches_shape[0] * contact_wrenches_shape[1], contact_wrenches_shape[2]]
+    # stepped_state = dyn_model.dynamics_integrator.step_state(
+    #     dyn_state.reshape(input_state_shape).to(dyn_model.device), dyn_control.reshape(input_control_shape).to(dyn_model.device),
+    #     contact_wrenches.reshape(col_shape).to(dyn_model.device), shove.reshape(col_shape).to(dyn_model.device)
+    # )
+    print('dyn pre', dyn_state[0,0,3])
+    stepped_state = dyn_model.forward(dyn_state.clone(), dyn_control, contact_wrenches, shove)
+    #print(dyn_control[0,0,:])
+    print('dyn_post',stepped_state[0,0,3])
+    #print(stepped_state[0,0,0])
+    slip *= (dyn_model.time_since_col<dyn_model.col_decay_time).view(-1, state.shape[1], 1)
     
-    stepped_state = dyn_model.dynamics_integrator.step_state(
-        dyn_state.reshape(input_state_shape).to(dyn_model.device), dyn_control.reshape(input_control_shape).to(dyn_model.device),
-        contact_wrenches.reshape(col_shape).to(dyn_model.device), shove.reshape(col_shape).to(dyn_model.device)
-    )
-    
-    slip *= (dyn_model.dynamics_integrator.dyn_model.time_since_col<dyn_model.dynamics_integrator.dyn_model.col_decay_time).view(-1, state.shape[1], 1)
-    stepped_state = stepped_state.reshape(dyn_state_shape)
+    #TODO Check what state goes where whithout intermediate layer
 
-    new_state = torch.zeros_like(state)
-    new_state[..., vn["S_X"]] = stepped_state[...,0]
-    new_state[..., vn["S_Y"]] = stepped_state[...,1]
-    new_state[..., vn["S_THETA"]] = stepped_state[...,2]
-    new_state[..., vn["S_DX"]] = stepped_state[...,4]
-    new_state[..., vn["S_DY"]] = stepped_state[...,5]
-    new_state[..., vn["S_DTHETA"]] = stepped_state[...,6]
-    #new_state[..., vn["S_W0"]] = stepped_state[...,3] # Roll
-    new_state[..., vn["S_STEER"]] = state[...,vn["S_STEER"]]
-    #new_state[..., vn["S_GAS"]] = state[...,vn["S_GAS"]]
-    new_state = new_state.detach().to(new_state.device)
-
+    # stepped_state = stepped_state.reshape(dyn_state_shape)
+    # new_state[..., vn["S_X"]] = stepped_state[...,0]
+    # new_state[..., vn["S_Y"]] = stepped_state[...,1]
+    # new_state[..., vn["S_THETA"]] = stepped_state[...,2]
+    # new_state[..., vn["S_DX"]] = stepped_state[...,4]
+    # new_state[..., vn["S_DY"]] = stepped_state[...,5]
+    # new_state[..., vn["S_DTHETA"]] = stepped_state[...,6]
+    # #new_state[..., vn["S_W0"]] = stepped_state[...,3] # Roll
+    # new_state[..., vn["S_STEER"]] = state[...,vn["S_STEER"]]
+    # #new_state[..., vn["S_GAS"]] = state[...,vn["S_GAS"]]
+    new_state = stepped_state.detach()
+    
     if collide:
         # resolve collisions using a combination of spring force and "shove" which pushes the vertex
         # in collision out of collision
@@ -101,7 +108,7 @@ def step_cars(
             Ds,
             zero_pad,
             sim_par["collisionstiffness"],
-            dyn_model.dynamics_integrator.dyn_model.Iz,
+            dyn_model.Iz,
         )
 
     return new_state, contact_wrenches, shove, wheels_on_track_segments, slip, wheel_locations_world
@@ -124,32 +131,10 @@ def get_state_control_tensors(
     S_track: torch.Tensor,
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
 
-    # set steering angle
-    # dir = torch.sign(actions[:, :, vn['A_STEER']] - state[:, :, vn['S_STEER']])
-    # val = torch.abs(actions[:, :, vn['A_STEER']] - state[:, :, vn['S_STEER']])
-
     theta = state[:, :, vn["S_THETA"]]
     delta = state[:, :, vn["S_STEER"]]
 
-    # state[:, :, vn['S_STEER']] += sim_par['dt']*dir * torch.min(50.0 * val, 3.0 +  0*val)
-    # state[:, :, vn['S_STEER']] = torch.clamp(state[:, :, vn['S_STEER']], -np.pi/4, np.pi/4)
     state[:, :, vn["S_STEER"]] = torch.clamp(actions[:, :, vn["A_STEER"]], -0.35 , .35)
-
-    # compute wheel forward and side directions, plus locations in the global frame
-    # dir_fwd_ft = torch.cat((torch.cos(theta + delta).unsqueeze(2), torch.sin(theta + delta).unsqueeze(2)), dim=2)
-    # dir_fwd_bk = torch.cat((torch.cos(theta).unsqueeze(2), torch.sin(theta).unsqueeze(2)), dim=2)
-
-    # (numenv, num_ag, 2)
-    # wheel_dirs_forward = torch.cat(
-    #     (dir_fwd_ft.unsqueeze(2), dir_fwd_ft.unsqueeze(2), dir_fwd_bk.unsqueeze(2), dir_fwd_bk.unsqueeze(2)), dim=2
-    # )
-
-    # dir_sid_ft = torch.cat((-torch.sin(theta + delta).unsqueeze(2), torch.cos(theta + delta).unsqueeze(2)), dim=2)
-    # dir_sid_bk = torch.cat((-torch.sin(theta).unsqueeze(2), torch.cos(theta).unsqueeze(2)), dim=2)
-
-    # wheel_dirs_side = torch.cat(
-    #     (dir_sid_ft.unsqueeze(2), dir_sid_ft.unsqueeze(2), dir_sid_bk.unsqueeze(2), dir_sid_bk.unsqueeze(2)), dim=2
-    # )
 
     R[:, :, 0, 0] = torch.cos(theta)
     R[:, :, 0, 1] = -torch.sin(theta)
@@ -162,13 +147,6 @@ def get_state_control_tensors(
     )
     wheel_locations_bodycentric_world = torch.nn.functional.pad(wheel_locations_bodycentric_world, (0, 1))
 
-    # set gas
-    # diff = actions[:, :, vn["A_GAS"]] - state[:, :, vn["S_GAS"]]
-    # state[:, :, vn["S_GAS"]] += torch.clip(diff, min=-0.1, max=0.06)
-    # state[:, :, vn["S_GAS"]] = torch.clamp(state[:, :, vn["S_GAS"]], 0, 1)
-    #state[:, :, vn["S_GAS"]] = torch.clip(actions[:, :, vn["A_GAS"]], -1, 0.8) 
-    
-    # state[:, :, vn["S_GAS"]] = torch.clip(actions[:, :, vn["A_GAS"]], clipped_min, clipped_max)
     slip = 0*wheels_on_track_segments[..., 0] < 10000
 
     wheels_on_track_segments_concat = 1.0 * (
@@ -184,22 +162,20 @@ def get_state_control_tensors(
     roll = 0*state[:, :, vn["S_THETA"]]
     yaw_rate = state[:, :, vn["S_DTHETA"]]
 
-    
-    # This state update assumes that these steps are occurring at 50 Hz.
-
-    dyn_state = torch.cat(
-        [
-            state[:, :, vn["S_X"] : vn["S_Y"] + 1],
-            yaw.unsqueeze(2),
-            roll.unsqueeze(2), #3
-            state[:, :, vn["S_DX"] : vn["S_DY"] + 1], #45
-            yaw_rate.unsqueeze(2),
-        ],
-        dim=2,
-    )  # x and y in world frame, dx and dy need to be rotated by theta to be in body frame
-    clipped_max = (state[:, :, vn["S_DX"]] < 5.0) * 1.0
-    clipped_min = (state[:, :, vn["S_DX"]] > -0.1) * -1.0  # 0.0
+    dyn_state = state
+    # =torch.cat(
+    #     [
+    #         state[:, :, vn["S_X"] : vn["S_Y"] + 1],
+    #         yaw.unsqueeze(2),
+    #         roll.unsqueeze(2), #3
+    #         state[:, :, vn["S_DX"] : vn["S_DY"] + 1], #45
+    #         yaw_rate.unsqueeze(2),
+    #     ],
+    #     dim=2,
+    # )  # x and y in world frame, dx and dy need to be rotated by theta to be in body frame
+    # clipped_max = (state[:, :, vn["S_DX"]] < 5.0) * 1.0
+    # clipped_min = (state[:, :, vn["S_DX"]] > -0.1) * -1.0  # 0.0
     dyn_control = torch.cat([torch.clamp(actions[:, :, vn["A_STEER"]], -0.35 , .35).unsqueeze(2), 
-                             torch.clip(actions[:, :, vn["A_GAS"]], clipped_min, clipped_max).unsqueeze(2)], dim=2)
+                             actions[:, :, vn["A_GAS"]].unsqueeze(2)], dim=2)
    
     return dyn_state, dyn_control, slip, wheel_locations_world

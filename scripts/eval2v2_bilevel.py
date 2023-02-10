@@ -4,6 +4,7 @@ from dmaracing.utils.helpers import *
 from datetime import date, datetime
 import os
 import sys
+import shutil
 # os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
 def eval():
@@ -22,12 +23,20 @@ def eval():
     runner.load_multi_path(model_paths_hl, model_paths_ll, load_optimizer=True)
 
 
-    # ### Save jit models to original folder
-    policy_hl_jit = torch.jit.script(runner.alg_hl.actor_critic.teamacs[0].ac.actor.to('cpu'))
-    policy_hl_jit.save(logdir.replace('eval/', '') + "/hl_model/jit_model_" +str(modelnr_hl)+".pt")
+    # save_dir = 'logs/saved_models/'+timestamp
+    # if not os.path.exists(save_dir):
+    #     os.mkdir(save_dir)
+    #     os.mkdir(save_dir+'/hl_model')
+    #     os.mkdir(save_dir+'/ll_model')
+    # shutil.copy(logdir_root+'/'+timestamp+'/cfg.yml', save_dir+'/cfg.yml' )
+    # shutil.copy(logdir_root+'/'+timestamp+'/cfg_train.yml', save_dir+'/cfg_train.yml' )
+    
+    # # ### Save jit models to original folder
+    # policy_hl_jit = torch.jit.script(runner.alg_hl.actor_critic.teamacs[0].ac.actor.to('cpu'))
+    # policy_hl_jit.save(save_dir+ "/hl_model/jit_model_" +str(modelnr_hl)+".pt")
 
-    policy_ll_jit = torch.jit.script(runner.alg_ll.actor_critic.teamacs[0].ac.actor.to('cpu'))
-    policy_ll_jit.save(logdir.replace('eval/', '') + "/ll_model/jit_model_" +str(modelnr_ll)+".pt")
+    # policy_ll_jit = torch.jit.script(runner.alg_ll.actor_critic.teamacs[0].ac.actor.to('cpu'))
+    # policy_ll_jit.save(save_dir + "/ll_model/jit_model_" +str(modelnr_ll)+".pt")
 
     
     #populate adversary buffer
@@ -70,7 +79,10 @@ def run_eval(env, policy_hl, policy_ll):
                 actions_ll = policy_ll(obs_ll)
 
                 obs, privileged_obs, rewards, dones, infos = env.step(actions_ll)
-
+                evt = env.viewer_events
+                if evt == 121:
+                    print("env ", env.viewer.env_idx_render, " reset")
+                    env.episode_length_buf[env.viewer.env_idx_render] = 1e9
             already_done |= dones
             if ~torch.any(~already_done):
                 break
@@ -80,13 +92,13 @@ if __name__ == "__main__":
     args = CmdLineArguments()
     args.parse(sys.argv[1:])
     args.device = 'cuda:0'
-    args.headless = True  # False 
+    args.headless =  False 
 
 
     # ### Run information
     exp_name = 'tri_multiagent_blr_hierarchical'  # 'tri_single_blr_hierarchical'
-    timestamp = '23_02_03_09_25_19_bilevel_2v2'  # '23_01_31_14_30_58_bilevel_2v2'  # '23_01_31_11_54_24_bilevel_2v2'
-    checkpoint = 300  # 500  # 1300
+    timestamp = '23_02_09_14_20_55_bilevel_2v2_no_goal'  # '23_01_31_14_30_58_bilevel_2v2'  # '23_01_31_11_54_24_bilevel_2v2'
+    checkpoint = 800  # 500  # 1300
     #active policies
     runs_hl = [timestamp]*2
     chkpts_hl = [checkpoint, checkpoint]
@@ -104,7 +116,7 @@ if __name__ == "__main__":
 
     # cfg_train['policy']['numteams'] = 2
     # cfg_train['policy']['teamsize'] = 2
-    cfg['learn']['agent_dropout_prob'] = 0.0
+    #cfg['learn']['agent_dropout_prob'] = 0.0
     # cfg['learn']['resetrand'] = [0.05, 0.05, 0.0, 0.0, 0.0,  0.0, 0.0]
     cfg["sim"]["reset_timeout_only"] = True
 
