@@ -13,10 +13,10 @@ import random
 # Add Dynamics directory to python path. Change this path to match that of your local system!
 import sys
 from gym import spaces
-#sys.path.insert(1, "/home/thomasbalch/tri_workspace/dynamics_model_learning/scripts")
-# Import Dynamics encoder from TRI dynamics library.
+from dmaracing.env.car_dynamics_utils import (get_varnames, set_dependent_params, 
+allocate_car_dynamics_tensors, SwitchedBicycleKinodynamicModel)
 from dmaracing.env.car_dynamics_utils import get_varnames, set_dependent_params, allocate_car_dynamics_tensors
-from dynamics_lib import DynamicsEncoder
+#from dynamics_lib import DynamicsEncoder
 from dmaracing.env.car_dynamics import step_cars
 from dmaracing.controllers.purepursuit import PPController
 
@@ -52,18 +52,33 @@ class DmarEnv:
         self.decimation = self.simParameters["decimation"]
 
         # Import TRI dynamics model and weights
-        self.dyn_model = DynamicsEncoder.load_from_checkpoint(
-            #"/home/peter/git/dynamics_model_learning/sample_models/fixed_integration_current_v25.ckpt").to(self.device)
-            "dynamics_models/"+cfg['model']['dynamics_model_name'],
-            hparams_file="dynamics_models/"+cfg['model']['hparams_path'], strict=False).to(self.device)
-        self.dyn_model.integration_function.initialize_lstm_states(torch.zeros((self.num_envs * self.num_agents, 50, 6)).to(self.device))
-
+        # self.dyn_model = DynamicsEncoder.load_from_checkpoint(
+        #     #"/home/peter/git/dynamics_model_learning/sample_models/fixed_integration_current_v25.ckpt").to(self.device)
+        #     "dynamics_models/"+cfg['model']['dynamics_model_name'],
+        #     hparams_file="dynamics_models/"+cfg['model']['hparams_path'], strict=False).to(self.device)
+        # self.dyn_model.integration_function.initialize_lstm_states(torch.zeros((self.num_envs * self.num_agents, 50, 6)).to(self.device))
+        self.dyn_model = SwitchedBicycleKinodynamicModel( num_states = self.cfg['sim']['numStates'],
+                                                          num_actions = self.cfg['sim']['numActions'],
+                                                          num_agents = self.cfg['sim']['numAgents'],
+                                                          dt = self.cfg['sim']['dt'],
+                                                          mass = self.cfg['model']['mass'],
+                                                          lf = self.cfg['model']['lf'],
+                                                          lr = self.cfg['model']['lr'],
+                                                          Iz = self.cfg['model']['Iz'],
+                                                          max_vel = self.cfg['model']['max_vel'],
+                                                          Br = self.cfg['model']['max_vel'],
+                                                          Cf = self.cfg['model']['Cf'],
+                                                          Cr = self.cfg['model']['Cr'],
+                                                          Df = self.cfg['model']['Df'],
+                                                          Dr = self.cfg['model']['Dr'],
+                                                          vn = self.vn,
+                                                          device=self.device
+                                                         )
         if self.test_mode:
-            self.dyn_model.dynamics_integrator.dyn_model.set_test_mode()
-        self.dyn_model.dynamics_integrator.dyn_model.num_agents = self.num_agents
-        self.dyn_model.dynamics_integrator.dyn_model.init_noise_vec(self.num_envs, self.device)
-        self.dyn_model.integration_function.dyn_model.init_col_switch(self.num_envs, self.cfg['model']['col_decay_time'], self.device)
-        #self.dyn_model.integration_function.dyn_model.gp.noise_lvl = self.cfg['model']['gp_noise_scale']
+            self.dyn_model.set_test_mode()
+        # self.dyn_model.num_agents = self.num_agents
+        self.dyn_model.init_noise_vec(self.num_envs, self.device)
+        self.dyn_model.init_col_switch(self.num_envs, self.cfg['model']['col_decay_time'], self.device)
         
         self.noise_level = self.cfg['model']['noise_level']
         
@@ -323,7 +338,7 @@ class DmarEnv:
         self.render()
         print(10*'#'+' Randomized Vars '+10*'#')
         print('dynamics model:\n')
-        print(self.dyn_model.integration_function.dyn_model.randomized_params)
+        print(self.dyn_model.randomized_params)
         print('env:\n')
         print('obs noise' if self.test_mode else '')
 
