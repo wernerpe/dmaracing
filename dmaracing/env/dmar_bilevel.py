@@ -206,7 +206,15 @@ class DmarEnvBilevel:
         self.offtrack_reset_s = cfg["learn"]["offtrack_reset"]
         self.offtrack_reset = int(self.offtrack_reset_s / (self.decimation * self.dt))
         self.max_episode_length = int(self.timeout_s / (self.decimation * self.dt))
-        self.agent_dropout_prob = cfg["learn"]["agent_dropout_prob"]
+
+        try:
+            self.agent_dropout_prob_ini = cfg["learn"]["agent_dropout_prob_ini"]
+            self.agent_dropout_prob_end = cfg["learn"]["agent_dropout_prob_end"]
+            self.agent_dropout_prob_itr = cfg["learn"]["agent_dropout_prob_itr"]
+            self.agent_dropout_prob = self.agent_dropout_prob_ini
+        except:
+            self.agent_dropout_prob = cfg["learn"]["agent_dropout_prob"]
+        self.agent_dropout_egos = 1*cfg["learn"]["agent_dropout_egos"]
 
         self.action_min_hl = cfg["learn"]["actionsminhl"]
         self.action_max_hl = cfg["learn"]["actionsmaxhl"]
@@ -419,6 +427,9 @@ class DmarEnvBilevel:
             self.train_ll = True
         elif high_level:
             self.train_ll = False
+
+    def set_dropout_prob(self, iter):
+        self.agent_dropout_prob = self.agent_dropout_prob_ini + min(iter/self.agent_dropout_prob_itr, 1.0) * (self.agent_dropout_prob_end - self.agent_dropout_prob_ini)
 
     def track_to_world_coords(self, target_offset_track, tile_length):
 
@@ -691,7 +702,7 @@ class DmarEnvBilevel:
             )
 
             self.progress_other = (
-                torch.clip(torch.cat(tuple([prog for prog in other_progress]), dim=1), min=-2.5, max=2.5)
+                torch.clip(torch.cat(tuple([prog for prog in other_progress]), dim=1), min=-self.cfg["learn"]["distance_obs_cutoff"], max=self.cfg["learn"]["distance_obs_cutoff"])
                 * self.active_obs_template - 2.5*(1-self.active_obs_template)
             )
 
@@ -834,8 +845,9 @@ class DmarEnvBilevel:
         if self.track_stats:
             last_track_ids = self.active_track_ids[env_ids].clone()
         self.resample_track(env_ids)
-        self.active_agents[env_ids, self.team_size:] = (
-            torch.rand((len(env_ids), self.num_agents - self.team_size), device=self.device) > self.agent_dropout_prob
+        max_agent_drop = self.num_agents - (self.team_size - self.agent_dropout_egos*(self.team_size-1))
+        self.active_agents[env_ids, -max_agent_drop:] = (
+            torch.rand((len(env_ids), max_agent_drop), device=self.device) > self.agent_dropout_prob
         )
         max_start_tile = self.active_track_tile_counts[env_ids].view(-1, 1) - 8 * self.num_agents  # Avoid init lap mismatch via grid across finish line
         tile_idx_env = (
@@ -1408,7 +1420,7 @@ def compute_rewards_jit(
 
     act_diff = torch.square(actions - last_actions)
     rew_acc = torch.square(vel-last_vel.view(-1,num_agents))*reward_scales['acceleration'] * train_ll
-    act_diff[..., 0] *= 20.0  # 5.0  # 25.0
+    act_diff[..., 0] *= 10.0  # 20.0  # 5.0  # 25.0
     act_diff[..., 1] *= 1.0  # 10.0
     rew_actionrate = torch.sum(act_diff, dim=2) * reward_scales["actionrate"] * train_ll
     #rew_energy = -torch.sum(torch.square(states[:, :, vn["S_W0"] : vn["S_W3"] + 1]), dim=2) * reward_scales["energy"]
@@ -1422,7 +1434,7 @@ def compute_rewards_jit(
 
     rew_dist_base = pdf_dist * reward_scales['goal']
     # Sparse
-    scale_sparse = 0.3 * ll_ep_done * targets_off_ahead / 4.0 #  / dt # *0.1  # * targets_off_ahead / 5.0  # encourage larger offsets (?) [/5.0]
+    scale_sparse = 0.3 * ll_ep_done * targets_off_ahead / 5.0 #  / dt # *0.1  # * targets_off_ahead / 5.0  # encourage larger offsets (?) [/5.0]
     # Dense
     # scale_dense = (1.0 / (torch.exp(1.0 * torch.norm(targets_dist_local, dim=-1, keepdim=True))))
     scale_dense = 1.0 / torch.exp(5. * (ll_steps_left-0.05))

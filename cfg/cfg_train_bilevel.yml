@@ -13,7 +13,7 @@ algorithm:
   # schedule: adaptive # could be adaptive, linear or fixed
   # gamma: 0.99
   lam: 0.95
-  desired_kl: 0.02  # 0.008
+  desired_kl: 0.01  # 0.02  # 0.008
   value_loss_coef: 1.0
   use_clipped_value_loss: True
   max_grad_norm: 2.0
@@ -26,12 +26,12 @@ runner:
   num_steps_per_env_hl: 5  # 20  # 64 # per iteration
   num_steps_per_env_ll: 40  # 40  # 60
   max_iterations: 1000  # 2400  # 1200 # 500 # number of policy updates
-  iter_per_hl: 10  # 20  # 1  # 20
-  iter_per_ll: 500 # 300  # 200  # 10  # 200
+  iter_per_hl: 20  # 20  # 1  # 20
+  iter_per_ll: 1000 # 300  # 200  # 10  # 200
   pretrain_ll_iter: 0  # 200  # 1000
   warmup_hl_iter: 1  # 200
   warmup_hl_ini: 1.0  # 0.5
-  population_update_interval: 500  # 100 #number of iterations before the opponent policy is updated
+  population_update_interval: 100  # 100 #number of iterations before the opponent policy is updated
   # logging
   save_interval: 100  # 100  # 50 # check for potential saves every this many iterations
   experiment_name: 'tri_multiagent_blr_hierarchical'  # 'tri_single_blr_hierarchical'
@@ -49,7 +49,7 @@ policy:
   activation: elu # can be elu, relu, selu, crelu, lrelu, tanh, sigmoid
   init_noise_std: 0.3  # 1.0
   attentive: True
-  encoder_type: attention4  # attention{1, 2}
+  encoder_type: attention4  # attention{1, 2, 3, 4}
   teamsize: 2
   numteams: 2
   numcritics: 1
