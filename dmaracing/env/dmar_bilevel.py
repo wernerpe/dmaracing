@@ -764,6 +764,8 @@ class DmarEnvBilevel:
             noise_vec = self.obs_noise_lvl * (2.0 * (torch.rand(self.obs_buf.size(), device=self.obs_buf.device) - 0.5))
             noise_vec[..., -21:] *= self.active_obs_template.repeat(1, 1, 7)  # HACK: hard-coded setting ado noise 0
             noise_vec[..., -26:-21] = 0.0
+            # FIXME: 10x noise added for ado relative velocities
+            noise_vec[..., -self.num_agents * 3:] *= 5
             self.obs_buf += noise_vec
 
 
