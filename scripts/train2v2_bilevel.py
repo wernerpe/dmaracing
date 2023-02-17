@@ -59,7 +59,9 @@ if __name__ == "__main__":
 
     cfg_train['policy']['numteams'] = 2
     cfg_train['policy']['teamsize'] = 2
-    #cfg['learn']['agent_dropout_prob'] = 0.0  # 0.0
+    cfg['learn']['agent_dropout_prob_ini'] = 1.0  # 0.0
+    cfg['learn']['agent_dropout_egos'] = False
+    cfg_train['policy']['encoder_type'] = 'identity'
     # cfg['viewer']['logEvery'] = 1
 
     cfg['teams'] = dict()
@@ -76,7 +78,7 @@ if __name__ == "__main__":
     timestamp = now.strftime("%y_%m_%d_%H_%M_%S")
     # logdir = logdir_root +'/'+timestamp+'_no_dist_to_go_' + cfg_train['runner']['algorithm_class_name']+'_'+str(cfg_train['runner']['num_steps_per_env'])
     # logdir = logdir_root +'/'+timestamp + cfg_train['runner']['algorithm_class_name']+'_'+str(cfg_train['runner']['num_steps_per_env'])
-    logdir = logdir_root +'/'+timestamp + '_bilevel_2v2_5xadovelnoise'
+    logdir = logdir_root +'/'+timestamp + '_bilevel_2v2'
     cfg["logdir"] = logdir
 
 
