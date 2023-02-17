@@ -69,7 +69,8 @@ class DmarEnvBilevel:
         #     hparams_file="dynamics_models/"+cfg['model']['hparams_path'], strict=False).to(self.device)
         # self.dyn_model.integration_function.initialize_lstm_states(torch.zeros((self.num_envs * self.num_agents, 50, 6)).to(self.device))
         
-        self.dyn_model = SwitchedBicycleKinodynamicModel( num_states = self.cfg['sim']['numStates'],
+        self.dyn_model = SwitchedBicycleKinodynamicModel( num_envs = self.num_envs,
+                                                          num_states = self.cfg['sim']['numStates'],
                                                           num_actions = self.cfg['sim']['numActions'],
                                                           num_agents = self.cfg['sim']['numAgents'],
                                                           dt = self.cfg['sim']['dt'],
@@ -90,7 +91,7 @@ class DmarEnvBilevel:
         if self.test_mode:
             self.dyn_model.set_test_mode()
         # self.dyn_model.num_agents = self.num_agents
-        self.dyn_model.init_noise_vec(self.num_envs, self.device)
+        #self.dyn_model.init_noise_vec(self.num_envs, self.device)
         self.dyn_model.init_col_switch(self.num_envs, self.cfg['model']['col_decay_time'], self.device)
         #self.dyn_model.integration_function.dyn_model.gp.noise_lvl = self.cfg['model']['gp_noise_scale']
         

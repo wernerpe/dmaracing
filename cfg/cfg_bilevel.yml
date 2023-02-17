@@ -69,11 +69,7 @@ track:
   ccw: True
   draw_centerline: False
   num_tracks: 20
-<<<<<<< HEAD
-  track_half_width: 0.7
-=======
   track_half_width: 0.7  # 0.6
->>>>>>> fd64b3b31f969ecd06fcfe911bd32acc24863f2e
   track_poly_spacing: 0.15
   
 learn:
@@ -93,7 +89,7 @@ learn:
   actionsminhl: [3.0, -0.5, 0.1, 0.05]  # [3.0, -0.55, 0.1, 0.1]  # [4.0, -0.55, 0.1, 0.05]  # [3.0, -0.6, 0.1, 0.1]
   actionsmaxhl: [7.0, +0.5, 0.5, 0.3]  # [7.0, +0.55, 0.5, 0.3]  # [6.0, +0.55, 0.5, 0.3]  # [5.0, +0.6, 0.7, 0.7]
   actionsinihl: [+0.0, +0.0, 0.5, 0.5]
-  agent_dropout_prob_ini: 1.0
+  agent_dropout_prob_ini: 0.1
   agent_dropout_prob_end: 0.5
   agent_dropout_prob_itr: 500
   agent_dropout_egos: False

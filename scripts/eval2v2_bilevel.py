@@ -101,15 +101,9 @@ if __name__ == "__main__":
 
 
     # ### Run information
-<<<<<<< HEAD
-    exp_name = 'tri_multiagent_blr_hierarchical_ado_vel_noise'  # 'tri_single_blr_hierarchical'
-    timestamp = '23_02_15_10_58_26_bilevel_2v2_5xadovelnoise'  # '23_01_31_14_30_58_bilevel_2v2'  # '23_01_31_11_54_24_bilevel_2v2'
-    checkpoint = -1  # 500  # 1300
-=======
     exp_name = 'tri_multiagent_blr_hierarchical'  # 'tri_single_blr_hierarchical'
     timestamp = '23_02_15_10_03_56_bilevel_2v2'  # '23_01_31_14_30_58_bilevel_2v2'  # '23_01_31_11_54_24_bilevel_2v2'
     checkpoint = 1000  # 500  # 1300
->>>>>>> fd64b3b31f969ecd06fcfe911bd32acc24863f2e
     #active policies
     runs_hl = [timestamp]*2
     chkpts_hl = [checkpoint, checkpoint]
