@@ -61,7 +61,7 @@ if __name__ == "__main__":
     cfg_train['policy']['teamsize'] = 2
     cfg['learn']['agent_dropout_prob_ini'] = 1.0  # 0.0
     cfg['learn']['agent_dropout_egos'] = False
-    cfg_train['policy']['encoder_type'] = 'identity'
+    cfg_train['policy']['encoder_type'] = 'attention4'  # 'identity'
     # cfg['viewer']['logEvery'] = 1
 
     cfg['teams'] = dict()

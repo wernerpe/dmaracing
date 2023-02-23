@@ -511,7 +511,7 @@ class SwitchedBicycleKinodynamicModel(nn.Module):
         steer = torch.clip(steer-self.last_steer, -self.max_d_steer, self.max_d_steer) + steer
 
         fast_fwd = state[:, :, self.vn['S_DX']] > self.max_vel_vec.squeeze()
-        fast_bwd = -state[:, :, self.vn['S_DX']] > 0.01
+        fast_bwd = -state[:, :, self.vn['S_DX']] > 0.5  # 0.01
         gas = actions[:, :, self.vn['A_GAS']]
         gas_clip = 1.0*fast_fwd*torch.clip(gas, -1,0) + 1.0*fast_bwd*torch.clip(gas, 0,1) + ~(fast_fwd|fast_bwd) *  torch.clip(gas, -1.0, 0.3)
         gas_features = torch.cat((state[:, :, self.vn['S_DX']].unsqueeze(2), 

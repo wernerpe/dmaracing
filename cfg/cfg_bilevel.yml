@@ -2,7 +2,7 @@ test: False
 trackRaceStatistics: False #makes sim substantially slower
 logBehaviorStatistics: True
 sim:
-  numEnv: 1024
+  numEnv: 1024  # 1024
   #number of racing agents per env
   numAgents: 4
   dt: 0.02 #[s] # If using this with TRI dynamics model, this must be 0.02 to match the refresh frequency of the model
@@ -23,7 +23,7 @@ sim:
   filtercollisionstoego: True  # False
   reset_timeout_only: False
 
-  logBehaviorEvery: 10
+  logBehaviorEvery: 20
 
 model:
   lr: 0.14
@@ -87,21 +87,22 @@ learn:
   defaultactionshl: [0., 0., 0.5, 0.5]
   actionscalehl: [1.0, 1.0, 1.0, 1.0]
   actionsminhl: [3.0, -0.5, 0.1, 0.05]  # [3.0, -0.55, 0.1, 0.1]  # [4.0, -0.55, 0.1, 0.05]  # [3.0, -0.6, 0.1, 0.1]
-  actionsmaxhl: [7.0, +0.5, 0.5, 0.3]  # [7.0, +0.55, 0.5, 0.3]  # [6.0, +0.55, 0.5, 0.3]  # [5.0, +0.6, 0.7, 0.7]
+  actionsmaxhl: [6.0, +0.5, 0.5, 0.3]  # [7.0, +0.55, 0.5, 0.3]  # [6.0, +0.55, 0.5, 0.3]  # [5.0, +0.6, 0.7, 0.7]
   actionsinihl: [+0.0, +0.0, 0.5, 0.5]
   agent_dropout_prob_ini: 1.0
-  agent_dropout_prob_end: 0.5
-  agent_dropout_prob_itr: 500
+  agent_dropout_prob_end: 0.0
+  agent_dropout_prob_itr: 1000
   agent_dropout_egos: False
-  distance_obs_cutoff: 2.0 #[m]
+  distance_obs_cutoff: 3.0 #[m]
   race_length_laps: 1
 
   progressRewardScale: 5.0  # 0.1  # 0.0  # 1.0  # 10.0  # 1.0  # 10.0
-  offtrackRewardScale: -1.0  # -0.2  # -0.2  # -1.0  # -0.1  # -0.1
-  actionRateRewardScale: -0.1  # -0.01  # -0.1
+  offtrackRewardScale: -1.0  # -1.0  # -0.2  # -0.2  # -1.0  # -0.1  # -0.1
+  actionRateRewardScale: -0.2  # -0.1  # -0.01  # -0.1
   rankRewardScale: 1.0  # 1.0  # 5.0  # 5.0  # 1.0
-  collisionRewardScale: -0.2  #-0.2  # -0.02  # -0.2
+  collisionRewardScale: -1.0  # -0.2  #-0.2  # -0.02  # -0.2
   accRewardScale: -0.1  # -0.5
+  velRewardScale: -1.0
   goalRewardScale: 2.0  # 1.0  # 1.0  # 1.0  # 5.0
   horizon: 12  # 12  # 15
 

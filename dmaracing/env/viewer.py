@@ -26,6 +26,10 @@ class Viewer:
 
         self._headless = headless
         self._frames = []
+        self._frames_val = []
+
+        self._values_ll_min = +100.0
+        self._values_ll_max = -100.0
 
         self.track_centerlines = track_centerlines.cpu().numpy()
         self.track_poly_verts = track_poly_verts
@@ -65,6 +69,7 @@ class Viewer:
         self.car_heading_m = torch.transpose(self.car_heading_m, 0,1)
         self.R = torch.zeros((2, 2, self.num_cars), device=self.device, dtype = torch.float)
         self.img = 255*np.ones((self.height, self.width, 3), np.uint8)
+        self.img_val = 255*np.ones((self.height, self.width, 3), np.uint8)
         self.track_canvas = self.img.copy()
         self.colors = 255.0/self.num_cars*np.arange(self.num_cars) 
         self.font = cv.FONT_HERSHEY_SIMPLEX
@@ -94,9 +99,11 @@ class Viewer:
         self.draw_track()
 
 
-    def _render_tb(self):
+    def _render_tb(self, show_val=False):
         self.draw_track()
         self._frames.append(self.img)
+        if show_val:
+            self._frames_val.append(self.img_val)
         return None
         
 
@@ -109,11 +116,13 @@ class Viewer:
       wheels_on_track=None, max_vels=None,
       reward_terms=None, reset_cause=None, track_progress=None, active_tile=None,
       ranks=None, global_step=None, all_targets_pos_world_env0=None, all_egoagent_pos_world_env0=None,
-      last_actions=None, tile_idx_car=None, tile_idx_trg=None):
+      last_actions=None, tile_idx_car=None, tile_idx_trg=None, values_ll=None, values_ll_min=None, values_ll_max=None):
         self.state = state.clone()
         self.slip = slip.clone()
         self.wheel_locs = wheel_locs.clone()
         self.drag_reduced = drag_reduced.clone()
+
+        show_val = False
 
         if self.do_render:
             self.img = self.track_canvas.copy()
@@ -186,19 +195,47 @@ class Viewer:
                 self.display_ego_state(state)
             
 
-            self.draw_points()
-            self.draw_lines()
-            self.draw_string()
-            self.draw_marked_agents()
+            self.draw_points(self.img)
+            self.draw_lines(self.img)
+            self.draw_string(self.img)
+            self.draw_marked_agents(self.img)
+
+
+            show_val = values_ll is not None
+            if show_val:
+                self.img_val = self.track_canvas.copy()
+                self._values_ll.append(values_ll[self.env_idx_render, 0].cpu().numpy())
+                self._states_ll.append(state[self.env_idx_render, 0, 0:2].cpu().numpy())
+                self._values_ll_min = np.minimum(self._values_ll_min, values_ll.min().cpu().numpy())
+                self._values_ll_max = np.maximum(self._values_ll_max, values_ll.max().cpu().numpy())
+                self.draw_value_predictions(np.stack(self._values_ll, axis=0), np.stack(self._states_ll, axis=0))
 
         
         #listen for keypressed events
         if not self._headless:
             key = self._render_interactive()
         else:
-            key = self._render_tb()
+            key = self._render_tb(show_val=show_val)
 
         return key
+
+
+    def draw_value_predictions(self, values, states):
+
+        states = self.cords2px_np(states)
+        scale =  int(80/(self.scale_x))
+        for val, pos in zip(values, states):
+            val = self.rgb_convert(value=val, minimum=self._values_ll_min, maximum=self._values_ll_max)
+            self.img_val = cv.circle(self.img_val, (pos[0], pos[1]), scale, val, -1)
+
+        cv.putText(self.img_val, "Env ID: " + str(self.env_idx_render), (15, 50), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
+        cv.putText(self.img_val, "Min Val: " + str(self._values_ll_min), (15, 80), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
+        cv.putText(self.img_val, "Max Val: " + str(self._values_ll_max), (15, 110), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
+
+
+    def clear_values(self):
+        self._values_ll = []
+        self._states_ll = []
 
 
     def display_ego_state(self, states):
@@ -817,10 +854,10 @@ class Viewer:
     def clear_lines(self):
         self.lines = []
 
-    def draw_lines(self,):
+    def draw_lines(self, img):
         for endpoints, color, thickness in self.lines:
             coords = self.cords2px_np(endpoints)
-            self.img  = cv.polylines(self.img, [coords.reshape(-1,1,2)], isClosed = False, color = color, thickness = thickness)
+            img  = cv.polylines(img, [coords.reshape(-1,1,2)], isClosed = False, color = color, thickness = thickness)
                 
 
     def cords2px(self, pts):
@@ -853,10 +890,10 @@ class Viewer:
     def clear_markers(self,):
         self.points = []   
 
-    def draw_points(self,):
+    def draw_points(self, img):
         for group in self.points: 
             for idx in range(len(group[0])):
-                self.img = cv.circle(self.img, (group[0][idx, 0], group[0][idx, 1]), group[1], group[2], group[3])
+                img = cv.circle(img, (group[0][idx, 0], group[0][idx, 1]), group[1], group[2], group[3])
 
     def reset_slip_markers(self,):
         self.slip_markers = []
@@ -877,21 +914,21 @@ class Viewer:
     def clear_string(self,):
         self.msg = []
 
-    def draw_string(self,):
+    def draw_string(self, img):
         if len(self.msg):
             idx = 0
             for msg in self.msg:
-                cv.putText(self.img, msg, (10, 100 + 40*idx), self.font, 1, (0, 0, 0), 1, cv.LINE_AA)
+                cv.putText(img, msg, (10, 100 + 40*idx), self.font, 1, (0, 0, 0), 1, cv.LINE_AA)
                 idx+=1
 
     def mark_env(self, idx):
         self.marked_env = idx
 
-    def draw_marked_agents(self):
+    def draw_marked_agents(self, img):
         if self.marked_env is not None:
             pos = self.state[self.env_idx_render, self.marked_env, 0:2].view(1,-1).cpu().numpy()
             px = self.cords2px_np(pos)
-            cv.circle(self.img, (px[0,0],px[0,1]), 30, (250,150,0))
+            cv.circle(img, (px[0,0],px[0,1]), 30, (250,150,0))
     
     def draw_track(self,):
         self.track_canvas = draw_track(self.track_canvas,
@@ -960,7 +997,7 @@ class Viewer:
 
     def rgb_convert(self, value, minimum=0.0, maximum=1.0):
         ratio = 2 * (value-minimum) / (maximum - minimum)
-        b = int(max(0, 255*(1 - ratio)))
+        b = int(max(0*ratio, 255*(1 - ratio)))
         r = int(max(0, 255*(ratio - 1)))
         g = 255 - b - r
         return r, g, b

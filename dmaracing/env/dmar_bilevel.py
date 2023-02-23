@@ -155,6 +155,8 @@ class DmarEnvBilevel:
         )
         self.info = {}
 
+        self._values_ll = None
+
         # allocate env tensors
         torch_zeros = lambda shape: torch.zeros(shape, device=self.device, dtype=torch.float, requires_grad=False)
         self.states = torch_zeros((self.num_envs, self.num_agents, self.num_internal_states))
@@ -191,6 +193,7 @@ class DmarEnvBilevel:
         self.reward_scales["rank"] = cfg["learn"]["rankRewardScale"] * self.dt
         self.reward_scales["collision"] = cfg["learn"]["collisionRewardScale"] * self.dt
         self.reward_scales["acceleration"] = cfg["learn"]["accRewardScale"] * self.dt
+        self.reward_scales["velocity"] = cfg["learn"]["velRewardScale"] * self.dt
 
         self.reward_scales["goal"] = cfg["learn"]["goalRewardScale"]
 
@@ -223,7 +226,7 @@ class DmarEnvBilevel:
         self.obs_noise_lvl = cfg["learn"]["obs_noise_lvl"]
         self.use_track_curriculum = cfg["learn"]["use_track_curriculum"]
 
-        self.steer_ado_ppc = True
+        self.steer_ado_ppc = cfg['learn']['steer_ado_with_PPC']
         self.iters_ado_ppc = self.cfg['learn']['iters_ado_with_PPC'] if (self.cfg['learn']['steer_ado_with_PPC'] and self.num_agents>1) else 0
         
         if self.iters_ado_ppc != 0:
@@ -260,6 +263,7 @@ class DmarEnvBilevel:
             "energy": torch_zeros((self.num_envs, self.num_agents)),
             "acceleration": torch_zeros((self.num_envs, self.num_agents)),
             "goal": torch_zeros((self.num_envs, self.num_agents)),
+            "velocity": torch_zeros((self.num_envs, self.num_agents)),
         }
         if self.num_agents>1:
             self.reward_terms["rank"] = torch_zeros((self.num_envs, self.num_agents))
@@ -272,6 +276,7 @@ class DmarEnvBilevel:
             "energy": torch_zeros((self.num_envs, self.num_agents)),
             "acceleration": torch_zeros((self.num_envs, self.num_agents)),
             "goal": torch_zeros((self.num_envs, self.num_agents)),
+            "velocity": torch_zeros((self.num_envs, self.num_agents)),
         }
         if self.num_agents>1:
             self.step_reward_terms["rank"] = torch_zeros((self.num_envs, self.num_agents))
@@ -340,6 +345,8 @@ class DmarEnvBilevel:
         self._action_probs_hl, self._action_mean_ll, self._action_std_ll, self.targets_rew01_local  = None, None, None, None
 
         self._global_step = 0
+        self.log_episode = False
+        self.log_episode_next = False
         if self.log_video_freq >= 0:
             self._logdir = cfg["logdir"]
             self._writer = SummaryWriter(log_dir=self._logdir, flush_secs=10)
@@ -431,6 +438,11 @@ class DmarEnvBilevel:
     def set_dropout_prob(self, iter):
         self.agent_dropout_prob = self.agent_dropout_prob_ini + min(iter/self.agent_dropout_prob_itr, 1.0) * (self.agent_dropout_prob_end - self.agent_dropout_prob_ini)
 
+    def set_video_log_ep(self, iter):
+        self.log_episode_next = self.log_episode_next or ((iter % self.log_video_freq)==0 and iter!=0)
+        if self.log_episode_next:
+            self._global_step = iter
+
     def track_to_world_coords(self, target_offset_track, tile_length):
 
         # Account for subtile progress + offset remainder adding 1 tile
@@ -461,6 +473,9 @@ class DmarEnvBilevel:
 
         self._action_std_ll[..., 0] = self.action_scales[0] * self._action_std_ll[..., 0]
         self._action_std_ll[..., 1] = self.action_scales[1] * self._action_std_ll[..., 1]
+
+    def set_ll_values_preds(self, values):
+        self._values_ll = values[:, 0]
 
     def project_into_track_frame(self, actions_hl):
         actions_hl = actions_hl.clone().to(self.device)
@@ -1044,9 +1059,22 @@ class DmarEnvBilevel:
                 frames = np.transpose(frames, (0, 3, 1, 2))  # (T, C, W, H)
                 frames = np.expand_dims(frames, axis=0)  # (N, T, C, W, H)
                 self._writer.add_video("Train/video", frames, global_step=self._global_step, fps=15)
+                self.log_episode = False
+
+            if len(self.viewer._frames_val):
+
+                frames_val = np.stack(self.viewer._frames_val, axis=0)  # (T, W, H, C)
+                frames_val = np.transpose(frames_val, (0, 3, 1, 2))  # (T, C, W, H)
+                frames_val = np.expand_dims(frames_val, axis=0)  # (N, T, C, W, H)
+                self._writer.add_video("Train/values", frames_val, global_step=self._global_step, fps=15)
+                self.log_episode = False
 
             self.viewer._frames = []
-            self._global_step += 1
+            self.viewer._frames_val = []
+
+            if self.log_episode_next:
+                self.log_episode = True
+                self.log_episode_next = False
 
     def set_steer_ado_ppc(self, steer_ado_ppc):
         self.steer_ado_ppc = steer_ado_ppc
@@ -1075,7 +1103,29 @@ class DmarEnvBilevel:
             self.is_collision |= torch.norm(self.contact_wrenches, dim=2) > 0
 
         self.post_physics_step()
+
+        if True:
+            self.log_info_ado()
+
         return self.obs_buf.clone(), self.privileged_obs, self.rew_buf.clone(), self.reset_buf.clone(), self.info
+
+    def log_info_ado(self):
+        self.info['observations'] = {}
+        # [-21, -18, -15, -12, -9, -6, -3] --> [-20, -17, -14, -11, -8, -5, -2] --> [-19, -16, -13, -10, -7, -4, -1]
+        for idx in range(self.num_agents-1):
+            self.log_info_stats(self.obs_buf[..., -7 * (self.num_agents-1)+idx], 'observations', 'ado_prog' + str(idx+1))
+            self.log_info_stats(self.obs_buf[..., -6 * (self.num_agents-1)+idx], 'observations', 'ado_cerr' + str(idx+1))
+            self.log_info_stats(self.obs_buf[..., -5 * (self.num_agents-1)+idx], 'observations', 'ado_rots' + str(idx+1))
+            self.log_info_stats(self.obs_buf[..., -4 * (self.num_agents-1)+idx], 'observations', 'ado_rotc' + str(idx+1))
+            self.log_info_stats(self.obs_buf[..., -3 * (self.num_agents-1)+idx], 'observations', 'ado_velx' + str(idx+1))
+            self.log_info_stats(self.obs_buf[..., -2 * (self.num_agents-1)+idx], 'observations', 'ado_vely' + str(idx+1))
+            self.log_info_stats(self.obs_buf[..., -1 * (self.num_agents-1)+idx], 'observations', 'ado_vela' + str(idx+1))
+
+    def log_info_stats(self, scalar, name1, name2):
+        self.info[name1][name2 + '_mean'] = scalar.mean()
+        self.info[name1][name2 + '_min'] = scalar.min()
+        self.info[name1][name2 + '_max'] = scalar.max()
+        self.info[name1][name2 + '_std'] = scalar.std()
 
     def post_physics_step(self) -> None:
         self.total_step += 1
@@ -1162,9 +1212,10 @@ class DmarEnvBilevel:
                 self.viewer.update_attention()
                 self.all_targets_pos_world_env0 = []
                 self.all_egoagent_pos_world_env0 = []
+                self.viewer.clear_values()
             if self.track_stats:
                 self.reset_track_stats(env_ids)
-            if self.log_behavior_stats and 0 in env_ids:
+            if self.log_behavior_stats:  #  and 0 in env_ids:
                 self.reset_behavior_stats(env_ids)
                 self.write_behavior_stats()
             self.reset_envs(env_ids)
@@ -1203,14 +1254,14 @@ class DmarEnvBilevel:
         # if log_video freq is set only redner in fixed intervals
         if self.log_video_freq >= 0:
             self.viewer.mark_env(self.trained_agent_slot)
-            if (self._global_step % self.log_video_freq == 0) and (self._global_step > 0):
+            if self.log_episode:
                 self.viewer_events = self.viewer.render(
                     self.states[:, :, [0, 1, 2, 6]], self.slip, self.drag_reduced, self.wheel_locations_world, self.interpolated_centers, self.interpolated_bounds, 
                     self.targets_pos_world, self.targets_rew01_local, self.targets_rot_world, self.targets_dist_track, self.actions, self.time_off_track,
                     self._action_probs_hl, self._action_mean_ll, self._action_std_ll,
                     self.is_on_track_per_wheel, self.dyn_model.max_vel_vec, self.step_reward_terms, self.reset_cause, self.track_progress, self.active_track_tile,
                     self.ranks if self.num_agents>1 else None, self._global_step, self.all_targets_pos_world_env0, self.all_egoagent_pos_world_env0, self.last_actions,
-                    self.active_track_tile, self.targets_tile_idx,
+                    self.active_track_tile, self.targets_tile_idx, self._values_ll,
                 )
         else:
             self.viewer_events = self.viewer.render(
@@ -1219,26 +1270,26 @@ class DmarEnvBilevel:
                 self._action_probs_hl, self._action_mean_ll, self._action_std_ll,
                 self.is_on_track_per_wheel, self.dyn_model.max_vel_vec, self.step_reward_terms, self.reset_cause, self.track_progress, self.active_track_tile,
                 self.ranks if self.num_agents>1 else None, self._global_step, self.all_targets_pos_world_env0, self.all_egoagent_pos_world_env0, self.last_actions,
-                self.active_track_tile, self.targets_tile_idx,
+                self.active_track_tile, self.targets_tile_idx, self._values_ll,
             )
 
     def write_behavior_stats(self) -> None:
-        if (self._global_step % self.log_behavior_freq == 0) and (self._global_step > 0):
-            self.info["behavior"] = {}
-            self.info["behavior"]["samples"] = len(torch.concat(self.batch_stats_overtakes))
-            self.info["behavior"]["overtakes"] = torch.concat(self.batch_stats_overtakes).mean()
-            self.info["behavior"]["collisions"] = torch.concat(self.batch_stats_num_collisions).mean()
-            self.info["behavior"]["offtrack"] = torch.concat(self.batch_stats_ego_left_track).mean()
-            self.info["behavior"]["leadtime"] = torch.concat(self.batch_stats_lead_time).mean()
-            self.info["behavior"]["teamranks"] = torch.concat(self.batch_stats_rank_team).mean()
-            self.info["behavior"]["lowerrank"] = torch.concat(self.batch_stats_rank_lower).mean()
+        # if (self._global_step % self.log_behavior_freq == 0) and (self._global_step > 0):
+        self.info["behavior"] = {}
+        self.info["behavior"]["samples"] = len(torch.concat(self.batch_stats_overtakes))
+        self.info["behavior"]["overtakes"] = torch.concat(self.batch_stats_overtakes).mean()
+        self.info["behavior"]["collisions"] = torch.concat(self.batch_stats_num_collisions).mean()
+        self.info["behavior"]["offtrack"] = torch.concat(self.batch_stats_ego_left_track).mean()
+        self.info["behavior"]["leadtime"] = torch.concat(self.batch_stats_lead_time).mean()
+        self.info["behavior"]["teamranks"] = torch.concat(self.batch_stats_rank_team).mean()
+        self.info["behavior"]["lowerrank"] = torch.concat(self.batch_stats_rank_lower).mean()
 
-            self.batch_stats_overtakes = []
-            self.batch_stats_num_collisions = []
-            self.batch_stats_ego_left_track = []
-            self.batch_stats_lead_time = []
-            self.batch_stats_rank_team = []
-            self.batch_stats_rank_lower = []
+        self.batch_stats_overtakes = []
+        self.batch_stats_num_collisions = []
+        self.batch_stats_ego_left_track = []
+        self.batch_stats_lead_time = []
+        self.batch_stats_rank_team = []
+        self.batch_stats_rank_lower = []
 
     def simulate(self) -> None:
         # run physics update
@@ -1402,21 +1453,27 @@ def compute_rewards_jit(
 
     delta_progress = track_progress - old_track_progress
     progress_jump = 1.0 * (torch.abs(delta_progress) > 3.5)
+    positive_prog = 1.0 * (delta_progress > 0.0)
     rew_progress = 0.0
     rew_progress += torch.clip(delta_progress, min=-10, max=10) * reward_scales["progress"] * (1.0 - progress_jump)
     rew_progress *= train_ll
 
-    pen_progress = -5.0 * progress_jump * reward_scales["progress"]  # NOTE: alternative, penalize reset step
-    pen_progress *= (train_ll + (1.0-train_ll))  #  * 1.0 / dt)
-    rew_progress += pen_progress
+    pen_progress = -2.0 * progress_jump  # NOTE: alternative, penalize reset step
+    # pen_progress *= (train_ll + (1.0-train_ll))  #  * 1.0 / dt)
+    rew_progress += pen_progress * reward_scales["progress"]
+
+    # Penalize small forward velocities
+    rew_velocity = 1.0 * torch.exp(-0.5 * (vel / 0.05)**2) * reward_scales["velocity"] * train_ll
 
     # ### Off-track penalties ###
     # rew_on_track = reward_scales["offtrack"] * ~is_on_track * train_ll
     # rew_on_track = reward_scales["offtrack"] * (torch.exp(num_wheels_off_track) - 1.0) / 1.0 * train_ll
+    # Until 02/20/2023
     front_axel_off_track = (1.0 * ~is_on_track_per_wheel[..., 0]) * (1.0 * ~is_on_track_per_wheel[..., 1])
     back_axel_off_track = (1.0 * ~is_on_track_per_wheel[..., 2]) * (1.0 * ~is_on_track_per_wheel[..., 3])
     num_wheels_off_track = ((~is_on_track_per_wheel) * 1.0).sum(dim=-1)
     rew_on_track = reward_scales["offtrack"] * (0.5*num_wheels_off_track + 1.0*front_axel_off_track + 1.0*back_axel_off_track) * train_ll
+    # rew_on_track = (1.0 - 1.0*is_on_track_per_wheel.all(dim=-1)) * reward_scales["offtrack"]
 
     act_diff = torch.square(actions - last_actions)
     rew_acc = torch.square(vel-last_vel.view(-1,num_agents))*reward_scales['acceleration'] * train_ll
@@ -1431,6 +1488,7 @@ def compute_rewards_jit(
     exponent = -0.5 * (targets_dist_local / targets_std_local)**2
     pdf_dist = 1.0/(np.sqrt(2.0 * np.pi) * targets_std_local) * torch.exp(exponent)
     pdf_dist /= 3.0  # 4.0 = max attainable ~1.0
+    # pdf_dist /= 1.0/(np.sqrt(2.0 * np.pi) * torch.sqrt(targets_std_local)/2.0)
 
     rew_dist_base = pdf_dist * reward_scales['goal']
     # Sparse
@@ -1463,14 +1521,14 @@ def compute_rewards_jit(
 
         rew_buf[..., 0] = torch.clip(
             rew_progress + rew_on_track + rew_actionrate + rew_rel_prog + rew_acc + rew_baseline, min=-5*dt, max=None
-        ) + rew_collision + rew_dist + rew_rank
+        ) + rew_collision + rew_dist + rew_rank + rew_velocity
     else:
         #needs to be a tensor
         rew_rank = 0*rew_on_track
         rew_collision = 0*rew_on_track
         rew_buf[..., 0] = torch.clip(
             rew_progress + rew_on_track + rew_actionrate + rew_acc + 0.1*dt , min=-5*dt, max=None
-        ) + rew_dist + rew_rank
+        ) + rew_dist + rew_rank + rew_velocity
 
     reward_terms["progress"] += rew_progress
     reward_terms["offtrack"] += rew_on_track
@@ -1479,6 +1537,8 @@ def compute_rewards_jit(
     reward_terms["acceleration"] += rew_acc
 
     reward_terms["goal"] += rew_dist
+
+    reward_terms["velocity"] += rew_velocity
 
     if ranks is not None:
         reward_terms["rank"] += rew_rank  # rew_rel_prog
@@ -1490,6 +1550,7 @@ def compute_rewards_jit(
     #step_reward_terms["energy"] += rew_energy
     step_reward_terms["acceleration"] = rew_acc / dt
     step_reward_terms["goal"] = rew_dist / dt
+    step_reward_terms["velocity"] = rew_velocity / dt
     if ranks is not None:
         step_reward_terms["rank"] = rew_rank / dt  # rew_rel_prog / dt
         step_reward_terms["collision"] = rew_collision / dt

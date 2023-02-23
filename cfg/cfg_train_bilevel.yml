@@ -13,10 +13,10 @@ algorithm:
   # schedule: adaptive # could be adaptive, linear or fixed
   # gamma: 0.99
   lam: 0.95
-  desired_kl: 0.01  # 0.02  # 0.008
+  desired_kl: 0.02  # 0.02  # 0.008
   value_loss_coef: 1.0
   use_clipped_value_loss: True
-  max_grad_norm: 2.0
+  max_grad_norm: 40.0  # 2.0
 
 runner:
   policy_class_hl_name: MultiTeamBilevelActorCritic  # BilevelActorCriticAttention  # BilevelActorCritic
@@ -25,9 +25,9 @@ runner:
   algorithm_class_ll_name: BimaPPO  # BilevelPPO
   num_steps_per_env_hl: 5  # 20  # 64 # per iteration
   num_steps_per_env_ll: 40  # 40  # 60
-  max_iterations: 1000  # 2400  # 1200 # 500 # number of policy updates
+  max_iterations: 1300  # 2400  # 1200 # 500 # number of policy updates
   iter_per_hl: 20  # 20  # 1  # 20
-  iter_per_ll: 1000 # 300  # 200  # 10  # 200
+  iter_per_ll: 100 # 300  # 200  # 10  # 200
   pretrain_ll_iter: 0  # 200  # 1000
   warmup_hl_iter: 1  # 200
   warmup_hl_ini: 1.0  # 0.5
@@ -48,6 +48,7 @@ policy:
   encoder_hidden_dims: [128]  # [128]  # [64]
   activation: elu # can be elu, relu, selu, crelu, lrelu, tanh, sigmoid
   init_noise_std: 0.3  # 1.0
+  std_per_obs: False
   attentive: True
   encoder_type: attention4  # attention{1, 2, 3, 4}
   teamsize: 2

@@ -195,12 +195,14 @@ def dense_track(track_path):
 
 def get_tri_track_ensemble(device, track_half_width, track_poly_spacing):
     # Load a centerline track, generate polygons and matricies
-    track_paths = [#"maps/large_oval.csv", 
+    track_paths = [
+                  # "maps/large_oval.csv", 
+                  # "maps/large_oval_dense.csv", 
                    #"maps/large_square_track.csv",
                    #"maps/squiggles.csv",
                    #"maps/large_track2.csv",  
                   #  "maps/sharp_turns_track.csv", 
-                   "maps/sharp_turns_track_dense.csv", 
+                   "maps/sharp_turns_track_dense.csv",  # NOTE: this
                   #  #"maps/c1.csv", 
                   #  #"maps/c2.csv", 
                   #  #"maps/c3.csv", 
@@ -213,12 +215,13 @@ def get_tri_track_ensemble(device, track_half_width, track_poly_spacing):
                   #  #"maps/sharp corners.csv", 
                   #  #"maps/sharp_turns_track.csv",
                   # #  "maps/orca.csv",
-                  # "maps/orca_dense.csv",  # NOTE: this
-                  #  #"maps/oval_diag.csv",
+                  "maps/orca_dense.csv",  # NOTE: this
+                  #  "maps/oval_diag.csv",
+                  #  "maps/oval_diag_dense.csv",
                   #  #"maps/triangle.csv",
                   #  #"maps/complicated.csv",
                   # #  "maps/oversize1.csv",
-                  #  "maps/oversize1_dense.csv",  # NOTE: this
+                   "maps/oversize1_dense.csv",  # NOTE: this
                   #  #"maps/slider.csv",
                   #  #"maps/h_track.csv",
                    ]
