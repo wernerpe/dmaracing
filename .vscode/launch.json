@@ -103,7 +103,7 @@
         },
         {
           "name": "eval2v2_bilevel",
-          "type": "python",
+          // "type": "python",
           "request": "launch",
           "program": "scripts/eval2v2_bilevel.py",
           "console": "integratedTerminal",

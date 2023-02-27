@@ -62,37 +62,15 @@ class DmarEnvBilevel:
         self.num_actions_hl = self.simParameters["numActionsHL"]
         self.num_obs_add_ll = self.simParameters["numConstantObservationsLL"]
 
-        # Import TRI dynamics model and weights
-        # self.dyn_model = DynamicsEncoder.load_from_checkpoint(
-        #     #"/home/peter/git/dynamics_model_learning/sample_models/fixed_integration_current_v25.ckpt").to(self.device)
-        #     "dynamics_models/"+cfg['model']['dynamics_model_name'],
-        #     hparams_file="dynamics_models/"+cfg['model']['hparams_path'], strict=False).to(self.device)
-        # self.dyn_model.integration_function.initialize_lstm_states(torch.zeros((self.num_envs * self.num_agents, 50, 6)).to(self.device))
-        
-        self.dyn_model = SwitchedBicycleKinodynamicModel( num_states = self.cfg['sim']['numStates'],
-                                                          num_actions = self.cfg['sim']['numActions'],
-                                                          num_agents = self.cfg['sim']['numAgents'],
-                                                          dt = self.cfg['sim']['dt'],
-                                                          mass = self.cfg['model']['mass'],
-                                                          lf = self.cfg['model']['lf'],
-                                                          lr = self.cfg['model']['lr'],
-                                                          Iz = self.cfg['model']['Iz'],
-                                                          max_vel = self.cfg['model']['max_vel'],
-                                                          Br = self.cfg['model']['max_vel'],
-                                                          Cf = self.cfg['model']['Cf'],
-                                                          Cr = self.cfg['model']['Cr'],
-                                                          Df = self.cfg['model']['Df'],
-                                                          Dr = self.cfg['model']['Dr'],
+        # Import TRIKART dynamics model and weights
+        self.dyn_model = SwitchedBicycleKinodynamicModel( sim_cfg=self.cfg['sim'],
+                                                          model_cfg=self.cfg['model'],
                                                           vn = self.vn,
                                                           device=self.device
                                                          )
         
         if self.test_mode:
             self.dyn_model.set_test_mode()
-        # self.dyn_model.num_agents = self.num_agents
-        self.dyn_model.init_noise_vec(self.num_envs, self.device)
-        self.dyn_model.init_col_switch(self.num_envs, self.cfg['model']['col_decay_time'], self.device)
-        #self.dyn_model.integration_function.dyn_model.gp.noise_lvl = self.cfg['model']['gp_noise_scale']
         
         self.noise_level = self.cfg['model']['noise_level']
         
@@ -209,6 +187,14 @@ class DmarEnvBilevel:
         self.offtrack_reset_s = cfg["learn"]["offtrack_reset"]
         self.offtrack_reset = int(self.offtrack_reset_s / (self.decimation * self.dt))
         self.max_episode_length = int(self.timeout_s / (self.decimation * self.dt))
+        
+        #obs noise scaling
+        self.vel_noise_scale = cfg['learn']['vel_noise_scale'] 
+        self.track_boundary_noise_scale = cfg['learn']['track_boundary_noise_scale']
+        self.ado_pos_noise_scale = cfg['learn']['ado_pos_noise_scale']
+        self.ado_rot_noise_scale = cfg['learn']['ado_rot_noise_scale']
+        self.ado_vel_noise_scale = cfg['learn']['ado_vel_noise_scale']
+        self.ado_angvel_noise_scale = cfg['learn']['ado_angvel_noise_scale']
 
         try:
             self.agent_dropout_prob_ini = cfg["learn"]["agent_dropout_prob_ini"]
@@ -788,8 +774,23 @@ class DmarEnvBilevel:
 
             # noise_vec = torch.randn_like(self.obs_buf) * 0.1 * self.obs_noise_lvl
             noise_vec = self.obs_noise_lvl * (2.0 * (torch.rand(self.obs_buf.size(), device=self.obs_buf.device) - 0.5))
+            noise_vec[..., -7*self.num_agents+5:-7*self.num_agents] = 0.0
+            #velocity
+            noise_vec[..., 0:3] *= self.vel_noise_scale
+            #trackboundaries
+            noise_vec[..., 3: 3+self.horizon *4] *= self.track_boundary_noise_scale
+            #ado_pos
+            noise_vec[..., -7*self.num_agents: -5*self.num_agents] *= self.ado_pos_noise_scale
+            #ado_rot
+            noise_vec[..., -5*self.num_agents: -3*self.num_agents] *= self.ado_rot_noise_scale
+            #ado_vel
+            noise_vec[..., -3*self.num_agents: -1*self.num_agents] *= self.ado_vel_noise_scale
+            #ado_angvel
+            noise_vec[..., -1*self.num_agents] *= self.ado_angvel_noise_scale
             noise_vec[..., -21:] *= self.active_obs_template.repeat(1, 1, 7)  # HACK: hard-coded setting ado noise 0
-            noise_vec[..., -26:-21] = 0.0
+
+            # FIXME: 10x noise added for ado relative velocities
+            #noise_vec[..., -self.num_agents * 3:] *= 5
             self.obs_buf += noise_vec
 
 
