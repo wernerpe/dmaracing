@@ -219,15 +219,15 @@ if __name__ == "__main__":
 
     # ### Run information
     exp_name = 'tri_multiagent_blr_hierarchical'  # 'tri_single_blr_hierarchical'
-    timestamp = '23_02_21_17_16_07_bilevel_2v2'  # '23_02_21_17_16_07_bilevel_2v2'  # '23_01_31_14_30_58_bilevel_2v2'  # '23_01_31_11_54_24_bilevel_2v2'
+    timestamp = '23_02_27_10_40_25_bilevel_2v2'  # '23_02_21_17_16_07_bilevel_2v2'  # '23_01_31_14_30_58_bilevel_2v2'  # '23_01_31_11_54_24_bilevel_2v2'
     checkpoint = 1300  # 500  # 1300
     #active policies
-    runs_hl = [timestamp, '23_02_22_21_18_03_bilevel_2v2']
+    runs_hl = [timestamp, '23_02_27_10_40_25_bilevel_2v2']  # '23_02_22_21_18_03_bilevel_2v2'
     chkpts_hl = [checkpoint, 1300]
-    runs_ll = [timestamp, '23_02_22_21_18_03_bilevel_2v2']
+    runs_ll = [timestamp, '23_02_27_10_40_25_bilevel_2v2']
     chkpts_ll = [checkpoint, 1300]
     ##policies to populate adversary buffer
-    adv_runs = ['23_02_22_21_18_03_bilevel_2v2']
+    adv_runs = ['23_02_27_10_40_25_bilevel_2v2']
     adv_chkpts = [checkpoint]
 
 
@@ -241,7 +241,7 @@ if __name__ == "__main__":
     # cfg['learn']['agent_dropout_prob'] = 0.0
     cfg['learn']['agent_dropout_prob_ini'] = 0.0
     cfg['learn']['agent_dropout_prob_end'] = 0.0
-    cfg['learn']['steer_ado_with_PPC'] = False  # False
+    cfg['learn']['steer_ado_with_PPC'] = True  # False
     # cfg['learn']['resetrand'] = [0.05, 0.05, 0.0, 0.0, 0.0,  0.0, 0.0]
     cfg["sim"]["reset_timeout_only"] = True
     cfg["sim"]["filtercollisionstoego"] = False

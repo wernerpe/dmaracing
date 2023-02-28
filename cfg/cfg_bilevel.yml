@@ -12,7 +12,7 @@ sim:
   #dependent on the lookaheadhorizon length and number of ado cars in an env
   #this is done in get_cfg directly
   numObservations: -1
-  numConstantObservations: 8 #vels, rxy, lxy, maxvel, last actions, rank, teamrank
+  numConstantObservations: 8  # 8 #vels, rxy, lxy, maxvel, last actions, rank, teamrank(, offtrack time = 9)
   numConstantObservationsLL: 5  #  5  # goalpos, goalstd, lltime
   numActions: 2
   numActionsHL: 4  # goalpos, goalstd
@@ -20,7 +20,7 @@ sim:
   decimation: 4
   test_mode: False
   collisionstiffness: 80.0
-  filtercollisionstoego: True  # False
+  filtercollisionstoego: False  # True  # False
   reset_timeout_only: False
 
   logBehaviorEvery: 20
@@ -75,6 +75,10 @@ track:
 learn:
   steer_ado_with_PPC: True  # True
   iters_ado_with_PPC: 500  # 500  # 5000
+  ppc_prob_itr_ini: 100
+  ppc_prob_itr_end: 1300
+  ppc_prob_val_ini: 1.0
+  ppc_prob_val_end: 0.2
   use_timeouts: True
   use_track_curriculum: True
   #[posx, posy, theta, vellong, vellat, dtheta, steer]
@@ -100,7 +104,7 @@ learn:
   offtrackRewardScale: -1.0  # -1.0  # -0.2  # -0.2  # -1.0  # -0.1  # -0.1
   actionRateRewardScale: -0.2  # -0.1  # -0.01  # -0.1
   rankRewardScale: 1.0  # 1.0  # 5.0  # 5.0  # 1.0
-  collisionRewardScale: -1.0  # -0.2  #-0.2  # -0.02  # -0.2
+  collisionRewardScale: -5.0  # -1.0  # -0.2  #-0.2  # -0.02  # -0.2
   accRewardScale: -0.1  # -0.5
   velRewardScale: -1.0
   goalRewardScale: 2.0  # 1.0  # 1.0  # 1.0  # 5.0

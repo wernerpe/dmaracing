@@ -31,7 +31,7 @@ runner:
   pretrain_ll_iter: 0  # 200  # 1000
   warmup_hl_iter: 1  # 200
   warmup_hl_ini: 1.0  # 0.5
-  population_update_interval: 100  # 100 #number of iterations before the opponent policy is updated
+  population_update_interval: 20  # 100 #number of iterations before the opponent policy is updated
   # logging
   save_interval: 100  # 100  # 50 # check for potential saves every this many iterations
   experiment_name: 'tri_multiagent_blr_hierarchical'  # 'tri_single_blr_hierarchical'
@@ -45,7 +45,8 @@ runner:
 policy: 
   actor_hidden_dims: [256, 128]  # [256, 128]
   critic_hidden_dims: [256, 128]  # [256, 128]
-  encoder_hidden_dims: [128]  # [128]  # [64]
+  encoder_embed_dims: [64, 64]  # [128]  # [64]
+  encoder_attend_dims: [128]
   activation: elu # can be elu, relu, selu, crelu, lrelu, tanh, sigmoid
   init_noise_std: 0.3  # 1.0
   std_per_obs: False
