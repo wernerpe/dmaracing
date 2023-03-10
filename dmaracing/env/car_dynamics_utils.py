@@ -511,7 +511,7 @@ class SwitchedBicycleKinodynamicModel(nn.Module):
         steer = torch.clip(steer-self.last_steer, -self.max_d_steer, self.max_d_steer) + steer
 
         fast_fwd = state[:, :, self.vn['S_DX']] > self.max_vel_vec.squeeze()
-        fast_bwd = -state[:, :, self.vn['S_DX']] > 0.5  # 0.01
+        fast_bwd = -state[:, :, self.vn['S_DX']] > 0.1  # 0.01
         gas = actions[:, :, self.vn['A_GAS']]
         gas_clip = 1.0*fast_fwd*torch.clip(gas, -1,0) + 1.0*fast_bwd*torch.clip(gas, 0,1) + ~(fast_fwd|fast_bwd) *  torch.clip(gas, -1.0, 0.3)
         gas_features = torch.cat((state[:, :, self.vn['S_DX']].unsqueeze(2), 
@@ -615,8 +615,10 @@ class SwitchedBicycleKinodynamicModel(nn.Module):
             self.lf_noise[envs] = torch_unif_rand((len(envs), 1), -0.02*noise_level, 0.02*noise_level, device=self.device)
             self.lr_noise[envs] = torch_unif_rand((len(envs), 1), -0.02*noise_level, 0.02*noise_level, device=self.device)
             self.steering_offset_noise[envs] = torch_unif_rand((len(envs), 1 ), -0.03*noise_level, 0.03*noise_level, device=self.device)
-            self.gas_noise[envs] = torch_unif_rand((len(envs), self.num_agents, 1), -0.15*noise_level, 0.05*noise_level, device=self.device)
-        self.max_vel_vec[envs] = self.max_vel*(1 - 0.5 * noise_level) + torch_unif_rand((len(envs), self.num_agents, 1), 0, 0.5*self.max_vel*noise_level, device=self.device)
+            # self.gas_noise[envs] = torch_unif_rand((len(envs), self.num_agents, 1), -0.15*noise_level, 0.05*noise_level, device=self.device)
+            self.gas_noise[envs] = torch_unif_rand((len(envs), self.num_agents, 1), -0.05*noise_level, 0.05*noise_level, device=self.device)
+        # self.max_vel_vec[envs] = self.max_vel*(1 - 0.5 * noise_level) + torch_unif_rand((len(envs), self.num_agents, 1), 0, 0.5*self.max_vel*noise_level, device=self.device)
+        self.max_vel_vec[envs] = self.max_vel*(1 - 0.1 * noise_level) + torch_unif_rand((len(envs), self.num_agents, 1), 0, 0.1*self.max_vel*noise_level, device=self.device)
 
     def init_noise_vec(self, num_envs, device):
         self.device = device

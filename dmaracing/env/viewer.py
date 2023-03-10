@@ -229,8 +229,8 @@ class Viewer:
             self.img_val = cv.circle(self.img_val, (pos[0], pos[1]), scale, val, -1)
 
         cv.putText(self.img_val, "Env ID: " + str(self.env_idx_render), (15, 50), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
-        cv.putText(self.img_val, "Min Val: " + str(self._values_ll_min), (15, 80), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
-        cv.putText(self.img_val, "Max Val: " + str(self._values_ll_max), (15, 110), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
+        cv.putText(self.img_val, "Min Val: " + str(np.round(self._values_ll_min, 3)), (15, 80), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
+        cv.putText(self.img_val, "Max Val: " + str(np.round(self._values_ll_max, 3)), (15, 110), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
 
 
     def clear_values(self):

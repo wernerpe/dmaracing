@@ -211,10 +211,11 @@ class DmarEnvBilevel:
         self.max_episode_length = int(self.timeout_s / (self.decimation * self.dt))
 
         try:
-            self.agent_dropout_prob_ini = cfg["learn"]["agent_dropout_prob_ini"]
-            self.agent_dropout_prob_end = cfg["learn"]["agent_dropout_prob_end"]
-            self.agent_dropout_prob_itr = cfg["learn"]["agent_dropout_prob_itr"]
-            self.agent_dropout_prob = self.agent_dropout_prob_ini
+            self.agent_dropout_prob_val_ini = cfg["learn"]["agent_dropout_prob_val_ini"]
+            self.agent_dropout_prob_val_end = cfg["learn"]["agent_dropout_prob_val_end"]
+            self.agent_dropout_prob_itr_ini = cfg["learn"]["agent_dropout_prob_itr_ini"]
+            self.agent_dropout_prob_itr_end = cfg["learn"]["agent_dropout_prob_itr_end"]
+            self.agent_dropout_prob = self.agent_dropout_prob_val_ini
         except:
             self.agent_dropout_prob = cfg["learn"]["agent_dropout_prob"]
         self.agent_dropout_egos = 1*cfg["learn"]["agent_dropout_egos"]
@@ -240,7 +241,7 @@ class DmarEnvBilevel:
             print('[DMAR] Overriding ado actions with PPC')
             self.ppc = PPController(self,
                        lookahead_dist=1.5,
-                       maxvel=2.5,
+                       maxvel=3.0,  # 2.5,
                        k_steer=1.0,
                        k_gas=2.0)
 
@@ -304,6 +305,9 @@ class DmarEnvBilevel:
         )
         self.teamranks = torch.zeros(
             (self.num_envs, self.num_agents), requires_grad=False, device=self.device, dtype=torch.int)
+        self.prev_ranks = torch.zeros(
+            (self.num_envs, self.num_agents), requires_grad=False, device=self.device, dtype=torch.int
+        )
 
         # HACK: targets
         self.targets_pos_world = torch.zeros(
@@ -443,11 +447,12 @@ class DmarEnvBilevel:
             self.train_ll = False
 
     def set_dropout_prob(self, iter):
-        self.agent_dropout_prob = self.agent_dropout_prob_ini + min(iter/self.agent_dropout_prob_itr, 1.0) * (self.agent_dropout_prob_end - self.agent_dropout_prob_ini)
+        progress = min(max(iter-self.agent_dropout_prob_itr_ini, 0.0)/(self.agent_dropout_prob_itr_end - self.agent_dropout_prob_itr_ini), 1.0)
+        self.agent_dropout_prob = self.agent_dropout_prob_val_ini + progress * (self.agent_dropout_prob_val_end - self.agent_dropout_prob_val_ini)
 
     def set_ppc_prob(self, iter):
         progress = min(max(iter-self.ppc_prob_itr_ini, 0.0)/(self.ppc_prob_itr_end - self.ppc_prob_itr_ini), 1.0)
-        self.agent_dropout_prob = self.ppc_prob_val_ini + progress * (self.ppc_prob_val_end - self.ppc_prob_val_ini)
+        self.ppc_prob = self.ppc_prob_val_ini + progress * (self.ppc_prob_val_end - self.ppc_prob_val_ini)
 
     def set_video_log_ep(self, iter):
         self.log_episode_next = self.log_episode_next or ((iter % self.log_video_freq)==0 and iter!=0)
@@ -822,6 +827,7 @@ class DmarEnvBilevel:
             self.last_vel,
             self.ranks if self.num_agents>1 else None,
             self.teamranks if self.num_agents>1 else None,
+            self.prev_ranks if self.num_agents>1 else None,
             self.is_collision,
             self.reward_terms,
             self.step_reward_terms,
@@ -1046,6 +1052,8 @@ class DmarEnvBilevel:
         num_opponents = (self.num_teams - 1) * self.team_size
         self.use_ppc_vec[env_ids, -num_opponents:] = 1.0 * (torch.rand(len(env_ids), num_opponents, 1, device=self.device) < self.ppc_prob)
 
+        self.prev_ranks[env_ids, ...] = self.ranks[env_ids, ...]
+
         self.lap_counter[env_ids, :] = 0
         self.episode_length_buf[env_ids] = 0.0
         self.old_track_progress[env_ids] = self.track_progress[env_ids]
@@ -1188,8 +1196,8 @@ class DmarEnvBilevel:
         self.track_progress = self.track_progress_no_laps + self.lap_counter * self.track_lengths[
             self.active_track_ids
         ].view(-1, 1)
-        dist_sort, self.ranks = torch.sort(self.track_progress*self.active_agents, dim=1, descending=True)
-        self.ranks = torch.sort(self.ranks, dim=1)[1]
+        dist_sort, ranks = torch.sort(self.track_progress*self.active_agents, dim=1, descending=True)
+        self.ranks = torch.sort(ranks, dim=1)[1].to(self.ranks.dtype)
 
         for team in self.teams:
             self.teamranks[:, team] = torch.min(self.ranks[:, team], dim = 1)[0].reshape(-1,1).type(torch.int)
@@ -1261,6 +1269,7 @@ class DmarEnvBilevel:
         self.last_steer[:,:,0] = self.actions[..., self.vn['A_STEER']]
         self.last_last_steer[:] = self.last_steer[:]
         self.last_vel[:] = self.vel
+        self.prev_ranks[:] = self.ranks
 
         self.update_data = 1.0 * (self.reset_buf_tmp == self.reset_buf)
 
@@ -1452,6 +1461,7 @@ def compute_rewards_jit(
     last_vel : torch.Tensor,
     ranks: Union[torch.Tensor,None],
     teamranks: Union[torch.Tensor,None],
+    prev_ranks: Union[torch.Tensor,None],
     is_collision: torch.Tensor,
     reward_terms: Dict[str, torch.Tensor],
     step_reward_terms: Dict[str, torch.Tensor],
@@ -1473,7 +1483,7 @@ def compute_rewards_jit(
     positive_prog = 1.0 * (delta_progress > 0.0)
     rew_progress = 0.0
     rew_progress += torch.clip(delta_progress, min=-10, max=10) * reward_scales["progress"] * (1.0 - progress_jump)
-    rew_progress *= train_ll
+    # rew_progress *= train_ll
 
     pen_progress = -2.0 * progress_jump  # NOTE: alternative, penalize reset step
     # pen_progress *= (train_ll + (1.0-train_ll))  #  * 1.0 / dt)
@@ -1494,7 +1504,7 @@ def compute_rewards_jit(
 
     act_diff = torch.square(actions - last_actions)
     rew_acc = torch.square(vel-last_vel.view(-1,num_agents))*reward_scales['acceleration'] * train_ll
-    act_diff[..., 0] *= 1.0  # 20.0  # 5.0  # 25.0
+    act_diff[..., 0] *= 5.0  # 20.0  # 5.0  # 25.0
     act_diff[..., 1] *= 1.0  # 10.0
     rew_actionrate = torch.sum(act_diff, dim=2) * reward_scales["actionrate"] * train_ll
     #rew_energy = -torch.sum(torch.square(states[:, :, vn["S_W0"] : vn["S_W3"] + 1]), dim=2) * reward_scales["energy"]
@@ -1509,7 +1519,7 @@ def compute_rewards_jit(
 
     rew_dist_base = pdf_dist * reward_scales['goal']
     # Sparse
-    scale_sparse = 0.3 * ll_ep_done * targets_off_ahead / 5.0 #  / dt # *0.1  # * targets_off_ahead / 5.0  # encourage larger offsets (?) [/5.0]
+    scale_sparse = 0.0  #  0.3 * ll_ep_done * targets_off_ahead / 5.0 #  / dt # *0.1  # * targets_off_ahead / 5.0  # encourage larger offsets (?) [/5.0]
     # Dense
     # scale_dense = (1.0 / (torch.exp(1.0 * torch.norm(targets_dist_local, dim=-1, keepdim=True))))
     scale_dense = 1.0 / torch.exp(5. * (ll_steps_left-0.05))
@@ -1530,7 +1540,11 @@ def compute_rewards_jit(
         #rew_rank = 1.0 / num_agents * (num_active_agents.view(-1, 1) / 2.0 - ranks) * reward_scales["rank"]
         # rew_rank = torch.exp(-2.0 * teamranks) * reward_scales["rank"] * (1.0 - train_ll) * ll_ep_done[..., 0]
         # rew_rank = torch.exp(-2.0 * ranks) * reward_scales["rank"] * (1.0 - train_ll) * ll_ep_done[..., 0]
-        rew_rank = (1.2*torch.exp(-1.0 * ranks) - 0.2) * reward_scales["rank"] * (1.0 - train_ll) * ll_ep_done[..., 0] * dt_hl  #  / dt
+        # rew_rank = (1.2*torch.exp(-1.0 * ranks) - 0.2) * reward_scales["rank"] * (1.0 - train_ll) * ll_ep_done[..., 0] * dt_hl  #  / dt
+        
+        # rew_rank = 1.0 * (prev_ranks < ranks) - 1.0 * (prev_ranks > ranks)
+        rew_rank = 1.0 * (prev_ranks - ranks) + 0.1 * (teamranks==0)
+        rew_rank *= reward_scales["rank"] * (1.0 - train_ll) * ll_ep_done[..., 0] * dt_hl
 
         rew_collision = is_collision * reward_scales["collision"] * train_ll
 

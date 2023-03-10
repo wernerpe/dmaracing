@@ -4,7 +4,7 @@ from dmaracing.utils.helpers import *
 from datetime import date, datetime
 import os
 import sys
-# os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+# os.environ['CUDA_VISIBLE_DEVICES'] = '1'
 
 def train():
     env = DmarEnvBilevel(cfg, args)
