@@ -618,7 +618,7 @@ class SwitchedBicycleKinodynamicModel(nn.Module):
             # self.gas_noise[envs] = torch_unif_rand((len(envs), self.num_agents, 1), -0.15*noise_level, 0.05*noise_level, device=self.device)
             self.gas_noise[envs] = torch_unif_rand((len(envs), self.num_agents, 1), -0.05*noise_level, 0.05*noise_level, device=self.device)
         # self.max_vel_vec[envs] = self.max_vel*(1 - 0.5 * noise_level) + torch_unif_rand((len(envs), self.num_agents, 1), 0, 0.5*self.max_vel*noise_level, device=self.device)
-        self.max_vel_vec[envs] = self.max_vel*(1 - 0.1 * noise_level) + torch_unif_rand((len(envs), self.num_agents, 1), 0, 0.1*self.max_vel*noise_level, device=self.device)
+        self.max_vel_vec[envs] = self.max_vel*(1 - 0.05 * noise_level) + torch_unif_rand((len(envs), self.num_agents, 1), 0, 0.05*self.max_vel*noise_level, device=self.device)
 
     def init_noise_vec(self, num_envs, device):
         self.device = device
