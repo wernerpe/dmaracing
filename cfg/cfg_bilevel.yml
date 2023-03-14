@@ -12,7 +12,7 @@ sim:
   #dependent on the lookaheadhorizon length and number of ado cars in an env
   #this is done in get_cfg directly
   numObservations: -1
-  numConstantObservations: 8  # 8 #vels, rxy, lxy, maxvel, last actions, rank, teamrank(, offtrack time = 9)
+  numConstantObservations: 7  # 8 #vels, rxy, lxy, [maxvel=8obs], last actions, rank, teamrank(, offtrack time = 9)
   numConstantObservationsLL: 5  #  5  # goalpos, goalstd, lltime
   numActions: 2
   numActionsHL: 4  # goalpos, goalstd
@@ -36,11 +36,23 @@ model:
   max_vel: 3.5
   mass: 3.3
   #gp_noise_scale: 0.01
+  Bf: 0.711
   Br: 2.482
   Cf: 1.414
   Cr: 1.343
   Df: 0.892
   Dr: 0.892
+  max_steer_rate: 2.1 #rad/s
+  vm_noise_scale: 0.05
+  lf_noise_scale: 0.02
+  lr_noise_scale: 0.02
+  steering_offset_noise_scale: 0.03
+  gas_noise_scale: [-0.15, 0.05]
+  #BLR slip model
+  alpha_f_mean: [-0.16356078,  0.23466891,  0.47629134]
+  alpha_f_sigma: [[ 0.07033759, -0.0210406 , -0.10337932],
+                  [-0.0210406 ,  0.01222755, -0.00317403],
+                  [-0.10337932, -0.00317403,  0.52084342]]
 
 viewer:
   width: 1200  # 1200
@@ -56,19 +68,10 @@ viewer:
 
 track:
   #https://github.com/openai/gym/blob/master/gym/envs/box2d/car_racing.py
-  SCALE: 40.0  # Track scale
-  TRACK_RAD: 420   # Track is heavily morphed circle with this radius
-  CHECKPOINTS: 18
-  TRACK_DETAIL_STEP: 12
-  TRACK_TURN_RATE: 0.81
-  TRACK_WIDTH: 18
-  BORDER: 4
-  BORDER_MIN_COUNT: 3
   verbose: False
   seed: 1
   ccw: True
   draw_centerline: False
-  num_tracks: 20
   track_half_width: 0.63  # 0.7  # 0.6
   track_poly_spacing: 0.15
   
@@ -101,13 +104,13 @@ learn:
   distance_obs_cutoff: 3.0 #[m]
   race_length_laps: 1
 
-  progressRewardScale: 5.0  # 0.1  # 0.0  # 1.0  # 10.0  # 1.0  # 10.0
+  progressRewardScale: 2.0  # 0.1  # 0.0  # 1.0  # 10.0  # 1.0  # 10.0
   offtrackRewardScale: -1.0  # -1.0  # -0.2  # -0.2  # -1.0  # -0.1  # -0.1
   actionRateRewardScale: -0.2  # -0.1  # -0.01  # -0.1
   rankRewardScale: 1.0  # 1.0  # 1.0  # 5.0  # 5.0  # 1.0
   collisionRewardScale: -1.0  # -1.0  # -0.2  #-0.2  # -0.02  # -0.2
   accRewardScale: -0.1  # -0.5
-  velRewardScale: -1.0
+  velRewardScale: 0.0  # -1.0
   goalRewardScale: 2.0  # 1.0  # 1.0  # 1.0  # 5.0
   horizon: 12  # 12  # 15
 
@@ -115,4 +118,11 @@ learn:
 
   timeout: 16.0  # 16.0  # 24.0  # 25.0 #[s]
   offtrack_reset: 0.5  # 1.0  # 0.8 #[s]
+
+  vel_noise_scale: 1. #0.5
+  track_boundary_noise_scale: 1. # 0.3
+  ado_pos_noise_scale: 1. #0.5
+  ado_rot_noise_scale: 1. #0.1
+  ado_vel_noise_scale: 1. #0.1
+  ado_angvel_noise_scale: 1. #0.1
   obs_noise_lvl: 0.005  # 1.0  # 1.0  # FIXME: change back?

@@ -429,72 +429,66 @@ def resolve_collsions(contact_wrenches : torch.Tensor,
                 contact_wrenches[ idx_comp, colp[0], :2] += force_B_1 * (1.0 * new_col + 0.5*already_col) - (-0.5*new_col_active)*force_B_0
                 contact_wrenches[ idx_comp, colp[1], 2] += (torque_A_1.view(-1,1)*(1.0 * new_col + 0.5*already_col) + (-0.5*new_col_active)*torque_B_0.view(-1,1)).view(-1)
                 contact_wrenches[ idx_comp, colp[0], 2] += (torque_B_1.view(-1,1)*(1.0 * new_col + 0.5*already_col) + (-0.5*new_col_active)*torque_A_0.view(-1,1)).view(-1)
-                
-                #shove[idx_comp, colp[0], :2] += 0.6*contact_wrenches[ idx_comp, colp[0], :2]/stiffness
-                #shove[idx_comp, colp[1], :2] += 0.6*contact_wrenches[ idx_comp, colp[1], :2]/stiffness
+            
     shove[:, :, :2] = 1.0 * contact_wrenches[:,:,:2] / stiffness
     shove[:, :, 2]  = .5 * contact_wrenches[:,:,2] / (stiffness*Iz)          
     return contact_wrenches, shove
 
 class SwitchedBicycleKinodynamicModel(nn.Module):
     def __init__(self,
-                 num_states=7,
-                 num_actions=2,
-                 num_agents=1,
-                 dt = 0.02, 
-                 mass=None, 
-                 lf=None, 
-                 lr=None, 
-                 Iz=None,
-                 max_vel=3.5,
-                 Bf = 0.711,
-                 Br = 2.482,
-                 Cf = 1.414,
-                 Cr = 1.343,
-                 Df = 0.892,
-                 Dr = 0.892,
+                 sim_cfg,
+                 model_cfg,
                  vn = None,
                  device = 'cuda:0'
                  ):
 
         super().__init__()
-        self.num_states = num_states
-        self.num_actions = num_actions
-        self.num_agents = num_agents
+        self.num_envs = sim_cfg['numEnv']
+        self.num_states = sim_cfg['numStates']
+        self.num_actions = sim_cfg['numActions']
+        self.num_agents = sim_cfg['numAgents']
+        self.device = device
         #self.parameter = torch.nn.Parameter(torch.tensor([1.0], dtype=torch.float))
-        self.dt = dt
-        self.max_steer_rate = 2.1 #rad/s
+        self.dt = sim_cfg['dt']
+        self.max_steer_rate = model_cfg['max_steer_rate']#2.1 #rad/s
         self.max_d_steer = self.dt*self.max_steer_rate
-        self.max_vel = max_vel
-        self.M = mass
-        self.lf = lf
-        self.lr = lr
-        self.Iz = Iz
-        self.L = lf + lr
+        self.max_vel = model_cfg['max_vel']
+        self.M = model_cfg['mass']
+        self.lf = model_cfg['lf']
+        self.lr = model_cfg['lr']
+        self.Iz = model_cfg['Iz']
+        self.L = self.lf + self.lr
         self.lr_noise = 0
         self.lf_noise = 0
         self.gas_noise = 0
         self.steering_offset_noise = 0
         self.max_vel_vec = self.max_vel
-        self.device = device
         
         self.throttle_encoder = get_throttle_encoder()
         self.throttle_encoder.to(self.device)
         self.test = False
         self.use_collisions = False
-        self.Bf = Bf
-        self.Br = Br
-        self.Cf = Cf
-        self.Cr = Cr
-        self.Df = Df
-        self.Dr = Dr
+        self.Bf = model_cfg['Bf']
+        self.Br = model_cfg['Br']
+        self.Cf = model_cfg['Cf']
+        self.Cr = model_cfg['Cr']
+        self.Df = model_cfg['Df']
+        self.Dr = model_cfg['Dr']
+
+        self.vm_noise_scale = model_cfg['vm_noise_scale']
+        self.lf_noise_scale = model_cfg['lf_noise_scale']
+        self.lr_noise_scale = model_cfg['lr_noise_scale']
+        self.steering_offset_noise_scale = model_cfg['steering_offset_noise_scale']
+        self.gas_noise_scale = model_cfg['gas_noise_scale']
 
         self.vn = vn
         #BLR ModelParameters for TRI KART
-        self.alphaf_model_mean = torch.tensor([-0.16356078,  0.23466891,  0.47629134], device=self.device)
-        self.alphaf_model_std = torch.tensor([[ 0.07033759, -0.0210406 , -0.10337932],
-                                            [-0.0210406 ,  0.01222755, -0.00317403],
-                                            [-0.10337932, -0.00317403,  0.52084342]], device=self.device)
+        self.alphaf_model_mean = torch.tensor(model_cfg['alpha_f_mean'], device=self.device)
+        self.alphaf_model_sigma = torch.tensor(model_cfg['alpha_f_sigma'], device=self.device)
+        
+        self.init_noise_vec(self.num_envs)
+        if sim_cfg['collide']:
+            self.init_col_switch(self.num_envs, model_cfg['col_decay_time'], self.device)
         
         self.randomized_params = ['max_vel'] if self.test else ['max_vel', 'lf', 'lb', 'steering_offset', 'throttlecmd', 'w_blr']
   
@@ -539,7 +533,7 @@ class SwitchedBicycleKinodynamicModel(nn.Module):
         angle = steer + self.steering_offset_noise + slip_angle 
         dtheta = v_bax*(torch.tan(angle)/torch.sqrt((self.L+self.lf_noise + self.lr_noise)**2 + ((self.lr+self.lr_noise)*torch.tan(angle))**2))
         
-        ddtheta = 0*ddx
+        ddtheta = 0 * ddx
         
         ddelta = 0 * ddtheta
 
@@ -606,31 +600,26 @@ class SwitchedBicycleKinodynamicModel(nn.Module):
         next_state = state + self.dt * d_state
         next_state[..., self.vn['S_X']:self.vn['S_Y'] + 1] += shove[...,:2]
         next_state[:, :, self.vn['S_THETA']] += 0.8*shove[:,:,2]
-        #put in steer angle for rendering
-        #next_state[:,:,-1] = actions[:,:,-1]
         return next_state
     
     def update_noise_vec(self, envs, noise_level):
         if not self.test:
-            self.lf_noise[envs] = torch_unif_rand((len(envs), 1), -0.02*noise_level, 0.02*noise_level, device=self.device)
-            self.lr_noise[envs] = torch_unif_rand((len(envs), 1), -0.02*noise_level, 0.02*noise_level, device=self.device)
-            self.steering_offset_noise[envs] = torch_unif_rand((len(envs), 1 ), -0.03*noise_level, 0.03*noise_level, device=self.device)
-            # self.gas_noise[envs] = torch_unif_rand((len(envs), self.num_agents, 1), -0.15*noise_level, 0.05*noise_level, device=self.device)
-            self.gas_noise[envs] = torch_unif_rand((len(envs), self.num_agents, 1), -0.05*noise_level, 0.05*noise_level, device=self.device)
-        # self.max_vel_vec[envs] = self.max_vel*(1 - 0.5 * noise_level) + torch_unif_rand((len(envs), self.num_agents, 1), 0, 0.5*self.max_vel*noise_level, device=self.device)
-        self.max_vel_vec[envs] = self.max_vel*(1 - 0.05 * noise_level) + torch_unif_rand((len(envs), self.num_agents, 1), 0, 0.05*self.max_vel*noise_level, device=self.device)
+            self.lf_noise[envs] = torch_unif_rand((len(envs), 1), -self.lf_noise_scale*noise_level, self.lf_noise_scale*noise_level, device=self.device)
+            self.lr_noise[envs] = torch_unif_rand((len(envs), 1), -self.lr_noise_scale*noise_level, self.lr_noise_scale*noise_level, device=self.device)
+            self.steering_offset_noise[envs] = torch_unif_rand((len(envs), 1 ), -self.steering_offset_noise_scale*noise_level, self.steering_offset_noise_scale*noise_level, device=self.device)
+            self.gas_noise[envs] = torch_unif_rand((len(envs), self.num_agents, 1), -self.gas_noise_scale[0]*noise_level, self.gas_noise_scale[1]*noise_level, device=self.device)
+        self.max_vel_vec[envs] = self.max_vel*(1 - self.vm_noise_scale*noise_level) + torch_unif_rand((len(envs), self.num_agents, 1), 0, self.vm_noise_scale*self.max_vel*noise_level, device=self.device)
 
-    def init_noise_vec(self, num_envs, device):
-        self.device = device
-        self.lf_noise = torch.zeros((num_envs,  self.num_agents, ), dtype=torch.float, device= device)
-        self.lr_noise = torch.zeros((num_envs,  self.num_agents, ), dtype=torch.float, device= device)
-        self.gas_noise = torch.zeros((num_envs, self.num_agents, 1), dtype=torch.float, device= device)
+    def init_noise_vec(self, num_envs):
+        self.lf_noise = torch.zeros((num_envs,  self.num_agents, ), dtype=torch.float, device= self.device)
+        self.lr_noise = torch.zeros((num_envs,  self.num_agents, ), dtype=torch.float, device= self.device)
+        self.gas_noise = torch.zeros((num_envs, self.num_agents, 1), dtype=torch.float, device= self.device)
         
-        self.steering_offset_noise = torch.zeros((num_envs, self.num_agents, ), dtype=torch.float, device= device)
-        self.max_vel_vec = self.max_vel*torch.ones((num_envs, self.num_agents, 1), dtype=torch.float, device= device)
+        self.steering_offset_noise = torch.zeros((num_envs, self.num_agents, ), dtype=torch.float, device= self.device)
+        self.max_vel_vec = self.max_vel*torch.ones((num_envs, self.num_agents, 1), dtype=torch.float, device= self.device)
         self.alphaf_model_mean = torch.tile(self.alphaf_model_mean, (num_envs, 1)).view(-1,1, len(self.alphaf_model_mean))
         self.w_sample = self.alphaf_model_mean.clone()
-        self.last_steer = torch.zeros((num_envs, self.num_agents), dtype=torch.float, device= device)
+        self.last_steer = torch.zeros((num_envs, self.num_agents), dtype=torch.float, device= self.device)
 
     def init_col_switch(self, num_envs, col_decay_time, device):
         self.use_collisions = True
@@ -643,7 +632,7 @@ class SwitchedBicycleKinodynamicModel(nn.Module):
     
     def reset(self, envs):
         if not self.test:
-            self.w_sample[envs] = torch.distributions.MultivariateNormal(self.alphaf_model_mean[envs, ...], self.alphaf_model_std).sample().view(-1, 1, self.alphaf_model_mean.shape[2])
+            self.w_sample[envs] = torch.distributions.MultivariateNormal(self.alphaf_model_mean[envs, ...], self.alphaf_model_sigma).sample().view(-1, 1, self.alphaf_model_mean.shape[2])
         if self.use_collisions:
             self.time_since_col[envs, ...] = 100.0
         self.last_steer[envs] = 0
