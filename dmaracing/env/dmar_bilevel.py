@@ -1084,7 +1084,7 @@ class DmarEnvBilevel:
         heading_setpoint = self.states[:,:,2] + heading_offset
         velocity_setpoint = self.actions[..., 1]
         vel_error_rate = 0
-        heading_error_rate = 0
+        heading_error_rate = -self.states[..., self.vn['S_DTHETA']]
         # reset collision detection
         self.is_collision = self.is_collision < 0
         for j in range(self.decimation):
@@ -1096,6 +1096,9 @@ class DmarEnvBilevel:
             self.hardware_commands[:] = (1.0 - self.use_ppc_vec) * self.hardware_commands + self.use_ppc_vec * actions_ppc
         
             self.simulate()
+
+            heading_error_rate = -self.states[..., self.vn['S_DTHETA']]
+            vel_error_rate = 0 #velocity_setpoint - torch.norm(self.states[:,:,3:5], dim =-1)
             # need to check for collisions in inner loop otherwise get missed
             self.is_collision |= torch.norm(self.contact_wrenches, dim=2) > 0
 

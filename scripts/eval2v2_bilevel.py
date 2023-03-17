@@ -6,6 +6,7 @@ import os
 import sys
 import shutil
 import numpy as np
+import time
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
 def eval():
@@ -39,9 +40,9 @@ def eval():
     # policy_ll_jit = torch.jit.script(runner.alg_ll.actor_critic.teamacs[0].ac.actor.to('cpu'))
     # policy_ll_jit.save(save_dir + "/ll_model/jit_model_" +str(modelnr_ll)+".pt")
 
-    policy_ll_jit = torch.jit.script(runner.alg_ll.actor_critic.teamacs[0].ac.actor.to('cpu'))
-    policy_ll_jit.save(save_dir + "/ll_model/jit_model_" +str(modelnr_ll)+".pt")
-    exit()
+    # policy_ll_jit = torch.jit.script(runner.alg_ll.actor_critic.teamacs[0].ac.actor.to('cpu'))
+    # policy_ll_jit.save(save_dir + "/ll_model/jit_model_" +str(modelnr_ll)+".pt")
+    # exit()
     
     # #populate adversary buffer
     # adv_model_paths_hl, adv_model_paths_ll = [], []
@@ -59,9 +60,9 @@ def eval():
     policy_eval_hl = runner.get_inference_policy_hl(device=env.device)
     policy_eval_ll = runner.get_inference_policy_ll(device=env.device)
 
-    # run_eval(env, policy_eval_hl, policy_eval_ll)
+    run_eval(env, policy_eval_hl, policy_eval_ll)
     # run_eval_sensitivity(env, policy_eval_hl, policy_eval_ll)
-    run_eval_winrate(env, policy_eval_hl, policy_eval_ll)
+    #run_eval_winrate(env, policy_eval_hl, policy_eval_ll)
 
 
 def run_eval(env, policy_hl, policy_ll):
@@ -69,7 +70,7 @@ def run_eval(env, policy_hl, policy_ll):
     num_episodes = 5
 
     max_hl_steps = env.max_episode_length // env.dt_hl
-
+    time_per_step = cfg['sim']['dt']*cfg['sim']['decimation']
     for _ in range(num_episodes):
 
         obs, _ = env.reset()
@@ -81,20 +82,29 @@ def run_eval(env, policy_hl, policy_ll):
             # reward_ep_ll = torch.zeros(self.env.num_envs, self.num_agents, 1, dtype=torch.float, device=self.device)
             for i_ll in range(env.dt_hl):
                 actions_hl = env.project_into_track_frame(actions_hl_raw)
+                t1 = time.time()
                 obs_ll = torch.concat((obs, actions_hl), dim=-1)
                 actions_ll = policy_ll(obs_ll)
 
                 # actions_ll = actions_ll.view((*actions_ll.shape[:-1], 2, 2))
 
                 obs, privileged_obs, rewards, dones, infos = env.step(actions_ll)
+                env.viewer.x_offset = int(-env.viewer.width/env.viewer.scale_x*env.states[env.viewer.env_idx_render, 0, 0])
+                env.viewer.y_offset = int(env.viewer.height/env.viewer.scale_y*env.states[env.viewer.env_idx_render, 0, 1])
+                env.viewer.draw_track()
                 evt = env.viewer_events
                 if evt == 121:
                     print("env ", env.viewer.env_idx_render, " reset")
                     env.episode_length_buf[env.viewer.env_idx_render] = 1e9
+                t2 = time.time()
+                #print('dt ', t2-t1)
+                realtime = t2-t1-time_per_step
+                if realtime < 0:
+                    time.sleep(-realtime)
             already_done |= dones
             if ~torch.any(~already_done):
                 break
-
+    
 
 def run_eval_winrate(env, policy_hl, policy_ll):
 
@@ -217,27 +227,27 @@ if __name__ == "__main__":
     args = CmdLineArguments()
     args.parse(sys.argv[1:])
     args.device = 'cuda:0'
-    args.headless =  True 
+    args.headless =  False 
 
 
     # ### Run information
-    exp_name = 'tri_multiagent_blr_hierarchical'  # 'tri_single_blr_hierarchical'
-    timestamp = '23_02_27_10_40_25_bilevel_2v2'  # '23_02_21_17_16_07_bilevel_2v2'  # '23_01_31_14_30_58_bilevel_2v2'  # '23_01_31_11_54_24_bilevel_2v2'
-    checkpoint = 1300  # 500  # 1300
+    exp_name = 'tri_2v2_vel_heading_control'  # 'tri_single_blr_hierarchical'
+    timestamp = '23_03_16_17_16_33_bilevel_2v2'  # '23_02_21_17_16_07_bilevel_2v2'  # '23_01_31_14_30_58_bilevel_2v2'  # '23_01_31_11_54_24_bilevel_2v2'
+    checkpoint = 1000  # 500  # 1300
     #active policies
-    runs_hl = [timestamp, '23_02_27_10_40_25_bilevel_2v2']  # '23_02_22_21_18_03_bilevel_2v2'
-    chkpts_hl = [checkpoint, 1300]
-    runs_ll = [timestamp, '23_02_27_10_40_25_bilevel_2v2']
-    chkpts_ll = [checkpoint, 1300]
+    runs_hl = [timestamp, '23_03_16_17_16_33_bilevel_2v2']  # '23_02_22_21_18_03_bilevel_2v2'
+    chkpts_hl = [checkpoint, 1000]
+    runs_ll = [timestamp, '23_03_16_17_16_33_bilevel_2v2']
+    chkpts_ll = [checkpoint, 1000]
     ##policies to populate adversary buffer
-    adv_runs = ['23_02_27_10_40_25_bilevel_2v2']
+    adv_runs = ['23_03_16_17_16_33_bilevel_2v2']
     adv_chkpts = [checkpoint]
 
 
     path_cfg = os.getcwd() + '/logs/' + exp_name + '/' + runs_hl[0]
     cfg, cfg_train, logdir_root = getcfg(path_cfg, postfix='', postfix_train='')
-    cfg['viewer']['logEvery'] = 1
-    cfg['sim']['numEnv'] = 4000  # 1
+    cfg['viewer']['logEvery'] = -1
+    cfg['sim']['numEnv'] = 1
 
     # cfg_train['policy']['numteams'] = 2
     # cfg_train['policy']['teamsize'] = 2
