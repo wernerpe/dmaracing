@@ -1083,13 +1083,15 @@ class DmarEnvBilevel:
         heading_offset = self.actions[:,:,0]
         heading_setpoint = self.states[:,:,2] + heading_offset
         velocity_setpoint = self.actions[..., 1]
-        vel_error_rate = 0
+        last_velocity = self.last_vel
         heading_error_rate = -self.states[..., self.vn['S_DTHETA']]
         # reset collision detection
         self.is_collision = self.is_collision < 0
         for j in range(self.decimation):
             heading_error = heading_setpoint - self.states[:,:,2] 
-            velocity_error = velocity_setpoint - torch.norm(self.states[:,:,3:5], dim =-1)
+            current_velocity = torch.norm(self.states[:,:,3:5], dim =-1)
+            velocity_error = velocity_setpoint - current_velocity
+            vel_error_rate = (last_velocity - current_velocity)/self.dt
             self.hardware_commands[:,:, self.vn['A_STEER']] =  torch.clip(self.k_steer * heading_error + self.d_steer*heading_error_rate, -0.35, 0.35)
             self.hardware_commands[:,:, self.vn['A_GAS']] =  self.k_vel * velocity_error + self.d_vel*vel_error_rate
             #ppc actions are interpreted as steering angle and accelerations
@@ -1098,7 +1100,7 @@ class DmarEnvBilevel:
             self.simulate()
 
             heading_error_rate = -self.states[..., self.vn['S_DTHETA']]
-            vel_error_rate = 0 #velocity_setpoint - torch.norm(self.states[:,:,3:5], dim =-1)
+            last_velocity = current_velocity 
             # need to check for collisions in inner loop otherwise get missed
             self.is_collision |= torch.norm(self.contact_wrenches, dim=2) > 0
 

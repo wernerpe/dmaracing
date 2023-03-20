@@ -55,9 +55,9 @@ model:
                   [-0.10337932, -0.00317403,  0.52084342]]
   #low level PD controller params
   k_steer: 1.0
-  d_steer: 0
+  d_steer: 0.1
   k_vel: 1.0 
-  d_vel: 0
+  d_vel: 0.2
   
 viewer:
   width: 1200  # 1200

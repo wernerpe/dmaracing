@@ -89,6 +89,12 @@ def run_eval(env, policy_hl, policy_ll):
                 # actions_ll = actions_ll.view((*actions_ll.shape[:-1], 2, 2))
 
                 obs, privileged_obs, rewards, dones, infos = env.step(actions_ll)
+                viewermsg = [ (f"""{'vbax:':>{10}}{' '}{env.states[0,0,3].item():.2f}"""),
+                             (f"""{'vcmd:':>{10}}{' '}{env.cfg['learn']['actionscale'][1]*actions_ll[0,0,1].item() + env.cfg['learn']['defaultactions'][1]:.2f}"""),
+                             ]
+                env.viewer.clear_string()
+                for msg in viewermsg:
+                    env.viewer.add_string(msg)
                 env.viewer.x_offset = int(-env.viewer.width/env.viewer.scale_x*env.states[env.viewer.env_idx_render, 0, 0])
                 env.viewer.y_offset = int(env.viewer.height/env.viewer.scale_y*env.states[env.viewer.env_idx_render, 0, 1])
                 env.viewer.draw_track()
