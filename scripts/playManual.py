@@ -36,8 +36,8 @@ def play():
     while True:
         env.project_into_track_frame(hl_actions)
         t1 = time.time()
-        actions[0 , ag, 0] = steer_cmd
-        actions[0 , ag, 1] = vel_cmd
+        actions[0 , ag, 0] = -0.2 #steer_cmd
+        actions[0 , ag, 1] = 1.0
         if USE_PPC:
             actions[:,1:,:] = ppc.step()[:,1:,:]
         #env.states[0,0,0:3] = 0

@@ -19,8 +19,8 @@ algorithm:
   max_grad_norm: 40.0  # 2.0
 
 runner:
-  policy_class_hl_name: MultiTeamBilevelDecCritic  #MultiTeamBilevelDecCritic  # MultiTeamBilevelActorCritic  # BilevelActorCriticAttention  # BilevelActorCritic
-  algorithm_class_hl_name: BimaDecSARSA  # BimaDecSARSA  # BimaPPO  # BilevelPPO
+  policy_class_hl_name: MultiTeamBilevelActorCritic #MultiTeamBilevelDecCritic  #MultiTeamBilevelDecCritic  # MultiTeamBilevelActorCritic  # BilevelActorCriticAttention  # BilevelActorCritic
+  algorithm_class_hl_name: BimaPPO #BimaDecSARSA  # BimaDecSARSA  # BimaPPO  # BilevelPPO
   policy_class_ll_name: MultiTeamBilevelActorCritic  # BilevelActorCriticAttention  # BilevelActorCritic
   algorithm_class_ll_name: BimaPPO  # BilevelPPO
   num_steps_per_env_hl: 5  # 20  # 64 # per iteration
@@ -34,7 +34,7 @@ runner:
   population_update_interval: 20  # 100 #number of iterations before the opponent policy is updated
   # logging
   save_interval: 100  # 100  # 50 # check for potential saves every this many iterations
-  experiment_name: 'tri_multiagent_blr_hierarchical_ado_vel_noise'  # 'tri_single_blr_hierarchical'
+  experiment_name: 'tri_2v2_vel_heading_control'  # 'tri_single_blr_hierarchical'
   run_name: ''
   # load and resume
   resume: False

@@ -61,18 +61,7 @@ def allocate_car_dynamics_tensors(task):
     
 
 def set_dependent_params(mod_par):
-    # SIZE = mod_par['SIZE']
-    # mod_par['ENGINE_POWER'] = mod_par['ENGINE_POWER_SCALE']*SIZE**2
-    # mod_par['WHEEL_MOMENT_OF_INERTIA'] = mod_par['WHEEL_MOMENT_OF_INERTIA_SCALE']*SIZE**2
-    # mod_par['FRICTION_LIMIT'] = mod_par['FRICTION_LIMIT_SCALE'] * SIZE * SIZE
-    # mod_par['WHEEL_R'] = SIZE*mod_par['WHEEL_R_SCALE']
-    # M = L*W *mod_par['MASS_SCALE']
-    # mod_par['M'] = M
-    mod_par['L'] = 0.58# mod_par['lf'] + mod_par['lr']
-    # mod_par['W'] = W 
-    # mod_par['I'] = mod_par['MOMENT_OF_INERTIA_SCALE']*M*(L**2 + W**2 )/12.0
-    # mod_par['lf'] = L/2
-    # mod_par['lr'] = L/2
+    mod_par['L'] = mod_par['L_coll'] 
     
 #only used for collsion checking, only one car per env needed for pairwise checking
 def get_car_vert_mat(w, l, num_envs, device):
@@ -504,7 +493,7 @@ class SwitchedBicycleKinodynamicModel(nn.Module):
         # 
         # [x, y, theta, xdot, ydot, thetadot]
         #fitted steering model
-        steer = 1.5739 *actions[:, :, self.vn['A_STEER']] - 0.044971
+        steer = 1.5739 *torch.clip(actions[:, :, self.vn['A_STEER']], -0.35, 0.35) - 0.044971
         steer = torch.clip(steer-self.last_steer, -self.max_d_steer, self.max_d_steer) + steer
 
         fast_fwd = state[:, :, self.vn['S_DX']] > self.max_vel_vec.squeeze()

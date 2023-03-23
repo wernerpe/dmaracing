@@ -35,6 +35,12 @@ class DmarEnvBilevel:
         set_dependent_params(self.modelParameters)
         self.simParameters = cfg["sim"]
 
+        #extract hardware-level controller parameters
+        self.k_steer = self.modelParameters["k_steer"]
+        self.k_vel = self.modelParameters["k_vel"]
+        self.d_steer = self.modelParameters["d_steer"]
+        self.d_vel = self.modelParameters["d_vel"]
+
         self.log_behavior_freq = cfg["sim"]["logBehaviorEvery"]
         self.reset_timeout_only = cfg["sim"]["reset_timeout_only"]
 
@@ -141,11 +147,12 @@ class DmarEnvBilevel:
         self.contact_wrenches = torch_zeros((self.num_envs, self.num_agents, 3))
         self.shove = torch_zeros((self.num_envs, self.num_agents, 3))
         self.actions = torch_zeros((self.num_envs, self.num_agents, self.num_actions))
+        self.hardware_commands = torch_zeros((self.num_envs, self.num_agents, self.num_actions))
         self.actions_means = torch_zeros((self.num_envs, self.num_agents, self.num_actions))
         self.last_actions = torch_zeros((self.num_envs, self.num_agents, self.num_actions))
-        self.last_steer = torch_zeros((self.num_envs, self.num_agents, 1))
+        #self.last_steer = torch_zeros((self.num_envs, self.num_agents, 1))
         self.last_vel = torch_zeros((self.num_envs, self.num_agents,))
-        self.last_last_steer = torch_zeros((self.num_envs, self.num_agents, 1))
+        #self.last_last_steer = torch_zeros((self.num_envs, self.num_agents, 1))
 
         self.ll_steps_left = torch_zeros((self.num_envs, self.num_agents, 1))
         
@@ -626,25 +633,12 @@ class DmarEnvBilevel:
                 opponents = torch.concat((ego_team, *all_team), dim=-1)
                 opponents = opponents[opponents!=agent]
 
-                # otherpos = torch.cat((self.states[:, :agent, 0:2], self.states[:, agent + 1 :, 0:2]), dim=1)
                 otherpos = self.states[:, opponents, 0:2]
                 otherpositions.append((otherpos - selfpos).view(-1, (self.num_agents - 1), 2))
 
                 selftrackprogress = self.track_progress_no_laps[:, agent].view(-1, 1, 1)
-                # oth_prog = (
-                #     torch.cat(
-                #         (self.track_progress_no_laps[:, :agent], self.track_progress_no_laps[:, agent + 1 :]), dim=1
-                #     ).view(-1, 1, self.num_agents - 1)
-                #     - selftrackprogress
-                # )
                 oth_prog = self.track_progress_no_laps[:, opponents].view(-1, 1, self.num_agents-1) - selftrackprogress
                 
-                # oth_progress_w_laps = torch.clip(
-                #     torch.cat(
-                #         (self.track_progress[:, :agent], self.track_progress[:, agent + 1 :]), dim=1
-                #     ).view(-1, 1, self.num_agents - 1)
-                #     - self.track_progress[:, agent].view(-1, 1, 1), -self.cfg["learn"]["distance_obs_cutoff"], self.cfg["learn"]["distance_obs_cutoff"]
-                # ) 
                 oth_progress_w_laps = torch.clip(
                         self.track_progress[:, opponents].view(-1, 1, self.num_agents - 1)
                     - self.track_progress[:, agent].view(-1, 1, 1), -self.cfg["learn"]["distance_obs_cutoff"], self.cfg["learn"]["distance_obs_cutoff"]
@@ -664,35 +658,11 @@ class DmarEnvBilevel:
                 other_progress_w_laps.append(oth_progress_w_laps)
 
                 selfcontouringerr = self.contouring_err[:, agent]
-                # other_contouringerr.append(
-                #     torch.cat((self.contouring_err[:, :agent], self.contouring_err[:, agent + 1 :]), dim=1).view(
-                #         -1, 1, self.num_agents - 1
-                #     )
-                #     - selfcontouringerr.view(-1, 1, 1)
-                # )
                 other_contouringerr.append(self.contouring_err[:, opponents].view(-1, 1, self.num_agents-1) - selfcontouringerr.view(-1,1,1))
-
-                # otherrotations.append(
-                #     torch.cat((self.states[:, :agent, 2], self.states[:, agent + 1 :, 2]), dim=1).view(
-                #         -1, 1, self.num_agents - 1
-                #     )
-                #     - selfrot
-                # )
                 otherrotations.append(self.states[:, opponents, 2].view(-1, 1, self.num_agents-1) - selfrot)
 
-                # othervel = torch.cat(
-                #     (
-                #         self.states[:, :agent, self.vn["S_DX"] : self.vn["S_DY"] + 1],
-                #         self.states[:, agent + 1 :, self.vn["S_DX"] : self.vn["S_DY"] + 1],
-                #     ),
-                #     dim=1,
-                # )
                 othervel = self.states[:, opponents, self.vn['S_DX']: self.vn['S_DY']+1]
                 othervelocities.append((othervel - selfvel).view(-1, (self.num_agents - 1), 2))
-                # otherangvel = torch.cat(
-                #     (self.states[:, :agent, self.vn["S_DTHETA"]], self.states[:, agent + 1 :, self.vn["S_DTHETA"]]),
-                #     dim=1,
-                # ).view(-1, 1, self.num_agents - 1)
                 otherangvel = self.states[:, opponents, self.vn['S_DTHETA']].view(-1, 1, self.num_agents-1)
                 otherangularvelocities.append(otherangvel - selfangvel)
 
@@ -723,19 +693,12 @@ class DmarEnvBilevel:
                 * self.active_obs_template - 2.5*(1-self.active_obs_template)
             )
 
-            # self.progress_other_w_laps = (
-            #     torch.clip(torch.cat(tuple([prog for prog in other_progress_w_laps]), dim=1), min=-2.5, max=2.5)
-            #     * self.active_obs_template - 2.5*(1-self.active_obs_template)
-            # )
             self.contouring_err_other = (
                 torch.clip(torch.cat(tuple([err for err in other_contouringerr]), dim=1), min=-1, max=1)
                 * self.active_obs_template
                 * is_other_close
             )
             last_raw_actions = self.last_actions.clone()
-            # last_raw_actions[:,:,0] = torch.clip(last_raw_actions[:,:,0], min = -0.35, max= 0.35)
-            # last_raw_actions[:,:,1] = torch.clip(last_raw_actions[:,:,1], min = -0.3, max= 1.3)  # FIXME: where/why clip
-            
             last_raw_actions[:,:, 0] = (last_raw_actions[:,:, 0] - self.default_actions[0])/self.action_scales[0]  
             last_raw_actions[:,:, 1] = (last_raw_actions[:,:, 1] - self.default_actions[1])/self.action_scales[1]  
             
@@ -763,9 +726,7 @@ class DmarEnvBilevel:
             )
         else:
             last_raw_actions = self.last_actions.clone()
-            # last_raw_actions[:,:,0] = torch.clip(last_raw_actions[:,:,0], min = -0.35, max= 0.35)
-            # last_raw_actions[:,:,1] = torch.clip(last_raw_actions[:,:,1], min = -0.3, max= 1.3)
-
+           
             last_raw_actions[:,:, 0] = (last_raw_actions[:,:, 0] - self.default_actions[0])/self.action_scales[0]  
             last_raw_actions[:,:, 1] = (last_raw_actions[:,:, 1] - self.default_actions[1])/self.action_scales[1]  
             self.obs_buf = torch.cat(
@@ -1064,8 +1025,8 @@ class DmarEnvBilevel:
         # self.track_progress_no_laps[env_ids] = 0.0
         self.time_off_track[env_ids, :] = 0.0
         self.last_actions[env_ids, :, :] = 0.0
-        self.last_steer[env_ids, :, :] = 0.0
-        self.last_last_steer[env_ids, :, :] = 0.0
+        #self.last_steer[env_ids, :, :] = 0.0
+        #self.last_last_steer[env_ids, :, :] = 0.0
         self.last_vel[env_ids, ...] = 0.0
         self.agent_left_track[env_ids, :] = False
 
@@ -1112,7 +1073,6 @@ class DmarEnvBilevel:
         # if self.steer_ado_ppc:
         #     actions[:,-((self.num_teams - 1) * self.team_size):,:] = self.ppc.step()[:,-((self.num_teams - 1) * self.team_size):,:]
         actions_ppc = self.ppc.step()
-        actions = (1.0 - self.use_ppc_vec) * actions + self.use_ppc_vec * actions_ppc
         if len(actions.shape) == 2:
             self.actions[:, 0, 0] = self.action_scales[0] * actions[..., 0] + self.default_actions[0]
             self.actions[:, 0, 1] = self.action_scales[1] * actions[..., 1] + self.default_actions[1] 
@@ -1121,11 +1081,28 @@ class DmarEnvBilevel:
             self.actions[:, :, 0] = self.action_scales[0] * actions[..., 0] + self.default_actions[0]
             self.actions[:, :, 1] = self.action_scales[1] * actions[..., 1] + self.default_actions[1]
             # self.actions[:, :, 2] = self.action_scales[2] * actions[..., 2] + self.default_actions[2]
-
+        
+        heading_offset = self.actions[:,:,0]
+        heading_setpoint = self.states[:,:,2] + heading_offset
+        velocity_setpoint = self.actions[..., 1]
+        last_velocity = self.last_vel
+        heading_error_rate = -self.states[..., self.vn['S_DTHETA']]
         # reset collision detection
         self.is_collision = self.is_collision < 0
         for j in range(self.decimation):
+            heading_error = heading_setpoint - self.states[:,:,2] 
+            current_velocity = torch.norm(self.states[:,:,3:5], dim =-1)
+            velocity_error = velocity_setpoint - current_velocity
+            vel_error_rate = (last_velocity - current_velocity)/self.dt
+            self.hardware_commands[:,:, self.vn['A_STEER']] =  torch.clip(self.k_steer * heading_error + self.d_steer*heading_error_rate, -0.35, 0.35)
+            self.hardware_commands[:,:, self.vn['A_GAS']] =  self.k_vel * velocity_error + self.d_vel*vel_error_rate
+            #ppc actions are interpreted as steering angle and accelerations
+            self.hardware_commands[:] = (1.0 - self.use_ppc_vec) * self.hardware_commands + self.use_ppc_vec * actions_ppc
+        
             self.simulate()
+
+            heading_error_rate = -self.states[..., self.vn['S_DTHETA']]
+            last_velocity = current_velocity 
             # need to check for collisions in inner loop otherwise get missed
             self.is_collision |= torch.norm(self.contact_wrenches, dim=2) > 0
 
@@ -1269,8 +1246,8 @@ class DmarEnvBilevel:
         self.old_active_track_tile = self.active_track_tile
         self.old_track_progress = self.track_progress
         self.last_actions = self.actions.clone()
-        self.last_steer[:,:,0] = self.actions[..., self.vn['A_STEER']]
-        self.last_last_steer[:] = self.last_steer[:]
+        #self.last_steer[:,:,0] = self.actions[..., self.vn['A_STEER']]
+        #self.last_last_steer[:] = self.last_steer[:]
         self.last_vel[:] = self.vel
         self.prev_ranks[:] = self.ranks
 
@@ -1322,8 +1299,9 @@ class DmarEnvBilevel:
 
     def simulate(self) -> None:
         # run physics update
-        act = self.last_actions.clone()
-        act[..., self.vn['A_STEER']] = self.last_last_steer[..., 0]
+        #FIXME removed delay
+        #hardware_commands = self.last_actions.clone()
+        #hardware_commands[..., self.vn['A_STEER']] = self.last_last_steer[..., 0]
         
         (
             self.states[:],
@@ -1334,7 +1312,7 @@ class DmarEnvBilevel:
             self.wheel_locations_world,
         ) = step_cars(
             self.states,
-            act,
+            self.hardware_commands,
             self.drag_reduced,
             self.wheel_locations,
             self.R,
