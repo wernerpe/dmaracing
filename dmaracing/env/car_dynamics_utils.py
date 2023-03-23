@@ -481,6 +481,9 @@ class SwitchedBicycleKinodynamicModel(nn.Module):
         self.steering_offset_noise_scale = model_cfg['steering_offset_noise_scale']
         self.gas_noise_scale = model_cfg['gas_noise_scale']
 
+        self.time_since_col = 100.*torch.ones((self.num_envs, self.num_agents), dtype=torch.float, device= device)
+        self.col_decay_time = model_cfg['col_decay_time']
+
         self.vn = vn
         #BLR ModelParameters for TRI KART
         self.alphaf_model_mean = torch.tensor(model_cfg['alpha_f_mean'], device=self.device)

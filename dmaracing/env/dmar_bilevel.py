@@ -747,7 +747,7 @@ class DmarEnvBilevel:
                     lookahead_rbound_scaled[:,:,:,1], 
                     lookahead_lbound_scaled[:,:,:,0], 
                     lookahead_lbound_scaled[:,:,:,1],
-                    # self.dyn_model.max_vel_vec,  # NOTE: removed if only used for robustness
+                    self.dyn_model.max_vel_vec,  # NOTE: removed if only used for robustness
                     last_raw_actions,
                     self.ranks.view(-1, self.num_agents, 1),
                     self.teamranks.view(-1, self.num_agents, 1),
@@ -789,7 +789,7 @@ class DmarEnvBilevel:
         if self.obs_noise_lvl>0 and not self.test_mode:
 
             # noise_vec = torch.randn_like(self.obs_buf) * 0.1 * self.obs_noise_lvl
-            noise_vec = self.obs_noise_lvl * (2.0 * (torch.rand(self.obs_buf.size(), device=self.obs_buf.device) - 0.5))
+            noise_vec = self.generate_noise_vec(self.obs_buf.size())  # self.obs_noise_lvl * (2.0 * (torch.rand(self.obs_buf.size(), device=self.obs_buf.device) - 0.5))
             noise_vec[..., -7*self.num_agents+5:-7*self.num_agents] = 0.0
             #velocity
             noise_vec[..., 0:3] *= self.vel_noise_scale
@@ -809,6 +809,8 @@ class DmarEnvBilevel:
             #noise_vec[..., -self.num_agents * 3:] *= 5
             self.obs_buf += noise_vec
 
+    def generate_noise_vec(self, size):
+        return self.obs_noise_lvl * (2.0 * (torch.rand(size, device=self.obs_buf.device) - 0.5))
 
     def compute_rewards(
         self,
@@ -1301,21 +1303,22 @@ class DmarEnvBilevel:
 
     def write_behavior_stats(self) -> None:
         # if (self._global_step % self.log_behavior_freq == 0) and (self._global_step > 0):
-        self.info["behavior"] = {}
-        self.info["behavior"]["samples"] = len(torch.concat(self.batch_stats_overtakes))
-        self.info["behavior"]["overtakes"] = torch.concat(self.batch_stats_overtakes).mean()
-        self.info["behavior"]["collisions"] = torch.concat(self.batch_stats_num_collisions).mean()
-        self.info["behavior"]["offtrack"] = torch.concat(self.batch_stats_ego_left_track).mean()
-        self.info["behavior"]["leadtime"] = torch.concat(self.batch_stats_lead_time).mean()
-        self.info["behavior"]["teamranks"] = torch.concat(self.batch_stats_rank_team).mean()
-        self.info["behavior"]["lowerrank"] = torch.concat(self.batch_stats_rank_lower).mean()
+        if len(torch.concat(self.batch_stats_overtakes)) > 100:
+          self.info["behavior"] = {}
+          self.info["behavior"]["samples"] = len(torch.concat(self.batch_stats_overtakes))
+          self.info["behavior"]["overtakes"] = torch.concat(self.batch_stats_overtakes).mean()
+          self.info["behavior"]["collisions"] = torch.concat(self.batch_stats_num_collisions).mean()
+          self.info["behavior"]["offtrack"] = torch.concat(self.batch_stats_ego_left_track).mean()
+          self.info["behavior"]["leadtime"] = torch.concat(self.batch_stats_lead_time).mean()
+          self.info["behavior"]["teamranks"] = torch.concat(self.batch_stats_rank_team).mean()
+          self.info["behavior"]["lowerrank"] = torch.concat(self.batch_stats_rank_lower).mean()
 
-        self.batch_stats_overtakes = []
-        self.batch_stats_num_collisions = []
-        self.batch_stats_ego_left_track = []
-        self.batch_stats_lead_time = []
-        self.batch_stats_rank_team = []
-        self.batch_stats_rank_lower = []
+          self.batch_stats_overtakes = []
+          self.batch_stats_num_collisions = []
+          self.batch_stats_ego_left_track = []
+          self.batch_stats_lead_time = []
+          self.batch_stats_rank_team = []
+          self.batch_stats_rank_lower = []
 
     def simulate(self) -> None:
         # run physics update
@@ -1484,7 +1487,7 @@ def compute_rewards_jit(
     positive_prog = 1.0 * (delta_progress > 0.0)
     rew_progress = 0.0
     rew_progress += torch.clip(delta_progress, min=-10, max=10) * reward_scales["progress"] * (1.0 - progress_jump)
-    # rew_progress *= train_ll
+    rew_progress *= train_ll * 1.0 + (1.0 - train_ll) * 1.0 / (1.0 + teamranks)
 
     pen_progress = -2.0 * progress_jump  # NOTE: alternative, penalize reset step
     # pen_progress *= (train_ll + (1.0-train_ll))  #  * 1.0 / dt)
@@ -1544,7 +1547,8 @@ def compute_rewards_jit(
         # rew_rank = (1.2*torch.exp(-1.0 * ranks) - 0.2) * reward_scales["rank"] * (1.0 - train_ll) * ll_ep_done[..., 0] * dt_hl  #  / dt
         
         # rew_rank = 1.0 * (prev_ranks < ranks) - 1.0 * (prev_ranks > ranks)
-        rew_rank = 1.0 * (prev_ranks - ranks) + 0.1 * (teamranks==0)
+        # rew_rank = 1.0 * (prev_ranks - ranks) + 0.1 * (teamranks==0)
+        rew_rank = 1.0 * (prev_ranks - ranks) / (1.0 + torch.minimum(prev_ranks, ranks))
         rew_rank *= reward_scales["rank"] * (1.0 - train_ll) * ll_ep_done[..., 0] * dt_hl
 
         rew_collision = is_collision * reward_scales["collision"] * train_ll

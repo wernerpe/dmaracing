@@ -2,7 +2,7 @@ test: False
 trackRaceStatistics: False #makes sim substantially slower
 logBehaviorStatistics: True
 sim:
-  numEnv: 2048  # 1024
+  numEnv: 2048  # 2048  # 1024
   #number of racing agents per env
   numAgents: 4
   dt: 0.02 #[s] # If using this with TRI dynamics model, this must be 0.02 to match the refresh frequency of the model
@@ -12,7 +12,7 @@ sim:
   #dependent on the lookaheadhorizon length and number of ado cars in an env
   #this is done in get_cfg directly
   numObservations: -1
-  numConstantObservations: 7  # 8 #vels, rxy, lxy, [maxvel=8obs], last actions, rank, teamrank(, offtrack time = 9)
+  numConstantObservations: 8  # 8 #vels, rxy, lxy, [maxvel=8obs], last actions, rank, teamrank(, offtrack time = 9)
   numConstantObservationsLL: 5  #  5  # goalpos, goalstd, lltime
   numActions: 2
   numActionsHL: 4  # goalpos, goalstd
@@ -43,7 +43,7 @@ model:
   Df: 0.892
   Dr: 0.892
   max_steer_rate: 2.1 #rad/s
-  vm_noise_scale: 0.05
+  vm_noise_scale: 0.30
   lf_noise_scale: 0.02
   lr_noise_scale: 0.02
   steering_offset_noise_scale: 0.03
@@ -78,8 +78,8 @@ track:
 learn:
   steer_ado_with_PPC: True  # True
   iters_ado_with_PPC: 150  # 500  # 5000
-  ppc_prob_itr_ini: 50  # 100
-  ppc_prob_itr_end: 150  # 300  # 1300
+  ppc_prob_itr_ini: 200  # 50  # 100
+  ppc_prob_itr_end: 500  # 150  # 300  # 1300
   ppc_prob_val_ini: 1.0
   ppc_prob_val_end: 0.2
   use_timeouts: True
@@ -98,7 +98,7 @@ learn:
   actionsinihl: [+0.0, +0.0, 0.5, 0.5]
   agent_dropout_prob_val_ini: 1.0
   agent_dropout_prob_val_end: 0.0
-  agent_dropout_prob_itr_ini: 50  # 1000
+  agent_dropout_prob_itr_ini: 0  # 50  # 1000
   agent_dropout_prob_itr_end: 100 
   agent_dropout_egos: False
   distance_obs_cutoff: 3.0 #[m]

@@ -17,6 +17,8 @@ class PPController:
         self.ori_vec = torch.zeros_like(env.actions)
         self._int_lh = int(self.lookahead_dist/self.env.track_poly_spacing)
 
+        self.add_noise = True
+
     def step(self):
         lookahead_locs = self.get_lookahead()
         steer_error = self.get_steer_error(lookahead_locs)
@@ -39,8 +41,8 @@ class PPController:
         return self.lookahead_points[:, :, 0, :]
 
     def get_steer_error(self, lookahead_loc):
-        yaw = self.env.states[..., 2]
-        loc = self.env.states[..., 0:2]
+        yaw = self.env.states[..., 2] + self.add_noise * self.env.generate_noise_vec(self.env.states[..., 2].size())
+        loc = self.env.states[..., 0:2] + self.add_noise * self.env.generate_noise_vec(self.env.states[..., 0:2].size())
         self.ori_vec[..., 0] = torch.cos(yaw) 
         self.ori_vec[..., 1] = torch.sin(yaw) 
         pt = lookahead_loc - loc
@@ -51,6 +53,6 @@ class PPController:
         return ang*sign
 
     def get_vel_error(self, ang_error):
-        vel = torch.norm(self.env.states[..., 3:5], dim =-1) 
+        vel = torch.norm(self.env.states[..., 3:5] + self.add_noise * self.env.generate_noise_vec(self.env.states[..., 3:5].size()), dim =-1) 
         return torch.clip((1-0.4*torch.abs(ang_error)), max =1, min = 0.2)*self.env.dyn_model.max_vel_vec.squeeze()-vel 
         #return torch.clip((1-0.4*torch.abs(ang_error)), max =1, min = 0.2)*self.maxvel-vel 
