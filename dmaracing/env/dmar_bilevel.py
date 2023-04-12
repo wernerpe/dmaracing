@@ -49,6 +49,8 @@ class DmarEnvBilevel:
         self.team_size = cfg['teams']['teamsize']
         self.teams = [torch.tensor([idx for idx in range(self.team_size*start, self.team_size*start+self.team_size)], dtype=torch.long) for start in range(self.num_teams)]
 
+        self.set_reset_agent_ids(reset_id_num=self.team_size)
+
         # use bootstrapping on vf
         self.use_timeouts = cfg["learn"]["use_timeouts"]
         self.track_stats = cfg["trackRaceStatistics"]
@@ -154,13 +156,13 @@ class DmarEnvBilevel:
         self.last_vel = torch_zeros((self.num_envs, self.num_agents,))
         #self.last_last_steer = torch_zeros((self.num_envs, self.num_agents, 1))
 
-        self.ll_steps_left = torch_zeros((self.num_envs, self.num_agents, 1))
+        self.ll_steps_left = torch_zeros((self.num_envs, self.num_agents, 1)) + 1.0
         
         self.obs_buf = torch_zeros((self.num_envs, self.num_agents, self.num_obs))
         self.rew_buf = torch_zeros((self.num_envs, self.num_agents, 2))
-        self.time_out_buf = torch_zeros((self.num_envs, 1)) > 1
-        self.reset_buf = torch_zeros((self.num_envs, 1)) > 1
-        self.reset_buf_tmp = torch_zeros((self.num_envs, 1)) > 1
+        self.time_out_buf = torch_zeros((self.num_envs, self.team_size)) > 1
+        self.reset_buf = torch_zeros((self.num_envs, self.team_size)) > 1
+        self.reset_buf_tmp = torch_zeros((self.num_envs, self.team_size)) > 1
         self.update_data = 1.0 + torch_zeros((self.num_envs, 1))
         self.agent_left_track = torch_zeros((self.num_envs, self.num_agents)) > 1
         self.episode_length_buf = torch_zeros((self.num_envs, 1))
@@ -223,6 +225,11 @@ class DmarEnvBilevel:
         self.action_min_hl = cfg["learn"]["actionsminhl"]
         self.action_max_hl = cfg["learn"]["actionsmaxhl"]
         self.action_ini_hl = cfg["learn"]["actionsinihl"]
+        self.action_all_hl = cfg["learn"]["actionsallhl"]
+        self.use_hl_uncertainty = cfg["learn"]["use_hl_uncertainty"]
+
+        if not self.use_hl_uncertainty:
+            self.num_actions_hl = 2
 
         self.obs_noise_lvl = cfg["learn"]["obs_noise_lvl"]
         self.use_track_curriculum = cfg["learn"]["use_track_curriculum"]
@@ -471,11 +478,11 @@ class DmarEnvBilevel:
         return torch.stack([vec_x_rot, vec_y_rot], axis=-1)
 
     def set_hl_action_probs(self, probs):
-        self._action_probs_hl = probs
+        self._action_probs_hl = probs.clone()
 
     def set_ll_action_stats(self, mean, std):
-        self._action_mean_ll = mean
-        self._action_std_ll = std
+        self._action_mean_ll = mean.clone()
+        self._action_std_ll = std.clone()
 
         self._action_mean_ll[..., 0] = self.action_scales[0] * self._action_mean_ll[..., 0] + self.default_actions[0]
         self._action_mean_ll[..., 1] = self.action_scales[1] * self._action_mean_ll[..., 1] + self.default_actions[1]
@@ -484,14 +491,19 @@ class DmarEnvBilevel:
         self._action_std_ll[..., 1] = self.action_scales[1] * self._action_std_ll[..., 1]
 
     def set_ll_values_preds(self, values):
-        self._values_ll = values[:, 0]
+        self._values_ll = values[:, 0].clone()
 
     def project_into_track_frame(self, actions_hl):
         actions_hl = actions_hl.clone().to(self.device)
         # actions_hl *= torch.tensor(self.action_scales_hl[:2], device=self.device)
 
         target_offset_on_centerline_track = actions_hl[..., 0:2]
-        target_std_local = actions_hl[..., 2:4]  # .unsqueeze(dim=1)  # NOTE: changed for multi-agent
+        if self.use_hl_uncertainty:
+            target_std_local = actions_hl[..., 2:4]  # .unsqueeze(dim=1)  # NOTE: changed for multi-agent
+        else:
+            target_std_local = 0.0*target_offset_on_centerline_track
+            target_std_local[..., 0] += 0.3
+            target_std_local[..., 1] += 0.1
         
         self.ll_steps_left *= 0.0
         self.ll_steps_left += (self.dt_hl - torch.remainder(self.episode_length_buf.unsqueeze(dim=1), self.dt_hl)) / self.dt_hl
@@ -710,7 +722,7 @@ class DmarEnvBilevel:
                     lookahead_rbound_scaled[:,:,:,1], 
                     lookahead_lbound_scaled[:,:,:,0], 
                     lookahead_lbound_scaled[:,:,:,1],
-                    self.dyn_model.max_vel_vec,  # NOTE: removed if only used for robustness
+                    # self.dyn_model.max_vel_vec,  # NOTE: removed if only used for robustness
                     last_raw_actions,
                     self.ranks.view(-1, self.num_agents, 1),
                     self.teamranks.view(-1, self.num_agents, 1),
@@ -812,8 +824,14 @@ class DmarEnvBilevel:
         return torch.abs(progress - old_progress) > 3.5  # 5.0  # 3.5
 
     def check_termination(self) -> None:
-        reset_offtrack = self.time_off_track[:, self.trained_agent_slot].view(-1, 1) > self.offtrack_reset
-        reset_progress = (self.check_progress_jump(self.track_progress, self.old_track_progress)[..., 0].view(-1, 1))*(self.episode_length_buf > 2)
+        
+        ### Check offtrack
+        # reset_offtrack = self.time_off_track[:, self.trained_agent_slot].view(-1, 1) > self.offtrack_reset
+        reset_offtrack = self.time_off_track[:, :self.team_size] > self.offtrack_reset
+        ### Check cutting
+        # reset_progress = (self.check_progress_jump(self.track_progress, self.old_track_progress)[..., 0].view(-1, 1))*(self.episode_length_buf > 2)
+        reset_progress = (self.check_progress_jump(self.track_progress, self.old_track_progress)[..., :self.team_size])*(self.episode_length_buf > 2)
+        ### Check timeout
         reset_timeout = self.episode_length_buf > self.max_episode_length
         
         self.reset_cause = 1e0 * reset_offtrack + 1e1 * reset_progress + 1e2 * reset_timeout
@@ -987,7 +1005,7 @@ class DmarEnvBilevel:
             self.dyn_model.max_vel_vec[env_ids].clone()]
             
         #dynamics randomization
-        self.dyn_model.update_noise_vec(env_ids, self.noise_level)
+        self.dyn_model.update_noise_vec(env_ids, self.noise_level, self.team_size)
 
         # ### Update quantities on reset ###
         # get current tile positions
@@ -1124,6 +1142,9 @@ class DmarEnvBilevel:
             self.log_info_stats(self.obs_buf[..., -3 * (self.num_agents-1)+idx], 'observations', 'ado_velx' + str(idx+1))
             self.log_info_stats(self.obs_buf[..., -2 * (self.num_agents-1)+idx], 'observations', 'ado_vely' + str(idx+1))
             self.log_info_stats(self.obs_buf[..., -1 * (self.num_agents-1)+idx], 'observations', 'ado_vela' + str(idx+1))
+        self.log_info_stats(self.obs_buf[..., 0], 'observations', 'ego_velx')
+        self.log_info_stats(self.obs_buf[..., 1], 'observations', 'ego_vely')
+        self.log_info_stats(self.obs_buf[..., 2], 'observations', 'ego_vela')
 
     def log_info_stats(self, scalar, name1, name2):
         self.info[name1][name2 + '_mean'] = scalar.mean()
@@ -1203,7 +1224,8 @@ class DmarEnvBilevel:
         self.time_out_buf *= False
         self.check_termination()
 
-        env_ids = torch.where(self.reset_buf)[0]
+        # env_ids = torch.where(self.reset_buf)[0]
+        env_ids = torch.where(torch.cumsum(self.reset_buf, axis=-1)[..., self.reset_ids])[0]
         # env_ids = torch.where(self.reset_buf_hl)[0]  # NOTE: step LL env until HL update
         self.info = {}
         self.agent_left_track |= self.time_off_track[:, :] > self.offtrack_reset
@@ -1251,7 +1273,7 @@ class DmarEnvBilevel:
         self.last_vel[:] = self.vel
         self.prev_ranks[:] = self.ranks
 
-        self.update_data = 1.0 * (self.reset_buf_tmp == self.reset_buf)
+        self.update_data = 1.0 * torch.cumsum(self.reset_buf_tmp == self.reset_buf, axis=-1)[..., self.reset_ids]
 
     def render(
         self,
@@ -1392,6 +1414,9 @@ class DmarEnvBilevel:
     def set_trained_agent_slot(self, slot):
         self.trained_agent_slot = slot
 
+    def set_reset_agent_ids(self, reset_id_num):
+        self.reset_ids = reset_id_num - 1
+
     def reset_behavior_stats(self, env_ids):
         self.batch_stats_overtakes.append(self.stats_overtakes_current[env_ids])
         self.batch_stats_num_collisions.append(self.stats_num_collisions_current[env_ids])
@@ -1425,6 +1450,181 @@ class DmarEnvBilevel:
         self.stats_lead_time_current[:] += self.dt*(self.ranks[:, 0]==0)
         
         self.stats_last_ranks[:] = self.ranks[:] 
+
+
+# OLD REFERENCE
+# def compute_rewards_jit(
+#     rew_buf: torch.Tensor,
+#     track_progress: torch.Tensor,
+#     old_track_progress: torch.Tensor,
+#     # progress_other: torch.Tensor,
+#     is_on_track: torch.Tensor,
+#     reward_scales: Dict[str, float],
+#     actions: torch.Tensor,
+#     last_actions: torch.Tensor,
+#     vn: Dict[str, int],
+#     states: torch.Tensor,
+#     vel: torch.Tensor,
+#     last_vel : torch.Tensor,
+#     ranks: Union[torch.Tensor,None],
+#     teamranks: Union[torch.Tensor,None],
+#     prev_ranks: Union[torch.Tensor,None],
+#     is_collision: torch.Tensor,
+#     reward_terms: Dict[str, torch.Tensor],
+#     step_reward_terms: Dict[str, torch.Tensor],
+#     num_agents: int,
+#     active_agents: torch.Tensor,
+#     dt: float,
+#     dt_hl: float,
+#     targets_dist_local: torch.Tensor,
+#     targets_std_local: torch.Tensor,
+#     ll_ep_done: torch.Tensor,
+#     ll_steps_left: torch.Tensor,
+#     train_ll: float,
+#     is_on_track_per_wheel: torch.Tensor,
+#     targets_off_ahead: torch.Tensor,
+# ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
+
+#     train_hl = 1.0 - train_ll
+
+#     ### Progress reward
+#     # Base
+#     progress_delta = track_progress - old_track_progress
+#     progress_jump = 1.0 * (torch.abs(delta_progress) > 3.5)
+#     rew_progress = torch.clip(progress_delta, min=-10, max=10) * (1.0 - progress_jump)
+#     # LL mod
+#     rew_progress_ll = 1.0 * rew_progress
+#     # HL mod
+#     rew_progress_hl = 1.0 * rew_progress
+#     # Total
+#     rew_progress *= train_ll * rew_progress_ll + train_hl * rew_progress_hl
+#     rew_progress *= reward_scales["progress"]
+
+
+
+
+#     delta_progress = track_progress - old_track_progress
+#     progress_jump = 1.0 * (torch.abs(delta_progress) > 3.5)
+#     positive_prog = 1.0 * (delta_progress > 0.0)
+#     rew_progress = 0.0
+#     rew_progress += torch.clip(delta_progress, min=-10, max=10) * reward_scales["progress"] * (1.0 - progress_jump)
+#     rew_progress *= train_ll * 1.0 + (1.0 - train_ll) * 1.0 / (1.0 + teamranks)
+
+#     pen_progress = -2.0 * progress_jump  # NOTE: alternative, penalize reset step
+#     # pen_progress *= (train_ll + (1.0-train_ll))  #  * 1.0 / dt)
+#     rew_progress += pen_progress * reward_scales["progress"]
+
+#     # Penalize small forward velocities
+#     rew_velocity = 1.0 * torch.exp(-0.5 * (vel / 0.05)**2) * reward_scales["velocity"] * train_ll
+
+#     # ### Off-track penalties ###
+#     # rew_on_track = reward_scales["offtrack"] * ~is_on_track * train_ll
+#     # rew_on_track = reward_scales["offtrack"] * (torch.exp(num_wheels_off_track) - 1.0) / 1.0 * train_ll
+#     # Until 02/20/2023
+#     front_axel_off_track = (1.0 * ~is_on_track_per_wheel[..., 0]) * (1.0 * ~is_on_track_per_wheel[..., 1])
+#     back_axel_off_track = (1.0 * ~is_on_track_per_wheel[..., 2]) * (1.0 * ~is_on_track_per_wheel[..., 3])
+#     num_wheels_off_track = ((~is_on_track_per_wheel) * 1.0).sum(dim=-1)
+#     rew_on_track = reward_scales["offtrack"] * (0.5*num_wheels_off_track + 1.0*front_axel_off_track + 1.0*back_axel_off_track) * train_ll
+#     # rew_on_track = (1.0 - 1.0*is_on_track_per_wheel.all(dim=-1)) * reward_scales["offtrack"]
+
+#     act_diff = torch.square(actions - last_actions)
+#     rew_acc = torch.square(vel-last_vel.view(-1,num_agents))*reward_scales['acceleration'] * train_ll
+#     act_diff[..., 0] *= 5.0  # 20.0  # 5.0  # 25.0
+#     act_diff[..., 1] *= 1.0  # 10.0
+#     rew_actionrate = torch.sum(act_diff, dim=2) * reward_scales["actionrate"] * train_ll
+#     #rew_energy = -torch.sum(torch.square(states[:, :, vn["S_W0"] : vn["S_W3"] + 1]), dim=2) * reward_scales["energy"]
+#     num_active_agents = torch.sum(1.0 * active_agents, dim=1)
+
+#     ### Goal distance reward --> FIXME: does not rotate distribution
+#     # # OLD
+#     # targets_dist_local *= 2**(2.0-0.75*targets_std_local/0.1)  # new scaling to separate distributions
+#     # exponent = -0.5 * (targets_dist_local / targets_std_local)**2
+#     # pdf_dist = 1.0/(np.sqrt(2.0 * np.pi) * targets_std_local) * torch.exp(exponent)
+#     # pdf_dist /= 3.0  # 4.0 = max attainable ~1.0
+#     # # pdf_dist /= 1.0/(np.sqrt(2.0 * np.pi) * torch.sqrt(targets_std_local)/2.0)
+
+#     # NEW
+#     pdf_dist = get_multivariate_reward(targets_dist_local, targets_std_local)
+
+#     rew_dist_base = pdf_dist * reward_scales['goal']
+#     # Sparse
+#     scale_sparse = 0.0  #  0.3 * ll_ep_done * targets_off_ahead / 5.0 #  / dt # *0.1  # * targets_off_ahead / 5.0  # encourage larger offsets (?) [/5.0]
+#     # Dense
+#     # scale_dense = (1.0 / (torch.exp(1.0 * torch.norm(targets_dist_local, dim=-1, keepdim=True))))
+#     # scale_dense = 1.0 / torch.exp(5. * (ll_steps_left-0.05))
+#     scale_dense = 0.05 / ll_steps_left.squeeze(-1)
+#     # Combined
+#     scale = train_ll * scale_dense + (1.0-train_ll) * scale_sparse 
+#     rew_dist = scale * rew_dist_base
+
+#     # rew_dist = torch.mean(rew_dist, dim=-1)
+#     # Only reward y proximity if actually close to target
+#     # rew_dist = rew_dist[..., 0] + 1.0 / (5e1 * targets_dist_local[..., 0].abs() + 1e0) * rew_dist[..., 1]
+#     # rew_dist = rew_dist * (targets_off_ahead[..., 0] / 5.0)  # encourage larger offsets (?) [/5.0]
+
+#     # # OLD
+#     # rew_dist = rew_dist[..., 0] * rew_dist[..., 1]  # *
+
+
+#     if ranks is not None:
+#         #compute relative progress
+#         rew_rel_prog = 0.0*rew_on_track  # -torch.clip(progress_other, -1, 1).sum(dim=-1)* reward_scales["rank"] * (1.0 - train_ll)
+        
+#         #rew_rank = 1.0 / num_agents * (num_active_agents.view(-1, 1) / 2.0 - ranks) * reward_scales["rank"]
+#         # rew_rank = torch.exp(-2.0 * teamranks) * reward_scales["rank"] * (1.0 - train_ll) * ll_ep_done[..., 0]
+#         # rew_rank = torch.exp(-2.0 * ranks) * reward_scales["rank"] * (1.0 - train_ll) * ll_ep_done[..., 0]
+#         # rew_rank = (1.2*torch.exp(-1.0 * ranks) - 0.2) * reward_scales["rank"] * (1.0 - train_ll) * ll_ep_done[..., 0] * dt_hl  #  / dt
+        
+#         # rew_rank = 1.0 * (prev_ranks < ranks) - 1.0 * (prev_ranks > ranks)
+#         # rew_rank = 1.0 * (prev_ranks - ranks) + 0.1 * (teamranks==0)
+#         rew_rank = 1.0 * (prev_ranks - ranks) / (1.0 + torch.minimum(prev_ranks, ranks))
+#         rew_rank *= reward_scales["rank"] * (1.0 - train_ll) * ll_ep_done[..., 0] * dt_hl
+
+#         rew_collision = is_collision * reward_scales["collision"] * train_ll
+
+#         rew_baseline = 0.15*dt * (train_ll + (1.0 - train_ll) * ll_ep_done[..., 0])
+
+#         rew_buf[..., 0] = torch.clip(
+#             rew_progress + rew_on_track + rew_actionrate + rew_rel_prog + rew_acc + rew_baseline, min=-5*dt, max=None
+#         ) + rew_collision + rew_dist + rew_rank + rew_velocity
+#     else:
+#         #needs to be a tensor
+#         rew_rank = 0*rew_on_track
+#         rew_collision = 0*rew_on_track
+#         rew_buf[..., 0] = torch.clip(
+#             rew_progress + rew_on_track + rew_actionrate + rew_acc + 0.1*dt , min=-5*dt, max=None
+#         ) + rew_dist + rew_rank + rew_velocity
+
+#     reward_terms["progress"] += rew_progress
+#     reward_terms["offtrack"] += rew_on_track
+#     reward_terms["actionrate"] += rew_actionrate
+#     #reward_terms["energy"] += rew_energy
+#     reward_terms["acceleration"] += rew_acc
+
+#     reward_terms["goal"] += rew_dist
+
+#     reward_terms["velocity"] += rew_velocity
+
+#     if ranks is not None:
+#         reward_terms["rank"] += rew_rank  # rew_rel_prog
+#         reward_terms["collision"] += rew_collision
+
+#     step_reward_terms["progress"] = rew_progress / dt
+#     step_reward_terms["offtrack"] = rew_on_track / dt
+#     step_reward_terms["actionrate"] = rew_actionrate / dt
+#     #step_reward_terms["energy"] += rew_energy
+#     step_reward_terms["acceleration"] = rew_acc / dt
+#     step_reward_terms["goal"] = rew_dist / dt
+#     step_reward_terms["velocity"] = rew_velocity / dt
+#     if ranks is not None:
+#         step_reward_terms["rank"] = rew_rank / dt  # rew_rel_prog / dt
+#         step_reward_terms["collision"] = rew_collision / dt
+
+
+#     return rew_buf, reward_terms, step_reward_terms
+
+
+
 
 ### jit functions
 #@torch.jit.script
@@ -1460,89 +1660,158 @@ def compute_rewards_jit(
     targets_off_ahead: torch.Tensor,
 ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
 
-    delta_progress = track_progress - old_track_progress
-    progress_jump = 1.0 * (torch.abs(delta_progress) > 3.5)
-    positive_prog = 1.0 * (delta_progress > 0.0)
-    rew_progress = 0.0
-    rew_progress += torch.clip(delta_progress, min=-10, max=10) * reward_scales["progress"] * (1.0 - progress_jump)
-    rew_progress *= train_ll * 1.0 + (1.0 - train_ll) * 1.0 / (1.0 + teamranks)
+    train_hl = 1.0 - train_ll
 
-    pen_progress = -2.0 * progress_jump  # NOTE: alternative, penalize reset step
-    # pen_progress *= (train_ll + (1.0-train_ll))  #  * 1.0 / dt)
-    rew_progress += pen_progress * reward_scales["progress"]
+    ### Progress reward
+    # Base
+    progress_delta = track_progress - old_track_progress
+    progress_jump = 1.0 * (torch.abs(progress_delta) > 3.5)
+    rew_progress = torch.clip(progress_delta, min=-10, max=10) * (1.0 - progress_jump)
+    rew_progress -= 3.0 * progress_jump
+    # LL mod
+    rew_progress_ll = 1.0 * rew_progress
+    # HL mod
+    rew_progress_hl = 1.0 * rew_progress
+    
+    ### Small velocity penalty
+    # Base
+    rew_velocity = 1.0 * torch.exp(-0.5 * (vel / 0.05)**2)
+    # LL mod
+    rew_velocity_ll = 1.0 * rew_velocity
+    # HL mod
+    rew_velocity_hl = 0.0 * rew_velocity
 
-    # Penalize small forward velocities
-    rew_velocity = 1.0 * torch.exp(-0.5 * (vel / 0.05)**2) * reward_scales["velocity"] * train_ll
-
-    # ### Off-track penalties ###
-    # rew_on_track = reward_scales["offtrack"] * ~is_on_track * train_ll
-    # rew_on_track = reward_scales["offtrack"] * (torch.exp(num_wheels_off_track) - 1.0) / 1.0 * train_ll
-    # Until 02/20/2023
+    ### Off-track penalty
+    # Base
     front_axel_off_track = (1.0 * ~is_on_track_per_wheel[..., 0]) * (1.0 * ~is_on_track_per_wheel[..., 1])
     back_axel_off_track = (1.0 * ~is_on_track_per_wheel[..., 2]) * (1.0 * ~is_on_track_per_wheel[..., 3])
     num_wheels_off_track = ((~is_on_track_per_wheel) * 1.0).sum(dim=-1)
-    rew_on_track = reward_scales["offtrack"] * (0.5*num_wheels_off_track + 1.0*front_axel_off_track + 1.0*back_axel_off_track) * train_ll
-    # rew_on_track = (1.0 - 1.0*is_on_track_per_wheel.all(dim=-1)) * reward_scales["offtrack"]
+    rew_on_track = 0.5*num_wheels_off_track + 1.0*front_axel_off_track + 1.0*back_axel_off_track
+    # LL mod
+    rew_on_track_ll = 1.0 * rew_on_track
+    # HL mod
+    rew_on_track_hl = 0.0 * rew_on_track
 
+    ### Acceleration penalty
+    # Base
+    rew_acc = torch.square(vel-last_vel.view(-1,num_agents))
+    # LL mod
+    rew_acc_ll = 1.0 * rew_acc
+    # HL mod
+    rew_acc_hl = 0.0 * rew_acc
+
+    ### Action rate penalty
+    # Base
     act_diff = torch.square(actions - last_actions)
-    rew_acc = torch.square(vel-last_vel.view(-1,num_agents))*reward_scales['acceleration'] * train_ll
     act_diff[..., 0] *= 5.0  # 20.0  # 5.0  # 25.0
     act_diff[..., 1] *= 1.0  # 10.0
-    rew_actionrate = torch.sum(act_diff, dim=2) * reward_scales["actionrate"] * train_ll
-    #rew_energy = -torch.sum(torch.square(states[:, :, vn["S_W0"] : vn["S_W3"] + 1]), dim=2) * reward_scales["energy"]
-    num_active_agents = torch.sum(1.0 * active_agents, dim=1)
+    rew_actionrate = torch.sum(act_diff, dim=2)
+    # LL mod
+    rew_actionrate_ll = 1.0 * rew_actionrate
+    # HL mod
+    rew_actionrate_hl = 0.0 * rew_actionrate
 
-    # Goal distance reward --> FIXME: does not rotate distribution
-    targets_dist_local *= 2**(2.0-0.75*targets_std_local/0.1)  # new scaling to separate distributions
-    exponent = -0.5 * (targets_dist_local / targets_std_local)**2
-    pdf_dist = 1.0/(np.sqrt(2.0 * np.pi) * targets_std_local) * torch.exp(exponent)
-    pdf_dist /= 3.0  # 4.0 = max attainable ~1.0
-    # pdf_dist /= 1.0/(np.sqrt(2.0 * np.pi) * torch.sqrt(targets_std_local)/2.0)
+    ### Goal distance reward
+    # Base
+    rew_goal = get_multivariate_reward(targets_dist_local, targets_std_local)
+    # LL mod
+    rew_goal_ll = 0.05 / ll_steps_left.squeeze(-1) * rew_goal * (vel > 0.5) * torch.exp((vel-0.5)/5.0)
+    # HL mod
+    rew_goal_hl = rew_goal * 0.1 * targets_off_ahead[..., 0] / 5.0 * ll_ep_done[..., 0]  # bias towards far away goals
 
-    rew_dist_base = pdf_dist * reward_scales['goal']
-    # Sparse
-    scale_sparse = 0.0  #  0.3 * ll_ep_done * targets_off_ahead / 5.0 #  / dt # *0.1  # * targets_off_ahead / 5.0  # encourage larger offsets (?) [/5.0]
-    # Dense
-    # scale_dense = (1.0 / (torch.exp(1.0 * torch.norm(targets_dist_local, dim=-1, keepdim=True))))
-    scale_dense = 1.0 / torch.exp(5. * (ll_steps_left-0.05))
-    # Combined
-    scale = train_ll * scale_dense + (1.0-train_ll) * scale_sparse 
-    rew_dist = scale * rew_dist_base
-
-    # rew_dist = torch.mean(rew_dist, dim=-1)
-    # Only reward y proximity if actually close to target
-    # rew_dist = rew_dist[..., 0] + 1.0 / (5e1 * targets_dist_local[..., 0].abs() + 1e0) * rew_dist[..., 1]
-    rew_dist = rew_dist[..., 0] * rew_dist[..., 1]  # *
-    # rew_dist = rew_dist * (targets_off_ahead[..., 0] / 5.0)  # encourage larger offsets (?) [/5.0]
+    ### Baseline reward
+    # Base
+    rew_baseline = 0.15*dt
+    # LL mod
+    rew_baseline_ll = 1.0 * rew_baseline
+    # HL mod
+    rew_baseline_hl = ll_ep_done[..., 0] * rew_baseline
 
     if ranks is not None:
-        #compute relative progress
-        rew_rel_prog = 0.0*rew_on_track  # -torch.clip(progress_other, -1, 1).sum(dim=-1)* reward_scales["rank"] * (1.0 - train_ll)
+        ### Relative progress reward
+        # Base
+        rew_rel_prog = 0.0*rew_on_track
+        # LL mod
+        rew_rel_prog_ll = 0.0 * rew_rel_prog
+        # HL mod
+        rew_rel_prog_hl = 0.0 * rew_rel_prog
+
+        ### Rank reward
+        # Base
+        rew_rank = 1.0 * (prev_ranks - ranks) / (1.0 + torch.minimum(prev_ranks, ranks)) + torch.exp(-teamranks)
+        # LL mod
+        rew_rank_ll = 0.0 * rew_rank
+        # HL mod
+        rew_rank_hl = ll_ep_done[..., 0] * dt_hl
+
+        ### Collision reward
+        # Base
+        rew_collision = is_collision
+        # LL mod
+        rew_collision_ll = 1.0 * rew_collision
+        # HL mod
+        rew_collision_hl = 0.0 * rew_collision
         
-        #rew_rank = 1.0 / num_agents * (num_active_agents.view(-1, 1) / 2.0 - ranks) * reward_scales["rank"]
-        # rew_rank = torch.exp(-2.0 * teamranks) * reward_scales["rank"] * (1.0 - train_ll) * ll_ep_done[..., 0]
-        # rew_rank = torch.exp(-2.0 * ranks) * reward_scales["rank"] * (1.0 - train_ll) * ll_ep_done[..., 0]
-        # rew_rank = (1.2*torch.exp(-1.0 * ranks) - 0.2) * reward_scales["rank"] * (1.0 - train_ll) * ll_ep_done[..., 0] * dt_hl  #  / dt
-        
-        # rew_rank = 1.0 * (prev_ranks < ranks) - 1.0 * (prev_ranks > ranks)
-        # rew_rank = 1.0 * (prev_ranks - ranks) + 0.1 * (teamranks==0)
-        rew_rank = 1.0 * (prev_ranks - ranks) / (1.0 + torch.minimum(prev_ranks, ranks))
-        rew_rank *= reward_scales["rank"] * (1.0 - train_ll) * ll_ep_done[..., 0] * dt_hl
-
-        rew_collision = is_collision * reward_scales["collision"] * train_ll
-
-        rew_baseline = 0.15*dt * (train_ll + (1.0 - train_ll) * ll_ep_done[..., 0])
-
-        rew_buf[..., 0] = torch.clip(
-            rew_progress + rew_on_track + rew_actionrate + rew_rel_prog + rew_acc + rew_baseline, min=-5*dt, max=None
-        ) + rew_collision + rew_dist + rew_rank + rew_velocity
     else:
-        #needs to be a tensor
-        rew_rank = 0*rew_on_track
-        rew_collision = 0*rew_on_track
-        rew_buf[..., 0] = torch.clip(
-            rew_progress + rew_on_track + rew_actionrate + rew_acc + 0.1*dt , min=-5*dt, max=None
-        ) + rew_dist + rew_rank + rew_velocity
+        ### Relative progress reward
+        # Base
+        rew_rel_prog = 0.0*rew_on_track
+        # LL mod
+        rew_rel_prog_ll = 0.0 * rew_rel_prog
+        # HL mod
+        rew_rel_prog_hl = 0.0 * rew_rel_prog
+
+        ### Rank reward
+        # Base
+        rew_rank = 0.0*rew_on_track
+        # LL mod
+        rew_rank_ll = 0.0 * rew_rank
+        # HL mod
+        rew_rank_hl = 0.0 * rew_rank
+
+        ### Collision reward
+        # Base
+        rew_collision = 0.0*rew_on_track
+        # LL mod
+        rew_collision_ll = 0.0 * rew_collision
+        # HL mod
+        rew_collision_hl = 0.0 * rew_collision
+
+    ### Total rewards
+    # Progress
+    rew_progress = train_ll * rew_progress_ll + train_hl * rew_progress_hl
+    rew_progress *= reward_scales["progress"]
+    # Small velocity
+    rew_velocity = train_ll * rew_velocity_ll + train_hl * rew_velocity_hl
+    rew_velocity *= reward_scales["velocity"]
+    # Off-track
+    rew_on_track = train_ll * rew_on_track_ll + train_hl * rew_on_track_hl
+    rew_on_track *= reward_scales["offtrack"]
+    # Acceleration
+    rew_acc = train_ll * rew_acc_ll + train_hl * rew_acc_hl
+    rew_acc *= reward_scales['acceleration']
+    # Action rate
+    rew_actionrate = train_ll * rew_actionrate_ll + train_hl * rew_actionrate_hl
+    rew_actionrate *= reward_scales["actionrate"]
+    # Goal
+    rew_goal = train_ll * rew_goal_ll + train_hl * rew_goal_hl
+    rew_goal *= reward_scales['goal']
+    # Relative progress
+    rew_rel_prog = train_ll * rew_rel_prog_ll + train_hl * rew_rel_prog_hl
+    rew_rel_prog *= reward_scales['rank']
+    # Rank
+    rew_rank = train_ll * rew_rank_ll + train_hl * rew_rank_hl
+    rew_rank *= reward_scales["rank"]
+    # Collision
+    rew_collision = train_ll * rew_collision_ll + train_hl * rew_collision_hl
+    rew_collision *= reward_scales["collision"]
+    # Baseline
+    rew_baseline = train_ll * rew_baseline_ll + train_hl * rew_baseline_hl
+
+    # Combined
+    rew_buf[..., 0] = torch.clip(
+            rew_progress + rew_on_track + rew_actionrate + rew_rel_prog + rew_acc + rew_baseline, min=-5*dt, max=None
+        ) + rew_collision + rew_goal + rew_rank + rew_velocity
 
     reward_terms["progress"] += rew_progress
     reward_terms["offtrack"] += rew_on_track
@@ -1550,7 +1819,7 @@ def compute_rewards_jit(
     #reward_terms["energy"] += rew_energy
     reward_terms["acceleration"] += rew_acc
 
-    reward_terms["goal"] += rew_dist
+    reward_terms["goal"] += rew_goal
 
     reward_terms["velocity"] += rew_velocity
 
@@ -1563,7 +1832,7 @@ def compute_rewards_jit(
     step_reward_terms["actionrate"] = rew_actionrate / dt
     #step_reward_terms["energy"] += rew_energy
     step_reward_terms["acceleration"] = rew_acc / dt
-    step_reward_terms["goal"] = rew_dist / dt
+    step_reward_terms["goal"] = rew_goal / dt
     step_reward_terms["velocity"] = rew_velocity / dt
     if ranks is not None:
         step_reward_terms["rank"] = rew_rank / dt  # rew_rel_prog / dt
@@ -1571,3 +1840,10 @@ def compute_rewards_jit(
 
 
     return rew_buf, reward_terms, step_reward_terms
+
+
+def get_multivariate_reward(dist, stddev):
+    exponent = -0.5 * ((dist / stddev)**2).sum(axis=-1)
+    denominator = (2*torch.pi * torch.sqrt(torch.prod(stddev, axis=-1)))
+    pdf_dist = torch.exp(exponent) / denominator
+    return pdf_dist

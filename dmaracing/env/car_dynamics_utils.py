@@ -464,7 +464,8 @@ class SwitchedBicycleKinodynamicModel(nn.Module):
         self.Df = model_cfg['Df']
         self.Dr = model_cfg['Dr']
 
-        self.vm_noise_scale = model_cfg['vm_noise_scale']
+        self.vm_noise_scale_ego = model_cfg['vm_noise_scale_ego']
+        self.vm_noise_scale_ado = model_cfg['vm_noise_scale_ado']
         self.lf_noise_scale = model_cfg['lf_noise_scale']
         self.lr_noise_scale = model_cfg['lr_noise_scale']
         self.steering_offset_noise_scale = model_cfg['steering_offset_noise_scale']
@@ -590,17 +591,19 @@ class SwitchedBicycleKinodynamicModel(nn.Module):
     def forward(self, state, actions, col_wrenches, shove):
         d_state = self.get_state_derivative(state, actions, col_wrenches)
         next_state = state + self.dt * d_state
-        next_state[..., self.vn['S_X']:self.vn['S_Y'] + 1] += shove[...,:2]
-        next_state[:, :, self.vn['S_THETA']] += 0.8*shove[:,:,2]
+        next_state[..., self.vn['S_X']:self.vn['S_Y'] + 1] += shove[...,:2]  #  * self.dt/0.02 (maybe?)
+        next_state[:, :, self.vn['S_THETA']] += 0.8*shove[:,:,2]  #  * self.dt/0.02 (maybe?)
         return next_state
     
-    def update_noise_vec(self, envs, noise_level):
+    def update_noise_vec(self, envs, noise_level, team_size):
         if not self.test:
             self.lf_noise[envs] = torch_unif_rand((len(envs), 1), -self.lf_noise_scale*noise_level, self.lf_noise_scale*noise_level, device=self.device)
             self.lr_noise[envs] = torch_unif_rand((len(envs), 1), -self.lr_noise_scale*noise_level, self.lr_noise_scale*noise_level, device=self.device)
             self.steering_offset_noise[envs] = torch_unif_rand((len(envs), 1 ), -self.steering_offset_noise_scale*noise_level, self.steering_offset_noise_scale*noise_level, device=self.device)
             self.gas_noise[envs] = torch_unif_rand((len(envs), self.num_agents, 1), -self.gas_noise_scale[0]*noise_level, self.gas_noise_scale[1]*noise_level, device=self.device)
-        self.max_vel_vec[envs] = self.max_vel*(1 - self.vm_noise_scale*noise_level) + torch_unif_rand((len(envs), self.num_agents, 1), 0, self.vm_noise_scale*self.max_vel*noise_level, device=self.device)
+        # self.max_vel_vec[envs] = self.max_vel*(1 - self.vm_noise_scale*noise_level) + torch_unif_rand((len(envs), self.num_agents, 1), 0, self.vm_noise_scale*self.max_vel*noise_level, device=self.device)
+        self.max_vel_vec[envs, :team_size] = self.max_vel*(1 - self.vm_noise_scale_ego*noise_level) + torch_unif_rand((len(envs), team_size, 1), 0, self.vm_noise_scale_ego*self.max_vel*noise_level, device=self.device)
+        self.max_vel_vec[envs, team_size:] = self.max_vel*(1 - self.vm_noise_scale_ado*noise_level) + torch_unif_rand((len(envs), self.num_agents-team_size, 1), 0, self.vm_noise_scale_ado*self.max_vel*noise_level, device=self.device)
 
     def init_noise_vec(self, num_envs):
         self.lf_noise = torch.zeros((num_envs,  self.num_agents, ), dtype=torch.float, device= self.device)

@@ -288,12 +288,16 @@ class Viewer:
         return number // 10**n % 10
 
     def draw_reset_cause(self, reset_cause):
-        reset_cause = int(reset_cause[0].cpu().numpy())
+        reset_cause = reset_cause[0].cpu().numpy().astype(int)
 
-        cause = ""
-        cause += "O" if self.get_digit(reset_cause, 0) > 0 else ""
-        cause += "P" if self.get_digit(reset_cause, 1) > 0 else ""
-        cause += "T" if self.get_digit(reset_cause, 2) > 0 else ""
+        for idx, rc in enumerate(reset_cause):
+            cause = ""
+            if rc > 0:
+                cause += "ID" + str(idx) + ": "
+                cause += "O" if self.get_digit(rc, 0) > 0 else ""
+                cause += "P" if self.get_digit(rc, 1) > 0 else ""
+                cause += "T" if self.get_digit(rc, 2) > 0 else ""
+                break
 
         cv.putText(self.img, "Reset=" + cause, (470, 50), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
 
@@ -586,23 +590,24 @@ class Viewer:
             cv.rectangle(self.img, (x_bar_start, y_start), (x_bar_end, y_start - int(action_prob * bar_scale)), color=(255, 0, 0), thickness=-1)
         cv.putText(self.img, "Goal Pos", (x_start-5, bar_bottom + 30), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
 
-        # Action 3
-        x_start = x_bar_end + 30
-        y_start = bar_bottom - 35
-        for idx, action_prob in enumerate(hl_action_probs[2]):
-            x_bar_start = x_start + idx * (bar_width + separation)
-            x_bar_end = x_bar_start + bar_width
-            cv.rectangle(self.img, (x_bar_start, y_start), (x_bar_end, y_start - int(action_prob * bar_scale)), color=(255, 0, 0), thickness=-1)
-        # cv.putText(self.img, "Prob Ux", (x_start, bar_bottom + 30), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
+        if len(hl_action_probs) > 2:
+            # Action 3
+            x_start = x_bar_end + 30
+            y_start = bar_bottom - 35
+            for idx, action_prob in enumerate(hl_action_probs[2]):
+                x_bar_start = x_start + idx * (bar_width + separation)
+                x_bar_end = x_bar_start + bar_width
+                cv.rectangle(self.img, (x_bar_start, y_start), (x_bar_end, y_start - int(action_prob * bar_scale)), color=(255, 0, 0), thickness=-1)
+            # cv.putText(self.img, "Prob Ux", (x_start, bar_bottom + 30), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
 
-        # Action 4
-        x_start = x_start
-        y_start = bar_bottom
-        for idx, action_prob in enumerate(hl_action_probs[3]):
-            x_bar_start = x_start + idx * (bar_width + separation)
-            x_bar_end = x_bar_start + bar_width
-            cv.rectangle(self.img, (x_bar_start, y_start), (x_bar_end, y_start - int(action_prob * bar_scale)), color=(255, 0, 0), thickness=-1)
-        cv.putText(self.img, "Goal Std", (x_start-5, bar_bottom + 30), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
+            # Action 4
+            x_start = x_start
+            y_start = bar_bottom
+            for idx, action_prob in enumerate(hl_action_probs[3]):
+                x_bar_start = x_start + idx * (bar_width + separation)
+                x_bar_end = x_bar_start + bar_width
+                cv.rectangle(self.img, (x_bar_start, y_start), (x_bar_end, y_start - int(action_prob * bar_scale)), color=(255, 0, 0), thickness=-1)
+            cv.putText(self.img, "Goal Std", (x_start-5, bar_bottom + 30), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
 
 
         x_ref0 = 405

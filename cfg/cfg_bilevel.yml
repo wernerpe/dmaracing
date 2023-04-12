@@ -2,22 +2,22 @@ test: False
 trackRaceStatistics: False #makes sim substantially slower
 logBehaviorStatistics: True
 sim:
-  numEnv: 2048  # 2048  # 1024
+  numEnv: 1024  # 2048  # 2048  # 1024
   #number of racing agents per env
   numAgents: 4
-  dt: 0.02 #[s] # If using this with TRI dynamics model, this must be 0.02 to match the refresh frequency of the model
+  dt: 0.01  # 0.02 #[s] # If using this with TRI dynamics model, this must be 0.02 to match the refresh frequency of the model
   numStates: 7
 
   #need to overwrite this everytime env gets initialized to the correct number
   #dependent on the lookaheadhorizon length and number of ado cars in an env
   #this is done in get_cfg directly
   numObservations: -1
-  numConstantObservations: 8  # 8 #vels, rxy, lxy, [maxvel=8obs], last actions, rank, teamrank(, offtrack time = 9)
+  numConstantObservations: 7  # 8 #vels, rxy, lxy, [maxvel=8obs], last actions, rank, teamrank(, offtrack time = 9)
   numConstantObservationsLL: 5  #  5  # goalpos, goalstd, lltime
   numActions: 2
   numActionsHL: 4  # goalpos, goalstd
   collide: 1
-  decimation: 4
+  decimation: 10  # 4
   test_mode: False
   collisionstiffness: 80.0
   filtercollisionstoego: False  # True  # False
@@ -43,7 +43,8 @@ model:
   Df: 0.892
   Dr: 0.892
   max_steer_rate: 2.1 #rad/s
-  vm_noise_scale: 0.30
+  vm_noise_scale_ego: 0.1  # 0.30
+  vm_noise_scale_ado: 0.3
   lf_noise_scale: 0.02
   lr_noise_scale: 0.02
   steering_offset_noise_scale: 0.03
@@ -82,11 +83,11 @@ track:
   
 learn:
   steer_ado_with_PPC: True  # True
-  iters_ado_with_PPC: 150  # 500  # 5000
+  iters_ado_with_PPC: 200  # 150  # 500  # 5000
   ppc_prob_itr_ini: 200  # 50  # 100
   ppc_prob_itr_end: 500  # 150  # 300  # 1300
   ppc_prob_val_ini: 1.0
-  ppc_prob_val_end: 0.2
+  ppc_prob_val_end: 0.5
   use_timeouts: True
   use_track_curriculum: True
   #[posx, posy, theta, vellong, vellat, dtheta, steer]
@@ -95,34 +96,41 @@ learn:
   reset_tile_rand: 180
   resetgrid: True
   defaultactions: [0.0, 1.5]  # [0., 0.5, 0.0]
-  actionscale: [1.0, 2.0]  # [0.3, 1.0, 0.2]
+  actionscale: [1.0, 2.3]  # [0.3, 1.0, 0.2]
   defaultactionshl: [0., 0., 0.5, 0.5]
   actionscalehl: [1.0, 1.0, 1.0, 1.0]
   actionsminhl: [3.0, -0.5, 0.1, 0.05]  # [3.0, -0.55, 0.1, 0.1]  # [4.0, -0.55, 0.1, 0.05]  # [3.0, -0.6, 0.1, 0.1]
   actionsmaxhl: [6.0, +0.5, 0.5, 0.3]  # [7.0, +0.55, 0.5, 0.3]  # [6.0, +0.55, 0.5, 0.3]  # [5.0, +0.6, 0.7, 0.7]
   actionsinihl: [+0.0, +0.0, 0.5, 0.5]
+
+  actionsallhl: [[+3.00, +4.00, +5.00, +6.00, +7.00],  # --> NOTE: switched to these instead of linear interpolation 
+                 [-0.50, -0.25, +0.00, +0.25, +0.50],
+                 [+0.05, +0.10, +0.20, +0.40, +0.80],
+                 [+0.05, +0.10, +0.20, +0.40, +0.80],]
+  use_hl_uncertainty: True
+
   agent_dropout_prob_val_ini: 1.0
   agent_dropout_prob_val_end: 0.0
   agent_dropout_prob_itr_ini: 0  # 50  # 1000
-  agent_dropout_prob_itr_end: 100 
+  agent_dropout_prob_itr_end: 500 
   agent_dropout_egos: False
   distance_obs_cutoff: 3.0 #[m]
   race_length_laps: 1
 
-  progressRewardScale: 2.0  # 0.1  # 0.0  # 1.0  # 10.0  # 1.0  # 10.0
-  offtrackRewardScale: -1.0  # -1.0  # -0.2  # -0.2  # -1.0  # -0.1  # -0.1
+  progressRewardScale: 1.0  # 2.0  # 0.1  # 0.0  # 1.0  # 10.0  # 1.0  # 10.0
+  offtrackRewardScale: -5.0  # -2.0  # -1.0  # -0.2  # -0.2  # -1.0  # -0.1  # -0.1
   actionRateRewardScale: -0.2  # -0.1  # -0.01  # -0.1
-  rankRewardScale: 1.0  # 1.0  # 1.0  # 5.0  # 5.0  # 1.0
-  collisionRewardScale: -1.0  # -1.0  # -0.2  #-0.2  # -0.02  # -0.2
+  rankRewardScale: 2.0  # 1.0  # 1.0  # 5.0  # 5.0  # 1.0
+  collisionRewardScale: -5.0  # -2.0  # -1.0  # -0.2  #-0.2  # -0.02  # -0.2
   accRewardScale: -0.1  # -0.5
-  velRewardScale: 0.0  # -1.0
-  goalRewardScale: 2.0  # 1.0  # 1.0  # 1.0  # 5.0
+  velRewardScale: -1.0  # -1.0
+  goalRewardScale: 5.0  # 2.0  # 1.0  # 1.0  # 1.0  # 5.0
   horizon: 12  # 12  # 15
 
   episode_length_ll: 20  # 20  # low-level steps in high-level step
 
   timeout: 16.0  # 16.0  # 24.0  # 25.0 #[s]
-  offtrack_reset: 0.5  # 1.0  # 0.8 #[s]
+  offtrack_reset: 1.0  # 0.5  # 1.0  # 0.8 #[s]
 
   vel_noise_scale: 1. #0.5
   track_boundary_noise_scale: 1. # 0.3
