@@ -1125,7 +1125,9 @@ class DmarEnvBilevel:
             last_velocity = current_velocity 
             # need to check for collisions in inner loop otherwise get missed
             self.is_collision |= torch.norm(self.contact_wrenches, dim=2) > 0
-
+            if torch.any(self.is_rear_end_contact):
+                print('reared detected', torch.where(self.is_rear_end_contact))
+            
         self.post_physics_step()
 
         if True:
