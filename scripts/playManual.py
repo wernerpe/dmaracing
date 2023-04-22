@@ -140,7 +140,7 @@ if __name__ == "__main__":
     cfg, cfg_train, logdir = getcfg(path_cfg, postfix='_bilevel', postfix_train='_bilevel')
     cfg["viewer"]["logEvery"] = -1
     cfg["track"]['OFFTRACK_FRICTION_SCALE'] = 1.0
-    cfg['sim']['numEnv'] = 3
+    cfg['sim']['numEnv'] = 1
     cfg['sim']['numAgents'] = 4
     #cfg['track']['num_tracks'] = 7
     #cfg['track']['num_tracks'] = 3

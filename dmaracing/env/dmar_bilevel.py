@@ -147,6 +147,8 @@ class DmarEnvBilevel:
         torch_zeros = lambda shape: torch.zeros(shape, device=self.device, dtype=torch.float, requires_grad=False)
         self.states = torch_zeros((self.num_envs, self.num_agents, self.num_internal_states))
         self.contact_wrenches = torch_zeros((self.num_envs, self.num_agents, 3))
+        self.is_rear_end_contact = torch_zeros((self.num_envs, self.num_agents, 1))
+        
         self.shove = torch_zeros((self.num_envs, self.num_agents, 3))
         self.actions = torch_zeros((self.num_envs, self.num_agents, self.num_actions))
         self.hardware_commands = torch_zeros((self.num_envs, self.num_agents, self.num_actions))
@@ -1328,6 +1330,7 @@ class DmarEnvBilevel:
         (
             self.states[:],
             self.contact_wrenches,
+           #self.is_rear_end_contact,
             self.shove,
             self.wheels_on_track_segments,
             self.slip,
@@ -1339,6 +1342,7 @@ class DmarEnvBilevel:
             self.wheel_locations,
             self.R,
             self.contact_wrenches,
+            self.is_rear_end_contact,
             self.shove,
             self.modelParameters,
             self.simParameters,
