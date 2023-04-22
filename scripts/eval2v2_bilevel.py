@@ -242,15 +242,15 @@ if __name__ == "__main__":
 
     # ### Run information
     exp_name = 'tri_2v2_vel_heading_control'  # 'tri_single_blr_hierarchical'
-    timestamp = '23_04_04_10_12_15_bilevel_2v2'  #'23_03_23_11_34_55_bilevel_2v2'  # '23_03_20_19_06_44_bilevel_2v2'  # '23_02_21_17_16_07_bilevel_2v2'  # '23_01_31_14_30_58_bilevel_2v2'  # '23_01_31_11_54_24_bilevel_2v2'
-    checkpoint = 1000  # 500  # 1300
+    timestamp = '23_04_12_17_40_35_bilevel_2v2'  #'23_03_23_11_34_55_bilevel_2v2'  # '23_03_20_19_06_44_bilevel_2v2'  # '23_02_21_17_16_07_bilevel_2v2'  # '23_01_31_14_30_58_bilevel_2v2'  # '23_01_31_11_54_24_bilevel_2v2'
+    checkpoint = 1300  # 500  # 1300
     #active policies
-    runs_hl = [timestamp, '23_04_04_10_12_15_bilevel_2v2']  # '23_02_22_21_18_03_bilevel_2v2'
-    chkpts_hl = [checkpoint, 1000]
-    runs_ll = [timestamp, '23_04_04_10_12_15_bilevel_2v2']
-    chkpts_ll = [checkpoint, 1000]
+    runs_hl = [timestamp, '23_04_12_17_40_35_bilevel_2v2']  # '23_02_22_21_18_03_bilevel_2v2'
+    chkpts_hl = [checkpoint, 1300]
+    runs_ll = [timestamp, '23_04_12_17_40_35_bilevel_2v2']
+    chkpts_ll = [checkpoint, 1300]
     ##policies to populate adversary buffer
-    adv_runs = ['23_04_04_10_12_15_bilevel_2v2']
+    adv_runs = ['23_04_12_17_40_35_bilevel_2v2']
     adv_chkpts = [checkpoint]
 
 

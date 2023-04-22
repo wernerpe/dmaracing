@@ -1717,8 +1717,8 @@ def compute_rewards_jit(
     # LL mod
     rew_goal_ll = 0.05 / ll_steps_left.squeeze(-1) * rew_goal * (vel > 0.5) * torch.exp((vel-0.5)/5.0)
     # HL mod
-    rew_goal_hl = rew_goal * 0.1 * targets_off_ahead[..., 0] / 5.0 * ll_ep_done[..., 0]  # bias towards far away goals
-
+    #rew_goal_hl = rew_goal * 0.1 * targets_off_ahead[..., 0] / 5.0 * ll_ep_done[..., 0]  # bias towards far away goals
+    rew_goal_hl = 0.1 * targets_off_ahead[..., 0] / 5.0 * ll_ep_done[..., 0] + 0.0 * rew_goal
     ### Baseline reward
     # Base
     rew_baseline = 0.15*dt
