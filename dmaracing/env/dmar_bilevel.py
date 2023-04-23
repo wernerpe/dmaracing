@@ -20,6 +20,9 @@ allocate_car_dynamics_tensors, SwitchedBicycleKinodynamicModel)
 from dmaracing.env.car_dynamics import step_cars
 from dmaracing.controllers.purepursuit import PPController
 
+import time
+
+
 class DmarEnvBilevel:
     def __init__(self, cfg, args) -> None:
         torch.manual_seed(cfg["track"]["seed"])
@@ -147,8 +150,8 @@ class DmarEnvBilevel:
         torch_zeros = lambda shape: torch.zeros(shape, device=self.device, dtype=torch.float, requires_grad=False)
         self.states = torch_zeros((self.num_envs, self.num_agents, self.num_internal_states))
         self.contact_wrenches = torch_zeros((self.num_envs, self.num_agents, 3))
-        self.is_rear_end_contact = torch_zeros((self.num_envs, self.num_agents, 1))
-        
+        self.rear_end_contact = torch_zeros((self.num_envs, self.num_agents, 1))
+
         self.shove = torch_zeros((self.num_envs, self.num_agents, 3))
         self.actions = torch_zeros((self.num_envs, self.num_agents, self.num_actions))
         self.hardware_commands = torch_zeros((self.num_envs, self.num_agents, self.num_actions))
@@ -181,10 +184,15 @@ class DmarEnvBilevel:
         self.reward_scales["actionrate"] = cfg["learn"]["actionRateRewardScale"] * self.dt
         self.reward_scales["rank"] = cfg["learn"]["rankRewardScale"] * self.dt
         self.reward_scales["collision"] = cfg["learn"]["collisionRewardScale"] * self.dt
+        self.reward_scales["rearendcollision"] = cfg["learn"]["rearendcollisionRewardScale"] * self.dt
         self.reward_scales["acceleration"] = cfg["learn"]["accRewardScale"] * self.dt
         self.reward_scales["velocity"] = cfg["learn"]["velRewardScale"] * self.dt
-
         self.reward_scales["goal"] = cfg["learn"]["goalRewardScale"]
+
+        # # Could consider schedule on offtrack-like penalties to not hinder early learning? 
+        # self.penalty_track_scale_ini = cfg["learn"]["trackPenaltyScaleIni"]
+        # self.penalty_track_scale_itr = cfg["learn"]["trackPenaltyScaleItr"]
+        # self.penalty_track_scale = self.penalty_track_scale_ini
 
         self.default_actions = cfg["learn"]["defaultactions"]
         self.action_scales = cfg["learn"]["actionscale"]
@@ -241,11 +249,11 @@ class DmarEnvBilevel:
         
         if self.iters_ado_ppc != 0:
             print('[DMAR] Overriding ado actions with PPC')
-            self.ppc = PPController(self,
-                       lookahead_dist=1.5,
-                       maxvel=3.0,  # 2.5,
-                       k_steer=1.0,
-                       k_gas=2.0)
+        self.ppc = PPController(self,
+                    lookahead_dist=1.5,
+                    maxvel=-1.0,  # 3.0,  # 2.5,
+                    k_steer=1.0,
+                    k_gas=2.0)
 
         self.lap_counter = torch.zeros(
             (self.num_envs, self.num_agents), requires_grad=False, device=self.device, dtype=torch.int
@@ -270,7 +278,7 @@ class DmarEnvBilevel:
             "progress": torch_zeros((self.num_envs, self.num_agents)),
             "offtrack": torch_zeros((self.num_envs, self.num_agents)),
             "actionrate": torch_zeros((self.num_envs, self.num_agents)),
-            "energy": torch_zeros((self.num_envs, self.num_agents)),
+            #"energy": torch_zeros((self.num_envs, self.num_agents)),
             "acceleration": torch_zeros((self.num_envs, self.num_agents)),
             "goal": torch_zeros((self.num_envs, self.num_agents)),
             "velocity": torch_zeros((self.num_envs, self.num_agents)),
@@ -278,12 +286,12 @@ class DmarEnvBilevel:
         if self.num_agents>1:
             self.reward_terms["rank"] = torch_zeros((self.num_envs, self.num_agents))
             self.reward_terms["collision"] = torch_zeros((self.num_envs, self.num_agents))
+            self.reward_terms["rearendcollision"] = torch_zeros((self.num_envs, self.num_agents))
 
         self.step_reward_terms = {
             "progress": torch_zeros((self.num_envs, self.num_agents)),
             "offtrack": torch_zeros((self.num_envs, self.num_agents)),
             "actionrate": torch_zeros((self.num_envs, self.num_agents)),
-            "energy": torch_zeros((self.num_envs, self.num_agents)),
             "acceleration": torch_zeros((self.num_envs, self.num_agents)),
             "goal": torch_zeros((self.num_envs, self.num_agents)),
             "velocity": torch_zeros((self.num_envs, self.num_agents)),
@@ -291,9 +299,15 @@ class DmarEnvBilevel:
         if self.num_agents>1:
             self.step_reward_terms["rank"] = torch_zeros((self.num_envs, self.num_agents))
             self.step_reward_terms["collision"] = torch_zeros((self.num_envs, self.num_agents))
+            self.step_reward_terms["rearendcollision"] = torch_zeros((self.num_envs, self.num_agents))
+
 
         self.is_collision = torch.zeros(
             (self.num_envs, self.num_agents), requires_grad=False, device=self.device, dtype=torch.float
+        )
+        
+        self.is_rearend_collision = torch.zeros(
+            (self.num_envs, self.num_agents, 1), requires_grad=False, device=self.device, dtype=torch.float
         )
 
         self.lookahead_scaler = 1 / (
@@ -581,6 +595,7 @@ class DmarEnvBilevel:
         
         theta = self.states[:, :, 2]
         vels = self.states[:, :, 3:6].clone()
+
         tile_idx_unwrapped = self.active_track_tile.unsqueeze(2) + (
             4 * torch.arange(self.horizon, device=self.device, dtype=torch.long)  # 4
         ).unsqueeze(0).unsqueeze(0)
@@ -612,17 +627,20 @@ class DmarEnvBilevel:
         self.R[:, :, 1, 0] = -torch.sin(theta)
         self.R[:, :, 1, 1] = torch.cos(theta)
 
+
+        linvel_world = torch.einsum("eaij, eaj -> eai", self.R, self.states[:, :, 3:5])
+
         # self.lookahead_body = torch.einsum("eaij, eatj->eati", self.R, self.lookahead)
         # lookahead_scaled = self.lookahead_scaler * self.lookahead_body
 
         self.lookahead_rbound_body = torch.einsum('eaij, eatj->eati', self.R, self.lookahead_rbound)
-        lookahead_rbound_scaled = self.lookahead_scaler*self.lookahead_rbound_body
+        lookahead_rbound_scaled = self.lookahead_rbound_body #* self.lookahead_scaler  # HACK: testing 04/12/23
         self.lookahead_lbound_body = torch.einsum('eaij, eatj->eati', self.R, self.lookahead_lbound)
-        lookahead_lbound_scaled = self.lookahead_scaler*self.lookahead_lbound_body
+        lookahead_lbound_scaled = self.lookahead_lbound_body #* self.lookahead_scaler  # HACK: testing 04/12/23
 
 
         self.vels_body = vels
-        self.vels_body[..., :-1] = torch.einsum("eaij, eaj -> eai", self.R, vels[..., :-1])
+        # self.vels_body[..., :-1] = torch.einsum("eaij, eaj -> eai", self.R, vels[..., :-1])  # FIXME: remove
 
         otherpositions = []
         otherrotations = []
@@ -638,7 +656,8 @@ class DmarEnvBilevel:
             for agent in range(self.num_agents):
                 selfpos = self.states[:, agent, 0:2].view(-1, 1, 2)
                 selfrot = self.states[:, agent, 2].view(-1, 1, 1)
-                selfvel = self.states[:, agent, self.vn["S_DX"] : self.vn["S_DY"] + 1].view(-1, 1, 2)
+                # selfvel = self.states[:, agent, self.vn["S_DX"] : self.vn["S_DY"] + 1].view(-1, 1, 2)  # FIXME: remove
+                selfvel = linvel_world[:, agent, :].view(-1, 1, 2)  # self.states[:, agent, self.vn["S_DX"] : self.vn["S_DY"] + 1].view(-1, 1, 2)
                 selfangvel = self.states[:, agent, self.vn["S_DTHETA"]].view(-1, 1, 1)
 
                 all_team = self.teams.copy()
@@ -675,7 +694,8 @@ class DmarEnvBilevel:
                 other_contouringerr.append(self.contouring_err[:, opponents].view(-1, 1, self.num_agents-1) - selfcontouringerr.view(-1,1,1))
                 otherrotations.append(self.states[:, opponents, 2].view(-1, 1, self.num_agents-1) - selfrot)
 
-                othervel = self.states[:, opponents, self.vn['S_DX']: self.vn['S_DY']+1]
+                # othervel = self.states[:, opponents, self.vn['S_DX']: self.vn['S_DY']+1]  # FIXME: remove
+                othervel = linvel_world[:, opponents, :]  # self.states[:, opponents, self.vn['S_DX']: self.vn['S_DY']+1]
                 othervelocities.append((othervel - selfvel).view(-1, (self.num_agents - 1), 2))
                 otherangvel = self.states[:, opponents, self.vn['S_DTHETA']].view(-1, 1, self.num_agents-1)
                 otherangularvelocities.append(otherangvel - selfangvel)
@@ -685,11 +705,13 @@ class DmarEnvBilevel:
             norm_pos_other = torch.norm(pos_other, dim=3).view(self.num_envs, self.num_agents, -1)
             is_other_close = norm_pos_other < self.cfg["learn"]["distance_obs_cutoff"]
 
+            # NOTE: rotate relative velocities from world to body frame
             vel_other = torch.cat(
                 tuple([vel.view(-1, 1, (self.num_agents - 1), 2) for vel in othervelocities]), dim=1
             ) * self.active_obs_template.view(self.num_envs, self.num_agents, self.num_agents - 1, 1)
 
-            vel_other = torch.einsum("eaij, eaoj->eaoi", self.R, vel_other) * is_other_close.view(
+            # vel_other = torch.einsum("eaij, eaoj->eaoi", self.R, vel_other) * is_other_close.view(   # FIXME: remove
+            vel_other = torch.einsum("eaij, eaoj->eaoi", torch.transpose(self.R, 2, 3), vel_other) * is_other_close.view(
                 self.num_envs, self.num_agents, self.num_agents - 1, 1
             )
 
@@ -719,7 +741,7 @@ class DmarEnvBilevel:
             #maxvel obs self.dyn_model.dynamics_integrator.dyn_model.max_vel_vec
             self.obs_buf = torch.cat(
                 (
-                    self.vels_body * 0.1,
+                    self.vels_body,  #  * 0.1,  # HACK: testing 04/12/23
                     lookahead_rbound_scaled[:,:,:,0], 
                     lookahead_rbound_scaled[:,:,:,1], 
                     lookahead_lbound_scaled[:,:,:,0], 
@@ -732,9 +754,9 @@ class DmarEnvBilevel:
                     self.contouring_err_other * 0.25,
                     torch.sin(rot_other),
                     torch.cos(rot_other),
-                    vel_other[..., 0] * 0.1,
-                    vel_other[..., 1] * 0.1,
-                    angvel_other * 0.1,
+                    vel_other[..., 0],  # * 0.1,  # HACK: testing 04/12/23
+                    vel_other[..., 1],  # * 0.1,  # HACK: testing 04/12/23
+                    angvel_other,  # * 0.1,  # HACK: testing 04/12/23
                 ),
                 dim=2,
             )
@@ -765,7 +787,8 @@ class DmarEnvBilevel:
 
             # noise_vec = torch.randn_like(self.obs_buf) * 0.1 * self.obs_noise_lvl
             noise_vec = self.generate_noise_vec(self.obs_buf.size())  # self.obs_noise_lvl * (2.0 * (torch.rand(self.obs_buf.size(), device=self.obs_buf.device) - 0.5))
-            noise_vec[..., -7*self.num_agents+5:-7*self.num_agents] = 0.0
+            # noise_vec[..., -7*self.num_agents+5:-7*self.num_agents] = 0.0
+            noise_vec[..., -7*(self.num_agents-1)-4:-7*(self.num_agents-1)] = 0.0
             #velocity
             noise_vec[..., 0:3] *= self.vel_noise_scale
             #trackboundaries
@@ -807,6 +830,7 @@ class DmarEnvBilevel:
             self.teamranks if self.num_agents>1 else None,
             self.prev_ranks if self.num_agents>1 else None,
             self.is_collision,
+            self.is_rearend_collision,
             self.reward_terms,
             self.step_reward_terms,
             self.num_agents,
@@ -892,13 +916,18 @@ class DmarEnvBilevel:
                     tile_idx_env[:, 1:] + rands, self.active_track_tile_counts[env_ids].view(-1, 1)
                 )
             else:
-                tile_idx_env = tile_idx_env + 6 * torch.linspace(
+                tile_idx_env = tile_idx_env + 6 * torch.linspace(  # 6
                     0, self.num_agents - 1, self.num_agents, device=self.device
                 ).unsqueeze(0).to(dtype=torch.long)
                 tile_idx_env = torch.remainder(tile_idx_env, self.active_track_tile_counts[env_ids].view(-1, 1))
         positions = torch.ones((len(env_ids), self.num_agents), device=self.device).multinomial(
             self.num_agents, replacement=False
         )
+        # positions = torch.tensor([[0, 1, 2, 3]], device=self.device)  # FIXME: remove after testing
+        # positions[..., 0] = 3
+        # positions[..., 0] = 4
+        # positions[..., 0] = 1
+        # positions[..., 0] = 2
         for agent in range(self.num_agents):
             if not self.reset_grid:
                 tile_idx = tile_idx_env[:, agent]
@@ -1032,6 +1061,7 @@ class DmarEnvBilevel:
             self.teamranks[:, team] = torch.min(self.ranks[:, team], dim = 1)[0].reshape(-1,1).type(torch.int)
 
         self.is_collision[env_ids, ...] = False
+        self.is_rearend_collision[env_ids, ...] = 0
         # #####################################
         num_opponents = (self.num_teams - 1) * self.team_size
         self.use_ppc_vec[env_ids, -num_opponents:] = 1.0 * (torch.rand(len(env_ids), num_opponents, 1, device=self.device) < self.ppc_prob)
@@ -1067,13 +1097,13 @@ class DmarEnvBilevel:
                 self._writer.add_video("Train/video", frames, global_step=self._global_step, fps=15)
                 self.log_episode = False
 
-            if len(self.viewer._frames_val):
+            # if len(self.viewer._frames_val):
 
-                frames_val = np.stack(self.viewer._frames_val, axis=0)  # (T, W, H, C)
-                frames_val = np.transpose(frames_val, (0, 3, 1, 2))  # (T, C, W, H)
-                frames_val = np.expand_dims(frames_val, axis=0)  # (N, T, C, W, H)
-                self._writer.add_video("Train/values", frames_val, global_step=self._global_step, fps=15)
-                self.log_episode = False
+            #     frames_val = np.stack(self.viewer._frames_val, axis=0)  # (T, W, H, C)
+            #     frames_val = np.transpose(frames_val, (0, 3, 1, 2))  # (T, C, W, H)
+            #     frames_val = np.expand_dims(frames_val, axis=0)  # (N, T, C, W, H)
+            #     self._writer.add_video("Train/values", frames_val, global_step=self._global_step, fps=15)
+            #     self.log_episode = False
 
             self.viewer._frames = []
             self.viewer._frames_val = []
@@ -1109,6 +1139,7 @@ class DmarEnvBilevel:
         heading_error_rate = -self.states[..., self.vn['S_DTHETA']]
         # reset collision detection
         self.is_collision = self.is_collision < 0
+        self.is_rearend_collision = self.is_rearend_collision < 0
         for j in range(self.decimation):
             heading_error = heading_setpoint - self.states[:,:,2] 
             current_velocity = torch.norm(self.states[:,:,3:5], dim =-1)
@@ -1125,8 +1156,7 @@ class DmarEnvBilevel:
             last_velocity = current_velocity 
             # need to check for collisions in inner loop otherwise get missed
             self.is_collision |= torch.norm(self.contact_wrenches, dim=2) > 0
-            if torch.any(self.is_rear_end_contact):
-                print('reared detected', torch.where(self.is_rear_end_contact))
+            self.is_rearend_collision[:] = 1.0*((self.is_rearend_collision + self.rear_end_contact)>0)
             
         self.post_physics_step()
 
@@ -1344,7 +1374,7 @@ class DmarEnvBilevel:
             self.wheel_locations,
             self.R,
             self.contact_wrenches,
-            self.is_rear_end_contact,
+            self.rear_end_contact,
             self.shove,
             self.modelParameters,
             self.simParameters,
@@ -1651,6 +1681,7 @@ def compute_rewards_jit(
     teamranks: Union[torch.Tensor,None],
     prev_ranks: Union[torch.Tensor,None],
     is_collision: torch.Tensor,
+    is_rear_end_collision: torch.Tensor,
     reward_terms: Dict[str, torch.Tensor],
     step_reward_terms: Dict[str, torch.Tensor],
     num_agents: int,
@@ -1673,7 +1704,7 @@ def compute_rewards_jit(
     progress_delta = track_progress - old_track_progress
     progress_jump = 1.0 * (torch.abs(progress_delta) > 3.5)
     rew_progress = torch.clip(progress_delta, min=-10, max=10) * (1.0 - progress_jump)
-    rew_progress -= 3.0 * progress_jump
+    rew_progress -= 5.0 * progress_jump
     # LL mod
     rew_progress_ll = 1.0 * rew_progress
     # HL mod
@@ -1681,7 +1712,7 @@ def compute_rewards_jit(
     
     ### Small velocity penalty
     # Base
-    rew_velocity = 1.0 * torch.exp(-0.5 * (vel / 0.05)**2)
+    rew_velocity = 1.0 *  torch.exp(-torch.abs(vel))  # torch.exp(-0.5 * (vel / 0.05)**2)
     # LL mod
     rew_velocity_ll = 1.0 * rew_velocity
     # HL mod
@@ -1723,8 +1754,8 @@ def compute_rewards_jit(
     # LL mod
     rew_goal_ll = 0.05 / ll_steps_left.squeeze(-1) * rew_goal * (vel > 0.5) * torch.exp((vel-0.5)/5.0)
     # HL mod
-    #rew_goal_hl = rew_goal * 0.1 * targets_off_ahead[..., 0] / 5.0 * ll_ep_done[..., 0]  # bias towards far away goals
-    rew_goal_hl = 0.1 * targets_off_ahead[..., 0] / 5.0 * ll_ep_done[..., 0] + 0.0 * rew_goal
+    rew_goal_hl = 0.0 * rew_goal + 5.e-2 * targets_off_ahead[..., 0] / 5.0 * ll_ep_done[..., 0]  # bias towards far away goals
+
     ### Baseline reward
     # Base
     rew_baseline = 0.15*dt
@@ -1748,15 +1779,18 @@ def compute_rewards_jit(
         # LL mod
         rew_rank_ll = 0.0 * rew_rank
         # HL mod
-        rew_rank_hl = ll_ep_done[..., 0] * dt_hl
+        rew_rank_hl = 1.0 * rew_rank * ll_ep_done[..., 0] * dt_hl
 
         ### Collision reward
         # Base
         rew_collision = is_collision
+        rew_rearend_collision = is_rear_end_collision
         # LL mod
         rew_collision_ll = 1.0 * rew_collision
+        rew_rearend_collision_ll = 1.0 * rew_rearend_collision
         # HL mod
         rew_collision_hl = 0.0 * rew_collision
+        rew_rearend_collision_hl = 0.0 * rew_rearend_collision
         
     else:
         ### Relative progress reward
@@ -1811,18 +1845,20 @@ def compute_rewards_jit(
     # Collision
     rew_collision = train_ll * rew_collision_ll + train_hl * rew_collision_hl
     rew_collision *= reward_scales["collision"]
+    # Penalize Rear End Collision Perpetrator extra
+    rew_rearend_collision = train_ll * rew_rearend_collision_ll[..., 0] + train_hl * rew_rearend_collision_hl[..., 0]
+    rew_rearend_collision *= reward_scales["rearendcollision"]
     # Baseline
     rew_baseline = train_ll * rew_baseline_ll + train_hl * rew_baseline_hl
 
     # Combined
     rew_buf[..., 0] = torch.clip(
-            rew_progress + rew_on_track + rew_actionrate + rew_rel_prog + rew_acc + rew_baseline, min=-5*dt, max=None
-        ) + rew_collision + rew_goal + rew_rank + rew_velocity
+            rew_progress + rew_collision +rew_rearend_collision+ rew_velocity + rew_on_track + rew_actionrate + rew_rel_prog + rew_acc + rew_baseline, min=-5*dt, max=None  #-5*dt
+        ) + rew_goal + rew_rank
 
     reward_terms["progress"] += rew_progress
     reward_terms["offtrack"] += rew_on_track
     reward_terms["actionrate"] += rew_actionrate
-    #reward_terms["energy"] += rew_energy
     reward_terms["acceleration"] += rew_acc
 
     reward_terms["goal"] += rew_goal
@@ -1832,17 +1868,18 @@ def compute_rewards_jit(
     if ranks is not None:
         reward_terms["rank"] += rew_rank  # rew_rel_prog
         reward_terms["collision"] += rew_collision
+        reward_terms["rearendcollision"] += rew_rearend_collision
 
     step_reward_terms["progress"] = rew_progress / dt
     step_reward_terms["offtrack"] = rew_on_track / dt
     step_reward_terms["actionrate"] = rew_actionrate / dt
-    #step_reward_terms["energy"] += rew_energy
     step_reward_terms["acceleration"] = rew_acc / dt
     step_reward_terms["goal"] = rew_goal / dt
     step_reward_terms["velocity"] = rew_velocity / dt
     if ranks is not None:
         step_reward_terms["rank"] = rew_rank / dt  # rew_rel_prog / dt
         step_reward_terms["collision"] = rew_collision / dt
+        step_reward_terms["rearendcollision"] = rew_rearend_collision / dt
 
 
     return rew_buf, reward_terms, step_reward_terms

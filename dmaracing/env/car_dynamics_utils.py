@@ -381,7 +381,7 @@ def resolve_collsions(contact_wrenches : torch.Tensor,
                 contact_wrenches[ idx_comp, colp[1], :2] += force_B_0
                 contact_wrenches[ idx_comp, colp[0], 2] += torque_A_0
                 contact_wrenches[ idx_comp, colp[1], 2] += torque_B_0
-                is_rear_end_col[idx_comp, colp[1],:] = 1.0*is_rear_end_col_pair[:]
+                is_rear_end_col[idx_comp, colp[1],0] = 1.0*is_rear_end_col_pair[:]
                 #flip and check other direction
                 states_A = states[idx_comp, colp[1], 0:3]
                 states_B = states[idx_comp, colp[0], 0:3]
@@ -420,7 +420,7 @@ def resolve_collsions(contact_wrenches : torch.Tensor,
                 contact_wrenches[ idx_comp, colp[0], :2] += force_B_1 * (1.0 * new_col + 0.5*already_col) - (-0.5*new_col_active)*force_B_0
                 contact_wrenches[ idx_comp, colp[1], 2] += (torque_A_1.view(-1,1)*(1.0 * new_col + 0.5*already_col) + (-0.5*new_col_active)*torque_B_0.view(-1,1)).view(-1)
                 contact_wrenches[ idx_comp, colp[0], 2] += (torque_B_1.view(-1,1)*(1.0 * new_col + 0.5*already_col) + (-0.5*new_col_active)*torque_A_0.view(-1,1)).view(-1)
-                is_rear_end_col[idx_comp, colp[0],:] = 1.0*is_rear_end_col_pair[:]
+                is_rear_end_col[idx_comp, colp[0],0] = 1.0*is_rear_end_col_pair[:]
 
     shove[:, :, :2] = 1.0 * contact_wrenches[:,:,:2] / stiffness
     shove[:, :, 2]  = .5 * contact_wrenches[:,:,2] / (stiffness*Iz)          

@@ -59,7 +59,10 @@ def play():
 
         #print(env.active_agents[env.viewer.env_idx_render])
         viewermsg = [ (f"""{'vbax:':>{10}}{' '}{env.states[0,0,3].item():.2f}"""),
-                    
+                    (f"""{'rearend0:':>{10}}{' '}{env.is_rearend_collision[0,0,0].item():.2f}"""),
+                    (f"""{'rearend1:':>{10}}{' '}{env.is_rearend_collision[0,1,0].item():.2f}"""),
+                    (f"""{'rearend2:':>{10}}{' '}{env.is_rearend_collision[0,2,0].item():.2f}"""),
+                    (f"""{'rearend3:':>{10}}{' '}{env.is_rearend_collision[0,3,0].item():.2f}"""),
                      #(f"""{'rewards:':>{10}}{' '}{100*rewnp[env.viewer.env_idx_render]:.2f}"""   ),
                      #(f"""{'velocity x:':>{10}}{' '}{env.states[0, 0, 3].item():.2f}"""),
                      #(f"""{'velocity y:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 1]:.2f}"""),
@@ -140,7 +143,7 @@ if __name__ == "__main__":
     cfg, cfg_train, logdir = getcfg(path_cfg, postfix='_bilevel', postfix_train='_bilevel')
     cfg["viewer"]["logEvery"] = -1
     cfg["track"]['OFFTRACK_FRICTION_SCALE'] = 1.0
-    cfg['sim']['numEnv'] = 1
+    cfg['sim']['numEnv'] = 10
     cfg['sim']['numAgents'] = 4
     #cfg['track']['num_tracks'] = 7
     #cfg['track']['num_tracks'] = 3

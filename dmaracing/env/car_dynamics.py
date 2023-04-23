@@ -5,7 +5,7 @@ import numpy as np
 from dmaracing.env.car_dynamics_utils import resolve_collsions
 from dmaracing.env.car_dynamics_utils import SwitchedBicycleKinodynamicModel
 
-#@torch.jit.script
+# @torch.jit.script
 def step_cars(
     state: torch.Tensor,
     actions: torch.Tensor,
