@@ -197,35 +197,35 @@ def get_tri_track_ensemble(device, track_half_width, track_poly_spacing):
     # Load a centerline track, generate polygons and matricies
     track_paths = [
                   # "maps/large_oval.csv", 
-                  "maps/large_oval_dense.csv", 
-                   #"maps/large_square_track.csv",
+                  # "maps/large_oval_dense.csv",  # NOTE: this
+                  #  "maps/large_square_track.csv",
                    #"maps/squiggles.csv",
-                   "maps/squiggles_dense.csv",  # slight overlap at 0.65
-                   #"maps/large_track2.csv",  
+                  #  "maps/squiggles_dense.csv",  # NOTE: this ; slight overlap at 0.65
+                  #  "maps/large_track2.csv",  
                   #  "maps/sharp_turns_track.csv", 
-                   "maps/sharp_turns_track_dense.csv",  # NOTE: this
-                  #  #"maps/c1.csv", 
-                  #  #"maps/c2.csv", 
-                  #  #"maps/c3.csv", 
-                  #  #"maps/c4.csv", 
-                  #  #"maps/circle.csv", 
-                  #  #"maps/lump.csv", 
+                  #  "maps/sharp_turns_track_dense.csv",  # NOTE: this
+                  #  "maps/c1.csv", 
+                  #  "maps/c2.csv", 
+                  #  "maps/c3.csv", 
+                  #  "maps/c4.csv", 
+                  #  "maps/circle.csv", 
+                  #  "maps/lump.csv", 
                   #  #"maps/lots_of_wiggles.csv", 
                   # "maps/lots_of_wiggles_dense.csv",   # not good
-                  #  #"maps/one_wiggle.csv", 
-                  #  #"maps/pinch.csv", 
+                  #  "maps/one_wiggle.csv", 
+                  #  "maps/pinch.csv", 
                   # "maps/pinch_dense.csv",  # not great 
-                  #  #"maps/sharp corners.csv", 
+                  #  "maps/sharp corners.csv", 
                   # #  "maps/orca.csv",
-                  "maps/orca_dense.csv",  # NOTE: this
+                  # "maps/orca_dense.csv",  # NOTE: this
                   #  "maps/oval_diag.csv",
-                   "maps/oval_diag_dense.csv",
-                  #  #"maps/triangle.csv",
-                  #  #"maps/complicated.csv",
+                  #  "maps/oval_diag_dense.csv",  # NOTE: this
+                  #  "maps/triangle.csv",
+                  #  "maps/complicated.csv",
                   # #  "maps/oversize1.csv",
                    "maps/oversize1_dense.csv",  # NOTE: this
-                  #  #"maps/slider.csv",
-                  #  #"maps/h_track.csv",
+                  #  "maps/slider.csv",
+                  #  "maps/h_track.csv",
                    ]
 
     track_names = [tpth[5:-4]+pf for tpth in track_paths for pf in ['_ccw', '_cw']]

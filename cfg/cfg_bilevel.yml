@@ -2,10 +2,10 @@ test: False
 trackRaceStatistics: False #makes sim substantially slower
 logBehaviorStatistics: True
 sim:
-  numEnv: 1024  # 2048  # 2048  # 1024
+  numEnv: 2048  # 1024
   #number of racing agents per env
   numAgents: 4
-  dt: 0.01  # 0.02 #[s] # If using this with TRI dynamics model, this must be 0.02 to match the refresh frequency of the model
+  dt: 0.01  # 0.01  # 0.02 #[s] # If using this with TRI dynamics model, this must be 0.02 to match the refresh frequency of the model
   numStates: 7
 
   #need to overwrite this everytime env gets initialized to the correct number
@@ -17,7 +17,7 @@ sim:
   numActions: 2
   numActionsHL: 4  # goalpos, goalstd
   collide: 1
-  decimation: 10  # 4
+  decimation: 10  # 10  # 4
   test_mode: False
   collisionstiffness: 80.0
   filtercollisionstoego: False  # True  # False
@@ -33,7 +33,7 @@ model:
   noise_level: 1.0  # 0.5  # 1.0
   col_decay_time: 0.5
   Iz: 0.03
-  max_vel: 3.5
+  max_vel: 3.5  # 5.0  # 3.5
   mass: 3.3
   #gp_noise_scale: 0.01
   Bf: 0.711
@@ -44,7 +44,7 @@ model:
   Dr: 0.892
   max_steer_rate: 2.1 #rad/s
   vm_noise_scale_ego: 0.1  # 0.30
-  vm_noise_scale_ado: 0.3
+  vm_noise_scale_ado: 0.3  # 0.3
   lf_noise_scale: 0.02
   lr_noise_scale: 0.02
   steering_offset_noise_scale: 0.03
@@ -78,25 +78,25 @@ track:
   seed: 1
   ccw: True
   draw_centerline: False
-  track_half_width: 0.63  # 0.7  # 0.6
+  track_half_width: 0.6  # 0.63  # 0.7  # 0.6
   track_poly_spacing: 0.15
   
 learn:
   steer_ado_with_PPC: True  # True
   iters_ado_with_PPC: 200  # 150  # 500  # 5000
   ppc_prob_itr_ini: 200  # 50  # 100
-  ppc_prob_itr_end: 500  # 150  # 300  # 1300
+  ppc_prob_itr_end: 400  # 500  # 150  # 300  # 1300
   ppc_prob_val_ini: 1.0
-  ppc_prob_val_end: 0.5
+  ppc_prob_val_end: 0.2  # 0.3
   use_timeouts: True
   use_track_curriculum: True
   #[posx, posy, theta, vellong, vellat, dtheta, steer]
-  resetrand:  [0.05, 0.05, 0.5, 2.0, 0.01,  0.5, 0.0]  # [0.05, 0.05, 0.9, 4.0, 0.01,  1.1, 0.0]
+  resetrand:  [0.05, 0.05, 0.05, 0.1, 0.01, 0.01, 0.0]  # [0.05, 0.05, 0.5, 2.0, 0.01,  0.5, 0.0]  # [0.05, 0.05, 0.9, 4.0, 0.01,  1.1, 0.0]
   #resetrand: [0.00, 0.0, 0., 0.0, 0.0,  0., 0.0]
   reset_tile_rand: 180
   resetgrid: True
-  defaultactions: [0.0, 1.5]  # [0., 0.5, 0.0]
-  actionscale: [1.0, 2.3]  # [0.3, 1.0, 0.2]
+  defaultactions: [0.0, 1.5]  # [0.0, 2.0]  # 04/13/2023: [0.0, 1.5]         # [0., 0.5, 0.0]
+  actionscale: [1.0, 2.3]  # [1.0, 3.0]  # 04/13/2023: [1.0, 2.3]         # [0.3, 1.0, 0.2]
   defaultactionshl: [0., 0., 0.5, 0.5]
   actionscalehl: [1.0, 1.0, 1.0, 1.0]
   actionsminhl: [3.0, -0.5, 0.1, 0.05]  # [3.0, -0.55, 0.1, 0.1]  # [4.0, -0.55, 0.1, 0.05]  # [3.0, -0.6, 0.1, 0.1]
@@ -112,7 +112,7 @@ learn:
   agent_dropout_prob_val_ini: 1.0
   agent_dropout_prob_val_end: 0.0
   agent_dropout_prob_itr_ini: 0  # 50  # 1000
-  agent_dropout_prob_itr_end: 500 
+  agent_dropout_prob_itr_end: 200  # 500 
   agent_dropout_egos: False
   distance_obs_cutoff: 3.0 #[m]
   race_length_laps: 1
@@ -120,17 +120,20 @@ learn:
   progressRewardScale: 1.0  # 2.0  # 0.1  # 0.0  # 1.0  # 10.0  # 1.0  # 10.0
   offtrackRewardScale: -5.0  # -2.0  # -1.0  # -0.2  # -0.2  # -1.0  # -0.1  # -0.1
   actionRateRewardScale: -0.2  # -0.1  # -0.01  # -0.1
-  rankRewardScale: 2.0  # 1.0  # 1.0  # 5.0  # 5.0  # 1.0
-  collisionRewardScale: -5.0  # -2.0  # -1.0  # -0.2  #-0.2  # -0.02  # -0.2
+  rankRewardScale: 5.0  # 2.0  # 1.0  # 1.0  # 5.0  # 5.0  # 1.0
+  collisionRewardScale: -5.0  # -25.0  # -5.0  # -2.0  # -1.0  # -0.2  #-0.2  # -0.02  # -0.2
   accRewardScale: -0.1  # -0.5
   velRewardScale: -1.0  # -1.0
   goalRewardScale: 5.0  # 2.0  # 1.0  # 1.0  # 1.0  # 5.0
-  horizon: 12  # 12  # 15
+  horizon: 12  #  12  # 12  # 15
+
+  trackPenaltyScaleIni: 0.2
+  trackPenaltyScaleItr: 100
 
   episode_length_ll: 20  # 20  # low-level steps in high-level step
 
-  timeout: 16.0  # 16.0  # 24.0  # 25.0 #[s]
-  offtrack_reset: 1.0  # 0.5  # 1.0  # 0.8 #[s]
+  timeout: 16.0  # 16.0  # 16.0  # 24.0  # 25.0 #[s]
+  offtrack_reset: 0.5  # 0.5  # 1.0  # 0.8 #[s]
 
   vel_noise_scale: 1. #0.5
   track_boundary_noise_scale: 1. # 0.3
@@ -138,4 +141,4 @@ learn:
   ado_rot_noise_scale: 1. #0.1
   ado_vel_noise_scale: 1. #0.1
   ado_angvel_noise_scale: 1. #0.1
-  obs_noise_lvl: 0.005  # 1.0  # 1.0  # FIXME: change back?
+  obs_noise_lvl: 0.005  # 0.005  # 1.0  # 1.0  # FIXME: change back?

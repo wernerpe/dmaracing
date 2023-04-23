@@ -124,6 +124,8 @@ class Viewer:
 
         show_val = False
 
+        draw_reduced = False  # False
+
         if self.do_render:
             self.img = self.track_canvas.copy()
             self.car_img = self.img.copy()
@@ -132,8 +134,9 @@ class Viewer:
                 self.add_slip_markers()
                 self.draw_slip_markers()
                 self.draw_multiagent_rep(state)
-                self.draw_lookahead_markers(lookahead, bounds)
-                if targets_rew01 is not None:
+                if not draw_reduced:
+                  self.draw_lookahead_markers(lookahead, bounds)
+                if targets_rew01 is not None and not draw_reduced:
                   self.draw_target_marker(targets, targets_rew01, targets_angle)
             else:
                 self.draw_singleagent_rep(state[:self.num_cars])
@@ -161,7 +164,7 @@ class Viewer:
             if hl_action_probs is not None:
                 self.draw_action_distributions_new(hl_action_probs, ll_action_mean, ll_action_std, targets_distance, actions, last_actions)
 
-            if wheels_on_track is not None:
+            if wheels_on_track is not None and not draw_reduced:
                 self.draw_wheel_on_track_indicators(wheels_on_track, time_off_track)
 
             if max_vels is not None:
@@ -170,7 +173,7 @@ class Viewer:
             if ranks is not None:
                 self.draw_ranks(ranks)
 
-            if reward_terms is not None:
+            if reward_terms is not None and not draw_reduced:
                 self.draw_rew_terms(reward_terms)
 
             if self.teamsize is not None and False:
@@ -188,7 +191,7 @@ class Viewer:
             if self.attention is not None:
                 self._draw_attention(state)
 
-            if all_targets_pos_world_env0 is not None and all_egoagent_pos_world_env0 is not None:
+            if all_targets_pos_world_env0 is not None and all_egoagent_pos_world_env0 is not None and not draw_reduced:
                 self.draw_all_targets(all_targets_pos_world_env0, all_egoagent_pos_world_env0)
 
             if False:
@@ -198,7 +201,8 @@ class Viewer:
             self.draw_points(self.img)
             self.draw_lines(self.img)
             self.draw_string(self.img)
-            self.draw_marked_agents(self.img)
+            if not draw_reduced:
+              self.draw_marked_agents(self.img)
 
 
             show_val = values_ll is not None
@@ -266,10 +270,18 @@ class Viewer:
         # all_positions = all_positions[np.sort(unique_idx_position)]
         # all_positions = np.concatenate((all_positions, 0 * np.expand_dims(all_positions[0], axis=0)), axis=0)  # skip first entry (want end of LL ep)
 
-        for idx, (target, position) in enumerate(zip(all_targets, all_positions[0:])):
+        idx_offset = 0
+        if len(all_targets) > 3:
+          idx_offset = len(all_targets) - 3
+          all_targets = all_targets[-3:]
+          all_positions = all_positions[-3:]
+
+        for idx_iter, (target, position) in enumerate(zip(all_targets, all_positions[0:])):
+            idx = idx_iter + idx_offset
             scale =  int(80/(self.scale_x))
             self.img = cv.circle(self.img, (target[0], target[1]), scale, (int(self.colors[-1]),  0, int(self.colors[-1])), -1)
             cv.putText(self.img, str(idx), (target[0]+5, target[1]-10), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
+            
             self.img = cv.circle(self.img, (position[0], position[1]), scale, (0,  255, 0), -1)
             cv.putText(self.img, str(idx), (position[0]+5, position[1]-10), self.font, 0.5,  (0,  255, 0), 1, cv.LINE_AA)
 
@@ -849,7 +861,7 @@ class Viewer:
             slip_locations = locations.cpu().numpy()
             #print(slip_locations)
             self.slip_markers.append(slip_locations)
-            if len(self.slip_markers) > 140:
+            if len(self.slip_markers) > 10:  # 140:
                 del self.slip_markers[0]
 
     def add_lines(self, endpoints, color = (0,0,0), thickness = 1):
