@@ -627,8 +627,12 @@ class DmarEnvBilevel:
         self.R[:, :, 1, 0] = -torch.sin(theta)
         self.R[:, :, 1, 1] = torch.cos(theta)
 
+        # self.R_world_to_track[:, :, 0, 0] = torch.cos(angles_at_centers[..., 0])
+        # self.R_world_to_track[:, :, 0, 1] = torch.sin(angles_at_centers[..., 0])
+        # self.R_world_to_track[:, :, 1, 0] = -torch.sin(angles_at_centers[..., 0])
+        # self.R_world_to_track[:, :, 1, 1] = torch.cos(angles_at_centers[..., 0])
 
-        linvel_world = torch.einsum("eaij, eaj -> eai", self.R, self.states[:, :, 3:5])
+        linvel_world = torch.einsum("eaij, eaj -> eai", torch.transpose(self.R, 2, 3), self.states[:, :, 3:5])
 
         # self.lookahead_body = torch.einsum("eaij, eatj->eati", self.R, self.lookahead)
         # lookahead_scaled = self.lookahead_scaler * self.lookahead_body
@@ -711,7 +715,7 @@ class DmarEnvBilevel:
             ) * self.active_obs_template.view(self.num_envs, self.num_agents, self.num_agents - 1, 1)
 
             # vel_other = torch.einsum("eaij, eaoj->eaoi", self.R, vel_other) * is_other_close.view(   # FIXME: remove
-            vel_other = torch.einsum("eaij, eaoj->eaoi", torch.transpose(self.R, 2, 3), vel_other) * is_other_close.view(
+            vel_other = torch.einsum("eaij, eaoj->eaoi", self.R, vel_other) * is_other_close.view(
                 self.num_envs, self.num_agents, self.num_agents - 1, 1
             )
 

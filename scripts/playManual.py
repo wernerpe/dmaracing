@@ -36,10 +36,10 @@ def play():
     while True:
         env.project_into_track_frame(hl_actions)
         t1 = time.time()
-        actions[0 , ag, 0] = -0.2 #steer_cmd
-        actions[0 , ag, 1] = 1.0
+        #actions[0 , ag, 0] = -0.2 #steer_cmd
+        #actions[0 , ag, 1] = 1.0
         if USE_PPC:
-            actions[:,1:,:] = ppc.step()[:,1:,:]
+            actions[:,:,:] = ppc.step()[:,:,:]
         #env.states[0,0,0:3] = 0
         #env.states[0,0,0] = 2
         #env.states[0,0,0] = -0.05
@@ -148,8 +148,8 @@ if __name__ == "__main__":
     #cfg['track']['num_tracks'] = 7
     #cfg['track']['num_tracks'] = 3
     cfg['viewer']['multiagent'] = True
-    cfg['learn']['defaultactions'] = [0,0,0]
-    cfg['learn']['actionscale'] = [1,1,1]
+    #cfg['learn']['defaultactions'] = [0,0,0]
+    #cfg['learn']['actionscale'] = [1,1,1]
     cfg['learn']['resetrand'] = [0.0]*7
     cfg['learn']['reset_tile_rand'] = 200
 
