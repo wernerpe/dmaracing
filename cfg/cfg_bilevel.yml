@@ -118,13 +118,13 @@ learn:
   race_length_laps: 1
 
   progressRewardScale: 1.0  # 2.0  # 0.1  # 0.0  # 1.0  # 10.0  # 1.0  # 10.0
-  offtrackRewardScale: -5.0  # -2.0  # -1.0  # -0.2  # -0.2  # -1.0  # -0.1  # -0.1
+  offtrackRewardScale: -2.0  # -2.0  # -1.0  # -0.2  # -0.2  # -1.0  # -0.1  # -0.1
   actionRateRewardScale: -0.2  # -0.1  # -0.01  # -0.1
   rankRewardScale: 5.0  # 2.0  # 1.0  # 1.0  # 5.0  # 5.0  # 1.0
   collisionRewardScale: -5.0  # -25.0  # -5.0  # -2.0  # -1.0  # -0.2  #-0.2  # -0.02  # -0.2
   accRewardScale: -0.1  # -0.5
   velRewardScale: -1.0  # -1.0
-  goalRewardScale: 5.0  # 2.0  # 1.0  # 1.0  # 1.0  # 5.0
+  goalRewardScale: 5.0  # 5.0  # 2.0  # 1.0  # 1.0  # 1.0  # 5.0
   horizon: 12  #  12  # 12  # 15
 
   trackPenaltyScaleIni: 0.2

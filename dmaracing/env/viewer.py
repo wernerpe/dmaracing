@@ -113,7 +113,7 @@ class Viewer:
       targets=None, targets_rew01=None, targets_angle=None, targets_distance=None, 
       actions=None, time_off_track=None, 
       hl_action_probs=None, ll_action_mean=None, ll_action_std=None,
-      wheels_on_track=None, max_vels=None,
+      wheels_on_track=None, curr_vels=None, max_vels=None,
       reward_terms=None, reset_cause=None, track_progress=None, active_tile=None,
       ranks=None, global_step=None, all_targets_pos_world_env0=None, all_egoagent_pos_world_env0=None,
       last_actions=None, tile_idx_car=None, tile_idx_trg=None, values_ll=None, values_ll_min=None, values_ll_max=None):
@@ -169,6 +169,9 @@ class Viewer:
 
             if max_vels is not None:
                 self.draw_max_vel(max_vels)
+
+            if curr_vels is not None:
+                self.draw_curr_vel(curr_vels)
 
             if ranks is not None:
                 self.draw_ranks(ranks)
@@ -331,6 +334,14 @@ class Viewer:
             if idx==len(max_vels)-1:
                 strvel += "]"
             cv.putText(self.img, strvel, (w_start + (idx+2) * w_diffs, 50), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
+
+    def draw_curr_vel(self, curr_vels):
+
+        max_vels = curr_vels[0, 0].cpu().numpy()
+        h_start = 420
+        h_diffs = 30
+        cv.putText(self.img, "vx = " + str(round(max_vels[0], 3)), (15, h_start + 0 * h_diffs), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
+        cv.putText(self.img, "vy = " + str(round(max_vels[1], 3)), (15, h_start + 1 * h_diffs), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
 
     def draw_ranks(self, ranks):
 

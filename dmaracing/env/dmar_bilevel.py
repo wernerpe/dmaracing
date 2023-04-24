@@ -618,8 +618,15 @@ class DmarEnvBilevel:
         self.R[:, :, 1, 0] = -torch.sin(theta)
         self.R[:, :, 1, 1] = torch.cos(theta)
 
+        self.R_world_to_track[:, :, 0, 0] = torch.cos(angles_at_centers[..., 0])
+        self.R_world_to_track[:, :, 0, 1] = torch.sin(angles_at_centers[..., 0])
+        self.R_world_to_track[:, :, 1, 0] = -torch.sin(angles_at_centers[..., 0])
+        self.R_world_to_track[:, :, 1, 1] = torch.cos(angles_at_centers[..., 0])
 
-        linvel_world = torch.einsum("eaij, eaj -> eai", self.R, self.states[:, :, 3:5])
+
+        linvel_world = torch.einsum("eaij, eaj -> eai", torch.transpose(self.R, 2, 3), self.states[:, :, 3:5])
+        ### NOTE: use for velocity observation in track frame
+        # linvel_track = torch.einsum("eaij, eaj -> eai", self.R_world_to_track, linvel_world)
 
         # self.lookahead_body = torch.einsum("eaij, eatj->eati", self.R, self.lookahead)
         # lookahead_scaled = self.lookahead_scaler * self.lookahead_body
@@ -647,8 +654,13 @@ class DmarEnvBilevel:
             for agent in range(self.num_agents):
                 selfpos = self.states[:, agent, 0:2].view(-1, 1, 2)
                 selfrot = self.states[:, agent, 2].view(-1, 1, 1)
+
                 # selfvel = self.states[:, agent, self.vn["S_DX"] : self.vn["S_DY"] + 1].view(-1, 1, 2)  # FIXME: remove
+                ### NOTE: use for velocity observation in body frame
                 selfvel = linvel_world[:, agent, :].view(-1, 1, 2)  # self.states[:, agent, self.vn["S_DX"] : self.vn["S_DY"] + 1].view(-1, 1, 2)
+                ### NOTE: use for velocity observation in track frame
+                # selfvel = linvel_track[:, agent, :].view(-1, 1, 2)
+
                 selfangvel = self.states[:, agent, self.vn["S_DTHETA"]].view(-1, 1, 1)
 
                 all_team = self.teams.copy()
@@ -686,8 +698,13 @@ class DmarEnvBilevel:
                 otherrotations.append(self.states[:, opponents, 2].view(-1, 1, self.num_agents-1) - selfrot)
 
                 # othervel = self.states[:, opponents, self.vn['S_DX']: self.vn['S_DY']+1]  # FIXME: remove
+                ### NOTE: use for velocity observation in body frame
                 othervel = linvel_world[:, opponents, :]  # self.states[:, opponents, self.vn['S_DX']: self.vn['S_DY']+1]
+                ### NOTE: use for velocity observation in track frame
+                # othervel = linvel_track[:, opponents, :]
+
                 othervelocities.append((othervel - selfvel).view(-1, (self.num_agents - 1), 2))
+                
                 otherangvel = self.states[:, opponents, self.vn['S_DTHETA']].view(-1, 1, self.num_agents-1)
                 otherangularvelocities.append(otherangvel - selfangvel)
 
@@ -702,9 +719,14 @@ class DmarEnvBilevel:
             ) * self.active_obs_template.view(self.num_envs, self.num_agents, self.num_agents - 1, 1)
 
             # vel_other = torch.einsum("eaij, eaoj->eaoi", self.R, vel_other) * is_other_close.view(   # FIXME: remove
-            vel_other = torch.einsum("eaij, eaoj->eaoi", torch.transpose(self.R, 2, 3), vel_other) * is_other_close.view(
+            ### NOTE: use for velocity observation in body frame
+            vel_other = torch.einsum("eaij, eaoj->eaoi", self.R, vel_other) * is_other_close.view(
                 self.num_envs, self.num_agents, self.num_agents - 1, 1
             )
+            ### NOTE: use for velocity observation in track frame
+            # vel_other = vel_other * is_other_close.view(
+            #     self.num_envs, self.num_agents, self.num_agents - 1, 1
+            # )
 
             rot_other = (
                 torch.cat(tuple([rot for rot in otherrotations]), dim=1) * self.active_obs_template * is_other_close
@@ -732,7 +754,7 @@ class DmarEnvBilevel:
             #maxvel obs self.dyn_model.dynamics_integrator.dyn_model.max_vel_vec
             self.obs_buf = torch.cat(
                 (
-                    self.vels_body,  #  * 0.1,  # HACK: testing 04/12/23
+                    self.vels_body,  #  * 0.1,  # HACK: testing 04/21/23
                     lookahead_rbound_scaled[:,:,:,0], 
                     lookahead_rbound_scaled[:,:,:,1], 
                     lookahead_lbound_scaled[:,:,:,0], 
@@ -741,13 +763,13 @@ class DmarEnvBilevel:
                     last_raw_actions,
                     self.ranks.view(-1, self.num_agents, 1),
                     self.teamranks.view(-1, self.num_agents, 1),
-                    self.progress_other * 0.1,
-                    self.contouring_err_other * 0.25,
+                    self.progress_other * 0.3,  # * 0.1,  # HACK: testing 04/24/23
+                    self.contouring_err_other,  #  * 0.25,  # HACK: testing 04/24/23
                     torch.sin(rot_other),
                     torch.cos(rot_other),
-                    vel_other[..., 0],  # * 0.1,  # HACK: testing 04/12/23
-                    vel_other[..., 1],  # * 0.1,  # HACK: testing 04/12/23
-                    angvel_other,  # * 0.1,  # HACK: testing 04/12/23
+                    vel_other[..., 0],  # * 0.1,  # HACK: testing 04/21/23
+                    vel_other[..., 1],  # * 0.1,  # HACK: testing 04/21/23
+                    angvel_other,  # * 0.1,  # HACK: testing 04/21/23
                 ),
                 dim=2,
             )
@@ -1307,7 +1329,7 @@ class DmarEnvBilevel:
                     self.states[:, :, [0, 1, 2, 6]], self.slip, self.drag_reduced, self.wheel_locations_world, self.interpolated_centers, self.interpolated_bounds, 
                     self.targets_pos_world, self.targets_rew01_local, self.targets_rot_world, self.targets_dist_track, self.actions, self.time_off_track,
                     self._action_probs_hl, self._action_mean_ll, self._action_std_ll,
-                    self.is_on_track_per_wheel, self.dyn_model.max_vel_vec, self.step_reward_terms, self.reset_cause, self.track_progress, self.active_track_tile,
+                    self.is_on_track_per_wheel, self.vels_body, self.dyn_model.max_vel_vec, self.step_reward_terms, self.reset_cause, self.track_progress, self.active_track_tile,
                     self.ranks if self.num_agents>1 else None, self._global_step, self.all_targets_pos_world_env0, self.all_egoagent_pos_world_env0, self.last_actions,
                     self.active_track_tile, self.targets_tile_idx, self._values_ll,
                 )
@@ -1316,7 +1338,7 @@ class DmarEnvBilevel:
                 self.states[:, :, [0, 1, 2, 6]], self.slip, self.drag_reduced, self.wheel_locations_world, self.interpolated_centers, self.interpolated_bounds, 
                 self.targets_pos_world, self.targets_rew01_local, self.targets_rot_world, self.targets_dist_track, self.actions, self.time_off_track,
                 self._action_probs_hl, self._action_mean_ll, self._action_std_ll,
-                self.is_on_track_per_wheel, self.dyn_model.max_vel_vec, self.step_reward_terms, self.reset_cause, self.track_progress, self.active_track_tile,
+                self.is_on_track_per_wheel, self.vels_body, self.dyn_model.max_vel_vec, self.step_reward_terms, self.reset_cause, self.track_progress, self.active_track_tile,
                 self.ranks if self.num_agents>1 else None, self._global_step, self.all_targets_pos_world_env0, self.all_egoagent_pos_world_env0, self.last_actions,
                 self.active_track_tile, self.targets_tile_idx, self._values_ll,
             )
@@ -1736,7 +1758,8 @@ def compute_rewards_jit(
     # Base
     rew_goal = get_multivariate_reward(targets_dist_local, targets_std_local)
     # LL mod
-    rew_goal_ll = 0.05 / ll_steps_left.squeeze(-1) * rew_goal * (vel > 0.5) * torch.exp((vel-0.5)/5.0)
+    # rew_goal_ll = 0.05 / ll_steps_left.squeeze(-1) * rew_goal * (vel > 0.5) * torch.exp((vel-0.5)/5.0)  # NOTE: pre-04/24/23
+    rew_goal_ll = (ll_steps_left.squeeze(-1) < 0.15) * rew_goal * (vel > 0.5) * torch.exp((vel-0.5)/5.0)
     # HL mod
     rew_goal_hl = 0.0 * rew_goal + 5.e-2 * targets_off_ahead[..., 0] / 5.0 * ll_ep_done[..., 0]  # bias towards far away goals
 

@@ -31,6 +31,7 @@ def get_varnames()->Dict[str, int]:
 
 def allocate_car_dynamics_tensors(task):
     task.R = torch.zeros((task.num_envs, task.num_agents, 2, 2), dtype = torch.float, device = task.device, requires_grad=False)
+    task.R_world_to_track = torch.zeros((task.num_envs, task.num_agents, 2, 2), dtype = torch.float, device = task.device, requires_grad=False)
     task.zero_pad = torch.zeros((task.num_envs, 5,1), device =task.device, requires_grad=False) 
 
     task.P_tot, task.D_tot, task.S_mat, task.Repf_mat, task.Ds = build_col_poly_eqns(1.1*task.modelParameters['W_coll'], 1.1*(task.modelParameters['L_coll']), task.device, task.num_envs)
