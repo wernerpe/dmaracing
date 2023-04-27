@@ -87,12 +87,12 @@ if __name__ == "__main__":
 
     INIT_FROM_CHKPT = True  # False
     #active policies
-    runs_hl = ['23_04_26_09_04_35_bilevel_2v2']*2
+    runs_hl = ['23_04_27_09_55_32_bilevel_2v2']*2
     chkpts_hl = [600, 600]
-    runs_ll = ['23_04_26_09_04_35_bilevel_2v2']*2
+    runs_ll = ['23_04_27_09_55_32_bilevel_2v2']*2
     chkpts_ll = [600, 600]
     ##policies to populate adversary buffer
-    adv_runs = ['23_04_26_09_04_35_bilevel_2v2']
+    adv_runs = ['23_04_27_09_55_32_bilevel_2v2']
     adv_chkpts = [600]
 
     if INIT_FROM_CHKPT:

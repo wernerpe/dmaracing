@@ -25,28 +25,28 @@ def eval():
     runner.load_multi_path(model_paths_hl, model_paths_ll, load_optimizer=True)
 
 
-    # save_dir = 'logs/saved_models/'+timestamp
-    # if not os.path.exists(save_dir):
-    #     os.mkdir(save_dir)
-    #     os.mkdir(save_dir+'/hl_model')
-    #     os.mkdir(save_dir+'/ll_model')
-    # shutil.copy(logdir_root+'/'+timestamp+'/cfg.yml', save_dir+'/cfg.yml' )
-    # shutil.copy(logdir_root+'/'+timestamp+'/cfg_train.yml', save_dir+'/cfg_train.yml' )
+    save_dir = 'logs/saved_models/'+timestamp
+    if not os.path.exists(save_dir):
+        os.mkdir(save_dir)
+        os.mkdir(save_dir+'/hl_model')
+        os.mkdir(save_dir+'/ll_model')
+    shutil.copy(logdir_root+'/'+timestamp+'/cfg.yml', save_dir+'/cfg.yml' )
+    shutil.copy(logdir_root+'/'+timestamp+'/cfg_train.yml', save_dir+'/cfg_train.yml' )
     
-    # # ### Save jit models to original folder
-    # if hasattr(runner.alg_hl.actor_critic.teamacs[0].ac, 'actor'):
-    #     policy_hl_jit = torch.jit.script(runner.alg_hl.actor_critic.teamacs[0].ac.actor.to('cpu'))
-    #     policy_hl_jit.save(save_dir+ "/hl_model/jit_model_" +str(modelnr_hl)+".pt")
-    # else:
-    #     policy_hl_jit = torch.jit.script(runner.alg_hl.actor_critic.teamacs[0].ac.critic.to('cpu'))
-    #     policy_hl_jit.save(save_dir+ "/hl_model/jit_critic_model_" +str(modelnr_hl)+".pt")
+    # ### Save jit models to original folder
+    if hasattr(runner.alg_hl.actor_critic.teamacs[0].ac, 'actor'):
+        policy_hl_jit = torch.jit.script(runner.alg_hl.actor_critic.teamacs[0].ac.actor.to('cpu'))
+        policy_hl_jit.save(save_dir+ "/hl_model/jit_model_" +str(modelnr_hl)+".pt")
+    else:
+        policy_hl_jit = torch.jit.script(runner.alg_hl.actor_critic.teamacs[0].ac.critic.to('cpu'))
+        policy_hl_jit.save(save_dir+ "/hl_model/jit_critic_model_" +str(modelnr_hl)+".pt")
 
-    # policy_ll_jit = torch.jit.script(runner.alg_ll.actor_critic.teamacs[0].ac.actor.to('cpu'))
-    # policy_ll_jit.save(save_dir + "/ll_model/jit_model_" +str(modelnr_ll)+".pt")
+    policy_ll_jit = torch.jit.script(runner.alg_ll.actor_critic.teamacs[0].ac.actor.to('cpu'))
+    policy_ll_jit.save(save_dir + "/ll_model/jit_model_" +str(modelnr_ll)+".pt")
 
-    # policy_ll_jit = torch.jit.script(runner.alg_ll.actor_critic.teamacs[0].ac.actor.to('cpu'))
-    # policy_ll_jit.save(save_dir + "/ll_model/jit_model_" +str(modelnr_ll)+".pt")
-    # exit()
+    policy_ll_jit = torch.jit.script(runner.alg_ll.actor_critic.teamacs[0].ac.actor.to('cpu'))
+    policy_ll_jit.save(save_dir + "/ll_model/jit_model_" +str(modelnr_ll)+".pt")
+    exit()
     
     # #populate adversary buffer
     # adv_model_paths_hl, adv_model_paths_ll = [], []
@@ -254,22 +254,22 @@ if __name__ == "__main__":
     args.headless =  True 
 
 
-    checkpoints_to_play = [1300]
+    checkpoints_to_play = [1000]
 
     winrate_results = []
     for checkpoint_opp in checkpoints_to_play:
 
       # ### Run information
-      exp_name = 'tri_2v2_vel_heading_control'  # 'tri_single_blr_hierarchical'
-      timestamp = '23_04_12_09_32_52_bilevel_2v2'  #'23_03_23_11_34_55_bilevel_2v2'  # '23_03_20_19_06_44_bilevel_2v2'  # '23_02_21_17_16_07_bilevel_2v2'  # '23_01_31_14_30_58_bilevel_2v2'  # '23_01_31_11_54_24_bilevel_2v2'
-      checkpoint = 1300  # 500  # 1300
+      exp_name = 'tri_2v2_vhc_rear'  # 'tri_single_blr_hierarchical'
+      timestamp = '23_04_27_14_25_17_bilevel_2v2'  #'23_03_23_11_34_55_bilevel_2v2'  # '23_03_20_19_06_44_bilevel_2v2'  # '23_02_21_17_16_07_bilevel_2v2'  # '23_01_31_14_30_58_bilevel_2v2'  # '23_01_31_11_54_24_bilevel_2v2'
+      checkpoint = 1000  # 500  # 1300
       #active policies
-      runs_hl = [timestamp, '23_04_12_09_32_52_bilevel_2v2']  # '23_02_22_21_18_03_bilevel_2v2'
+      runs_hl = [timestamp, '23_04_27_14_25_17_bilevel_2v2']  # '23_02_22_21_18_03_bilevel_2v2'
       chkpts_hl = [checkpoint, checkpoint_opp]
-      runs_ll = [timestamp, '23_04_12_09_32_52_bilevel_2v2']
+      runs_ll = [timestamp, '23_04_27_14_25_17_bilevel_2v2']
       chkpts_ll = [checkpoint, checkpoint_opp]
       ##policies to populate adversary buffer
-      adv_runs = ['23_04_12_09_32_52_bilevel_2v2']
+      adv_runs = ['23_04_27_14_25_17_bilevel_2v2']
       adv_chkpts = [checkpoint]
 
 

@@ -123,7 +123,7 @@ learn:
   actionRateRewardScale: -0.2  # -0.1  # -0.01  # -0.1
   rankRewardScale: 5.0  # 2.0  # 1.0  # 1.0  # 5.0  # 5.0  # 1.0
   collisionRewardScale: -5.0  # -25.0  # -5.0  # -2.0  # -1.0  # -0.2  #-0.2  # -0.02  # -0.2
-  rearendcollisionRewardScale: -2.0
+  rearendcollisionRewardScale: -5.0
   accRewardScale: -0.1  # -0.5
   velRewardScale: -1.0  # -1.0
   goalRewardScale: 500.0  # 5.0  # 2.0  # 1.0  # 1.0  # 1.0  # 5.0  # NOTE: no *dt prior to 04/26/2023

@@ -38,7 +38,7 @@ runner:
   population_update_interval: 60
   # logging
   save_interval: 100  # 200  # 100  # 50 # check for potential saves every this many iterations
-  experiment_name: 'tri_2v2_vel_heading_control'  # 'tri_single_blr_hierarchical'
+  experiment_name: 'tri_2v2_vhc_rear'  # 'tri_single_blr_hierarchical'
   run_name: ''
   # load and resume
   resume: False
