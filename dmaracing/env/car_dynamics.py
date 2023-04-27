@@ -5,7 +5,7 @@ import numpy as np
 from dmaracing.env.car_dynamics_utils import resolve_collsions
 from dmaracing.env.car_dynamics_utils import SwitchedBicycleKinodynamicModel
 
-#@torch.jit.script
+# @torch.jit.script
 def step_cars(
     state: torch.Tensor,
     actions: torch.Tensor,
@@ -13,6 +13,7 @@ def step_cars(
     wheel_locations: torch.Tensor,
     R: torch.Tensor,
     contact_wrenches: torch.Tensor,
+    is_rear_end: torch.Tensor,
     shove: torch.Tensor,
     mod_par: Dict[str, float],
     sim_par: Dict[str, float],
@@ -57,8 +58,9 @@ def step_cars(
     if collide:
         # resolve collisions using a combination of spring force and "shove" which pushes the vertex
         # in collision out of collision
-        contact_wrenches, shove = resolve_collsions(
+        contact_wrenches, shove, is_rear_end = resolve_collsions(
             contact_wrenches,
+            is_rear_end,
             shove,
             new_state,
             collision_pairs,

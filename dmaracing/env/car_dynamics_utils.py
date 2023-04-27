@@ -283,7 +283,7 @@ def get_contact_wrenches(P_tot : torch.Tensor,
                          rel_vels : torch.Tensor,
                          num_envs : int,
                          zero_pad : torch.Tensor,
-                         stiffness : float) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+                         stiffness : float) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
 
     #evaluate polygon equations on vertices of collider in bodyframe of collidee
     vert_poly_dists = torch.einsum('ij, lkj->lki', P_tot, verts_tf) + torch.tile(D_tot.squeeze(), (num_envs, 5, 1)) 
@@ -317,12 +317,13 @@ def get_contact_wrenches(P_tot : torch.Tensor,
     
     #sum over contact forces acting at the individual vertices
     forces = torch.sum(forces, dim = 1)
-
-    return forces, torque_A, torque_B
+    is_rear_col = torch.sum(1.0*in_poly[..., -1], dim =1 )>0
+    return forces, torque_A, torque_B, is_rear_col
 
 
 @torch.jit.script
 def resolve_collsions(contact_wrenches : torch.Tensor,
+                      is_rear_end_col: torch.Tensor,
                       shove : torch.Tensor,
                       states : torch.Tensor,
                       collision_pairs : List[List[int]],
@@ -337,9 +338,10 @@ def resolve_collsions(contact_wrenches : torch.Tensor,
                       zero_pad : torch.Tensor,
                       stiffness : float,
                       Iz : float
-                      ) -> Tuple[torch.Tensor, torch.Tensor]:
+                      ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
 
     contact_wrenches[:,:,:] =0.0
+    is_rear_end_col[:] = 0
     shove[:,:,:] = 0.0
     #switch = torch.rand(len(collision_pairs))>0.5
     if len(collision_pairs):
@@ -361,17 +363,17 @@ def resolve_collsions(contact_wrenches : torch.Tensor,
                 verts_tf = transform_col_verts(rel_trans, states_A[:,2], states_B[:,2], collision_verts[idx_comp, :, :], R[idx_comp,:,:])
                 vels_verts_tf = transform_vel_verts(rel_vels, states_A[:,2], states_B[:,2], collision_verts[idx_comp, :, :], zero_pad[idx_comp, :, :], R[idx_comp,:,:])
 
-                force_B_0, torque_A_0, torque_B_0 = get_contact_wrenches(P_tot, 
-                                                                         D_tot, 
-                                                                         S_mat, 
-                                                                         Repf_mat[idx_comp, ...],
-                                                                         Ds,
-                                                                         verts_tf,
-                                                                         vels_verts_tf,
-                                                                         len(idx_comp),
-                                                                         zero_pad[idx_comp, ...],
-                                                                         stiffness
-                                                                         )
+                force_B_0, torque_A_0, torque_B_0, is_rear_end_col_pair = get_contact_wrenches(P_tot, 
+                                                                                        D_tot, 
+                                                                                        S_mat, 
+                                                                                        Repf_mat[idx_comp, ...],
+                                                                                        Ds,
+                                                                                        verts_tf,
+                                                                                        vels_verts_tf,
+                                                                                        len(idx_comp),
+                                                                                        zero_pad[idx_comp, ...],
+                                                                                        stiffness
+                                                                                        )
 
 
                 #rotate forces into global frame from frame A
@@ -380,7 +382,7 @@ def resolve_collsions(contact_wrenches : torch.Tensor,
                 contact_wrenches[ idx_comp, colp[1], :2] += force_B_0
                 contact_wrenches[ idx_comp, colp[0], 2] += torque_A_0
                 contact_wrenches[ idx_comp, colp[1], 2] += torque_B_0
-
+                is_rear_end_col[idx_comp, colp[1],0] = 1.0*is_rear_end_col_pair[:]
                 #flip and check other direction
                 states_A = states[idx_comp, colp[1], 0:3]
                 states_B = states[idx_comp, colp[0], 0:3]
@@ -395,17 +397,17 @@ def resolve_collsions(contact_wrenches : torch.Tensor,
                 verts_tf = transform_col_verts(rel_trans, states_A[:,2], states_B[:,2], collision_verts[idx_comp, :, :], R[idx_comp,:,:])
                 vels_verts_tf = transform_vel_verts(rel_vels, states_A[:,2], states_B[:,2], collision_verts[idx_comp, :, :], zero_pad[idx_comp, :, :], R[idx_comp,:,:])
 
-                force_B_1, torque_A_1, torque_B_1 = get_contact_wrenches(P_tot, 
-                                                                         D_tot, 
-                                                                         S_mat, 
-                                                                         Repf_mat[idx_comp, ...],
-                                                                         Ds,
-                                                                         verts_tf,
-                                                                         vels_verts_tf,
-                                                                         len(idx_comp),
-                                                                         zero_pad[idx_comp, ...],
-                                                                         stiffness
-                                                                         )
+                force_B_1, torque_A_1, torque_B_1, is_rear_end_col_pair = get_contact_wrenches(P_tot, 
+                                                                                        D_tot, 
+                                                                                        S_mat, 
+                                                                                        Repf_mat[idx_comp, ...],
+                                                                                        Ds,
+                                                                                        verts_tf,
+                                                                                        vels_verts_tf,
+                                                                                        len(idx_comp),
+                                                                                        zero_pad[idx_comp, ...],
+                                                                                        stiffness
+                                                                                        )
 
 
                 #rotate forces into global frame from frame A
@@ -419,10 +421,11 @@ def resolve_collsions(contact_wrenches : torch.Tensor,
                 contact_wrenches[ idx_comp, colp[0], :2] += force_B_1 * (1.0 * new_col + 0.5*already_col) - (-0.5*new_col_active)*force_B_0
                 contact_wrenches[ idx_comp, colp[1], 2] += (torque_A_1.view(-1,1)*(1.0 * new_col + 0.5*already_col) + (-0.5*new_col_active)*torque_B_0.view(-1,1)).view(-1)
                 contact_wrenches[ idx_comp, colp[0], 2] += (torque_B_1.view(-1,1)*(1.0 * new_col + 0.5*already_col) + (-0.5*new_col_active)*torque_A_0.view(-1,1)).view(-1)
-            
+                is_rear_end_col[idx_comp, colp[0],0] = 1.0*is_rear_end_col_pair[:]
+
     shove[:, :, :2] = 1.0 * contact_wrenches[:,:,:2] / stiffness
     shove[:, :, 2]  = .5 * contact_wrenches[:,:,2] / (stiffness*Iz)          
-    return contact_wrenches, shove
+    return contact_wrenches, shove, is_rear_end_col
 
 class SwitchedBicycleKinodynamicModel(nn.Module):
     def __init__(self,

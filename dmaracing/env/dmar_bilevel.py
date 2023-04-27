@@ -151,6 +151,8 @@ class DmarEnvBilevel:
         torch_zeros = lambda shape: torch.zeros(shape, device=self.device, dtype=torch.float, requires_grad=False)
         self.states = torch_zeros((self.num_envs, self.num_agents, self.num_internal_states))
         self.contact_wrenches = torch_zeros((self.num_envs, self.num_agents, 3))
+        self.rear_end_contact = torch_zeros((self.num_envs, self.num_agents, 1))
+
         self.shove = torch_zeros((self.num_envs, self.num_agents, 3))
         self.actions = torch_zeros((self.num_envs, self.num_agents, self.num_actions))
         self.hardware_commands = torch_zeros((self.num_envs, self.num_agents, self.num_actions))
@@ -183,6 +185,7 @@ class DmarEnvBilevel:
         self.reward_scales["actionrate"] = cfg["learn"]["actionRateRewardScale"] * self.dt
         self.reward_scales["rank"] = cfg["learn"]["rankRewardScale"] * self.dt
         self.reward_scales["collision"] = cfg["learn"]["collisionRewardScale"] * self.dt
+        self.reward_scales["rearendcollision"] = cfg["learn"]["rearendcollisionRewardScale"] * self.dt
         self.reward_scales["acceleration"] = cfg["learn"]["accRewardScale"] * self.dt
         self.reward_scales["velocity"] = cfg["learn"]["velRewardScale"] * self.dt
         self.reward_scales["goal"] = cfg["learn"]["goalRewardScale"] * self.dt
@@ -279,7 +282,7 @@ class DmarEnvBilevel:
             "progress": torch_zeros((self.num_envs, self.num_agents)),
             "offtrack": torch_zeros((self.num_envs, self.num_agents)),
             "actionrate": torch_zeros((self.num_envs, self.num_agents)),
-            "energy": torch_zeros((self.num_envs, self.num_agents)),
+            #"energy": torch_zeros((self.num_envs, self.num_agents)),
             "acceleration": torch_zeros((self.num_envs, self.num_agents)),
             "goal": torch_zeros((self.num_envs, self.num_agents)),
             "velocity": torch_zeros((self.num_envs, self.num_agents)),
@@ -287,12 +290,12 @@ class DmarEnvBilevel:
         if self.num_agents>1:
             self.reward_terms["rank"] = torch_zeros((self.num_envs, self.num_agents))
             self.reward_terms["collision"] = torch_zeros((self.num_envs, self.num_agents))
+            self.reward_terms["rearendcollision"] = torch_zeros((self.num_envs, self.num_agents))
 
         self.step_reward_terms = {
             "progress": torch_zeros((self.num_envs, self.num_agents)),
             "offtrack": torch_zeros((self.num_envs, self.num_agents)),
             "actionrate": torch_zeros((self.num_envs, self.num_agents)),
-            "energy": torch_zeros((self.num_envs, self.num_agents)),
             "acceleration": torch_zeros((self.num_envs, self.num_agents)),
             "goal": torch_zeros((self.num_envs, self.num_agents)),
             "velocity": torch_zeros((self.num_envs, self.num_agents)),
@@ -300,9 +303,15 @@ class DmarEnvBilevel:
         if self.num_agents>1:
             self.step_reward_terms["rank"] = torch_zeros((self.num_envs, self.num_agents))
             self.step_reward_terms["collision"] = torch_zeros((self.num_envs, self.num_agents))
+            self.step_reward_terms["rearendcollision"] = torch_zeros((self.num_envs, self.num_agents))
+
 
         self.is_collision = torch.zeros(
             (self.num_envs, self.num_agents), requires_grad=False, device=self.device, dtype=torch.float
+        )
+        
+        self.is_rearend_collision = torch.zeros(
+            (self.num_envs, self.num_agents, 1), requires_grad=False, device=self.device, dtype=torch.float
         )
 
         self.lookahead_scaler = 1 / (
@@ -622,10 +631,10 @@ class DmarEnvBilevel:
         self.R[:, :, 1, 0] = -torch.sin(theta)
         self.R[:, :, 1, 1] = torch.cos(theta)
 
-        self.R_world_to_track[:, :, 0, 0] = torch.cos(angles_at_centers[..., 0])
-        self.R_world_to_track[:, :, 0, 1] = torch.sin(angles_at_centers[..., 0])
-        self.R_world_to_track[:, :, 1, 0] = -torch.sin(angles_at_centers[..., 0])
-        self.R_world_to_track[:, :, 1, 1] = torch.cos(angles_at_centers[..., 0])
+        # self.R_world_to_track[:, :, 0, 0] = torch.cos(angles_at_centers[..., 0])
+        # self.R_world_to_track[:, :, 0, 1] = torch.sin(angles_at_centers[..., 0])
+        # self.R_world_to_track[:, :, 1, 0] = -torch.sin(angles_at_centers[..., 0])
+        # self.R_world_to_track[:, :, 1, 1] = torch.cos(angles_at_centers[..., 0])
 
 
         linvel_world = torch.einsum("eaij, eaj -> eai", torch.transpose(self.R, 2, 3), self.states[:, :, 3:5])
@@ -847,6 +856,7 @@ class DmarEnvBilevel:
             self.teamranks if self.num_agents>1 else None,
             self.prev_ranks if self.num_agents>1 else None,
             self.is_collision,
+            self.is_rearend_collision,
             self.reward_terms,
             self.step_reward_terms,
             self.num_agents,
@@ -1077,6 +1087,7 @@ class DmarEnvBilevel:
             self.teamranks[:, team] = torch.min(self.ranks[:, team], dim = 1)[0].reshape(-1,1).type(torch.int)
 
         self.is_collision[env_ids, ...] = False
+        self.is_rearend_collision[env_ids, ...] = 0
         # #####################################
         num_opponents = (self.num_teams - 1) * self.team_size
         self.use_ppc_vec[env_ids, -num_opponents:] = 1.0 * (torch.rand(len(env_ids), num_opponents, 1, device=self.device) < self.ppc_prob)
@@ -1154,6 +1165,7 @@ class DmarEnvBilevel:
         heading_error_rate = -self.states[..., self.vn['S_DTHETA']]
         # reset collision detection
         self.is_collision = self.is_collision < 0
+        self.is_rearend_collision = self.is_rearend_collision < 0
         for j in range(self.decimation):
             heading_error = heading_setpoint - self.states[:,:,2] 
             current_velocity = torch.norm(self.states[:,:,3:5], dim =-1)
@@ -1170,7 +1182,8 @@ class DmarEnvBilevel:
             last_velocity = current_velocity 
             # need to check for collisions in inner loop otherwise get missed
             self.is_collision |= torch.norm(self.contact_wrenches, dim=2) > 0
-
+            self.is_rearend_collision[:] = 1.0*((self.is_rearend_collision + self.rear_end_contact)>0)
+            
         self.post_physics_step()
 
         if True:
@@ -1378,6 +1391,7 @@ class DmarEnvBilevel:
         (
             self.states[:],
             self.contact_wrenches,
+           #self.is_rear_end_contact,
             self.shove,
             self.wheels_on_track_segments,
             self.slip,
@@ -1389,6 +1403,7 @@ class DmarEnvBilevel:
             self.wheel_locations,
             self.R,
             self.contact_wrenches,
+            self.rear_end_contact,
             self.shove,
             self.modelParameters,
             self.simParameters,
@@ -1695,6 +1710,7 @@ def compute_rewards_jit(
     teamranks: Union[torch.Tensor,None],
     prev_ranks: Union[torch.Tensor,None],
     is_collision: torch.Tensor,
+    is_rear_end_collision: torch.Tensor,
     reward_terms: Dict[str, torch.Tensor],
     step_reward_terms: Dict[str, torch.Tensor],
     num_agents: int,
@@ -1798,10 +1814,13 @@ def compute_rewards_jit(
         ### Collision reward
         # Base
         rew_collision = is_collision
+        rew_rearend_collision = is_rear_end_collision
         # LL mod
         rew_collision_ll = 1.0 * rew_collision
+        rew_rearend_collision_ll = 1.0 * rew_rearend_collision
         # HL mod
         rew_collision_hl = 0.0 * rew_collision
+        rew_rearend_collision_hl = 0.0 * rew_rearend_collision
         
     else:
         ### Relative progress reward
@@ -1856,18 +1875,20 @@ def compute_rewards_jit(
     # Collision
     rew_collision = train_ll * rew_collision_ll + train_hl * rew_collision_hl
     rew_collision *= reward_scales["collision"] * reward_scales["total"]
+    # Penalize Rear End Collision Perpetrator extra
+    rew_rearend_collision = train_ll * rew_rearend_collision_ll[..., 0] + train_hl * rew_rearend_collision_hl[..., 0]
+    rew_rearend_collision *= reward_scales["rearendcollision"] * reward_scales["total"]
     # Baseline
     rew_baseline = train_ll * rew_baseline_ll + train_hl * rew_baseline_hl
 
     # Combined
     rew_buf[..., 0] = torch.clip(
-            rew_progress + rew_collision + rew_velocity + rew_on_track + rew_actionrate + rew_rel_prog + rew_acc + rew_baseline, min=-5*dt, max=None  #-5*dt
+            rew_progress + rew_collision +rew_rearend_collision+ rew_velocity + rew_on_track + rew_actionrate + rew_rel_prog + rew_acc + rew_baseline, min=-5*dt, max=None  #-5*dt
         ) + rew_goal + rew_rank
 
     reward_terms["progress"] += rew_progress
     reward_terms["offtrack"] += rew_on_track
     reward_terms["actionrate"] += rew_actionrate
-    #reward_terms["energy"] += rew_energy
     reward_terms["acceleration"] += rew_acc
 
     reward_terms["goal"] += rew_goal
@@ -1877,17 +1898,18 @@ def compute_rewards_jit(
     if ranks is not None:
         reward_terms["rank"] += rew_rank  # rew_rel_prog
         reward_terms["collision"] += rew_collision
+        reward_terms["rearendcollision"] += rew_rearend_collision
 
     step_reward_terms["progress"] = rew_progress / dt
     step_reward_terms["offtrack"] = rew_on_track / dt
     step_reward_terms["actionrate"] = rew_actionrate / dt
-    #step_reward_terms["energy"] += rew_energy
     step_reward_terms["acceleration"] = rew_acc / dt
     step_reward_terms["goal"] = rew_goal / dt
     step_reward_terms["velocity"] = rew_velocity / dt
     if ranks is not None:
         step_reward_terms["rank"] = rew_rank / dt  # rew_rel_prog / dt
         step_reward_terms["collision"] = rew_collision / dt
+        step_reward_terms["rearendcollision"] = rew_rearend_collision / dt
 
 
     return rew_buf, reward_terms, step_reward_terms
