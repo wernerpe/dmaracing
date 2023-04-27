@@ -30,6 +30,8 @@ class Viewer:
 
         self._values_ll_min = +100.0
         self._values_ll_max = -100.0
+        self._values_ll = []
+        self._states_ll = []
 
         self.track_centerlines = track_centerlines.cpu().numpy()
         self.track_poly_verts = track_poly_verts
@@ -116,7 +118,8 @@ class Viewer:
       wheels_on_track=None, curr_vels=None, max_vels=None,
       reward_terms=None, reset_cause=None, track_progress=None, active_tile=None,
       ranks=None, global_step=None, all_targets_pos_world_env0=None, all_egoagent_pos_world_env0=None,
-      last_actions=None, tile_idx_car=None, tile_idx_trg=None, values_ll=None, values_ll_min=None, values_ll_max=None):
+      last_actions=None, tile_idx_car=None, tile_idx_trg=None, values_ll=None, values_ll_min=None, values_ll_max=None,
+      use_ppc_vec=None):
         self.state = state.clone()
         self.slip = slip.clone()
         self.wheel_locs = wheel_locs.clone()
@@ -168,7 +171,7 @@ class Viewer:
                 self.draw_wheel_on_track_indicators(wheels_on_track, time_off_track)
 
             if max_vels is not None:
-                self.draw_max_vel(max_vels)
+                self.draw_max_vel(max_vels, use_ppc_vec)
 
             if curr_vels is not None:
                 self.draw_curr_vel(curr_vels)
@@ -323,17 +326,19 @@ class Viewer:
         cv.putText(self.img, "CarIdx=" + str(tile_idx_car), (470, 80), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
         cv.putText(self.img, "TrgIdx=" + str(tile_idx_trg), (470, 110), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
 
-    def draw_max_vel(self, max_vels):
+    def draw_max_vel(self, max_vels, use_ppc_vec):
 
         max_vels = max_vels[0, :, 0].cpu().numpy()
+        use_ppcs = use_ppc_vec[0, :, 0].cpu().numpy()
         w_diffs = 45
         w_start = 120
         cv.putText(self.img, "Max vel:  [", (w_start, 50), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
-        for idx, max_vel in enumerate(max_vels):
+        for idx, (max_vel, use_ppc) in enumerate(zip(max_vels, use_ppcs)):
             strvel = "{:.2f}".format(max_vel)
             if idx==len(max_vels)-1:
                 strvel += "]"
-            cv.putText(self.img, strvel, (w_start + (idx+2) * w_diffs, 50), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
+            color = (255, 0, 0) if use_ppc else (int(self.colors[-1]),  0, int(self.colors[-1]))
+            cv.putText(self.img, strvel, (w_start + (idx+2) * w_diffs, 50), self.font, 0.5, color, 1, cv.LINE_AA)
 
     def draw_curr_vel(self, curr_vels):
 

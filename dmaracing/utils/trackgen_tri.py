@@ -200,10 +200,10 @@ def get_tri_track_ensemble(device, track_half_width, track_poly_spacing):
                   # "maps/large_oval_dense.csv",  # NOTE: this
                   #  "maps/large_square_track.csv",
                    #"maps/squiggles.csv",
-                  #  "maps/squiggles_dense.csv",  # NOTE: this ; slight overlap at 0.65
+                   "maps/squiggles_dense.csv",  # NOTE: this ; slight overlap at 0.65
                   #  "maps/large_track2.csv",  
                   #  "maps/sharp_turns_track.csv", 
-                  #  "maps/sharp_turns_track_dense.csv",  # NOTE: this
+                   "maps/sharp_turns_track_dense.csv",  # NOTE: this
                   #  "maps/c1.csv", 
                   #  "maps/c2.csv", 
                   #  "maps/c3.csv", 
@@ -217,7 +217,7 @@ def get_tri_track_ensemble(device, track_half_width, track_poly_spacing):
                   # "maps/pinch_dense.csv",  # not great 
                   #  "maps/sharp corners.csv", 
                   # #  "maps/orca.csv",
-                  # "maps/orca_dense.csv",  # NOTE: this
+                  "maps/orca_dense.csv",  # NOTE: this
                   #  "maps/oval_diag.csv",
                   #  "maps/oval_diag_dense.csv",  # NOTE: this
                   #  "maps/triangle.csv",

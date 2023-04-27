@@ -24,7 +24,10 @@ def train():
         
         #populate adversary buffer
         adv_model_paths_hl, adv_model_paths_ll = [], []
-        for run_hl, chkpt_hl, run_ll, chkpt_ll in zip(runs_hl, chkpts_hl, runs_ll, chkpts_ll):
+        for adv_run, adv_chkpt_hl in zip(adv_runs, adv_chkpts):
+
+            run_hl, run_ll = adv_run, adv_run
+            chkpt_hl, chkpt_ll = adv_chkpt_hl, adv_chkpt_hl
 
             dir_hl, modelnr_hl = get_run(logdir_root, run=run_hl + '/hl_model', chkpt=chkpt_hl)
             adv_model_paths_hl.append("{}/model_{}.pt".format(dir_hl, modelnr_hl))
@@ -82,14 +85,28 @@ if __name__ == "__main__":
     cfg["logdir"] = logdir
 
 
-    INIT_FROM_CHKPT = False
+    INIT_FROM_CHKPT = True  # False
     #active policies
-    runs_hl = ['23_01_10_08_21_36_bilevel_2v2']*2
-    chkpts_hl = [500, 500]
-    runs_ll = ['23_01_10_08_21_36_bilevel_2v2']*2
-    chkpts_ll = [500, 500]
+    runs_hl = ['23_04_26_09_04_35_bilevel_2v2']*2
+    chkpts_hl = [600, 600]
+    runs_ll = ['23_04_26_09_04_35_bilevel_2v2']*2
+    chkpts_ll = [600, 600]
     ##policies to populate adversary buffer
-    adv_runs = ['23_01_10_08_21_36_bilevel_2v2'] * 3
-    adv_chkpts = [500, 500, 500]
+    adv_runs = ['23_04_26_09_04_35_bilevel_2v2']
+    adv_chkpts = [600]
+
+    if INIT_FROM_CHKPT:
+        cfg['learn']['agent_dropout_prob_val_ini'] = 0.0
+        cfg['learn']['agent_dropout_prob_val_end'] = 0.0
+        cfg['learn']['ppc_prob_val_ini'] = 0.25
+        cfg['learn']['ppc_prob_val_end'] = 0.25
+
+        cfg_train['runner']['max_iterations'] = 500
+        cfg_train['runner']['iter_per_ll'] = 50  # 20
+        cfg_train['runner']['iter_per_hl'] = 50  # 20
+        cfg_train['runner']['start_on_ll'] = False
+
+        cfg_train['policy']['do_train_encoder'] = False
+
 
     train()

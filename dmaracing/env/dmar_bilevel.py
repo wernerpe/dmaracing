@@ -21,6 +21,7 @@ from dmaracing.env.car_dynamics import step_cars
 from dmaracing.controllers.purepursuit import PPController
 
 import time
+from dmaracing.utils.helpers import RunningStats
 
 
 class DmarEnvBilevel:
@@ -184,7 +185,10 @@ class DmarEnvBilevel:
         self.reward_scales["collision"] = cfg["learn"]["collisionRewardScale"] * self.dt
         self.reward_scales["acceleration"] = cfg["learn"]["accRewardScale"] * self.dt
         self.reward_scales["velocity"] = cfg["learn"]["velRewardScale"] * self.dt
-        self.reward_scales["goal"] = cfg["learn"]["goalRewardScale"]
+        self.reward_scales["goal"] = cfg["learn"]["goalRewardScale"] * self.dt
+        self.reward_scales["total"] = cfg["learn"]["totalRewardScale"]
+
+        self.reward_stats = RunningStats()
 
         # # Could consider schedule on offtrack-like penalties to not hinder early learning? 
         # self.penalty_track_scale_ini = cfg["learn"]["trackPenaltyScaleIni"]
@@ -1172,6 +1176,9 @@ class DmarEnvBilevel:
         if True:
             self.log_info_ado()
 
+        # self.reward_stats.update(self.rew_buf[:, 0, 0])
+        # self.rew_buf /= self.reward_stats.std()
+
         return self.obs_buf.clone(), self.privileged_obs, self.rew_buf.clone(), self.reset_buf.clone(), self.info
 
     def log_info_ado(self):
@@ -1331,7 +1338,7 @@ class DmarEnvBilevel:
                     self._action_probs_hl, self._action_mean_ll, self._action_std_ll,
                     self.is_on_track_per_wheel, self.vels_body, self.dyn_model.max_vel_vec, self.step_reward_terms, self.reset_cause, self.track_progress, self.active_track_tile,
                     self.ranks if self.num_agents>1 else None, self._global_step, self.all_targets_pos_world_env0, self.all_egoagent_pos_world_env0, self.last_actions,
-                    self.active_track_tile, self.targets_tile_idx, self._values_ll,
+                    self.active_track_tile, self.targets_tile_idx, self._values_ll, None, None, self.use_ppc_vec,
                 )
         else:
             self.viewer_events = self.viewer.render(
@@ -1340,7 +1347,7 @@ class DmarEnvBilevel:
                 self._action_probs_hl, self._action_mean_ll, self._action_std_ll,
                 self.is_on_track_per_wheel, self.vels_body, self.dyn_model.max_vel_vec, self.step_reward_terms, self.reset_cause, self.track_progress, self.active_track_tile,
                 self.ranks if self.num_agents>1 else None, self._global_step, self.all_targets_pos_world_env0, self.all_egoagent_pos_world_env0, self.last_actions,
-                self.active_track_tile, self.targets_tile_idx, self._values_ll,
+                self.active_track_tile, self.targets_tile_idx, self._values_ll, None, None, self.use_ppc_vec,
             )
 
     def write_behavior_stats(self) -> None:
@@ -1824,31 +1831,31 @@ def compute_rewards_jit(
     ### Total rewards
     # Progress
     rew_progress = train_ll * rew_progress_ll + train_hl * rew_progress_hl
-    rew_progress *= reward_scales["progress"]
+    rew_progress *= reward_scales["progress"] * reward_scales["total"]
     # Small velocity
     rew_velocity = train_ll * rew_velocity_ll + train_hl * rew_velocity_hl
-    rew_velocity *= reward_scales["velocity"]
+    rew_velocity *= reward_scales["velocity"] * reward_scales["total"]
     # Off-track
     rew_on_track = train_ll * rew_on_track_ll + train_hl * rew_on_track_hl
-    rew_on_track *= reward_scales["offtrack"]
+    rew_on_track *= reward_scales["offtrack"] * reward_scales["total"]
     # Acceleration
     rew_acc = train_ll * rew_acc_ll + train_hl * rew_acc_hl
-    rew_acc *= reward_scales['acceleration']
+    rew_acc *= reward_scales['acceleration'] * reward_scales["total"]
     # Action rate
     rew_actionrate = train_ll * rew_actionrate_ll + train_hl * rew_actionrate_hl
-    rew_actionrate *= reward_scales["actionrate"]
+    rew_actionrate *= reward_scales["actionrate"] * reward_scales["total"]
     # Goal
     rew_goal = train_ll * rew_goal_ll + train_hl * rew_goal_hl
-    rew_goal *= reward_scales['goal']
+    rew_goal *= reward_scales['goal'] * reward_scales["total"]
     # Relative progress
     rew_rel_prog = train_ll * rew_rel_prog_ll + train_hl * rew_rel_prog_hl
-    rew_rel_prog *= reward_scales['rank']
+    rew_rel_prog *= reward_scales['rank'] * reward_scales["total"]
     # Rank
     rew_rank = train_ll * rew_rank_ll + train_hl * rew_rank_hl
-    rew_rank *= reward_scales["rank"]
+    rew_rank *= reward_scales["rank"] * reward_scales["total"]
     # Collision
     rew_collision = train_ll * rew_collision_ll + train_hl * rew_collision_hl
-    rew_collision *= reward_scales["collision"]
+    rew_collision *= reward_scales["collision"] * reward_scales["total"]
     # Baseline
     rew_baseline = train_ll * rew_baseline_ll + train_hl * rew_baseline_hl
 

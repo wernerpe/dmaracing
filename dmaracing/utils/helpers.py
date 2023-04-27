@@ -175,3 +175,34 @@ def rand(min, max, shape, device):
     r = torch.rand(shape, device=device, dtype = torch.float, requires_grad=False)
     dist = max-min
     return dist*r + min
+
+
+class RunningStats:
+
+    def __init__(self):
+        self.n = 0
+        self.old_m = 0
+        self.new_m = 0
+        self.old_s = 0
+        self.new_s = 0
+
+    def update(self, x):
+        n = x.shape[0]
+
+        new_m = x.mean()
+        new_s = x.std()
+
+        self.new_m = self.n / (self.n + n) * self.old_m + n / (self.n + n) * new_m
+        self.new_s = self.n / (self.n + n) * self.old_s**2 + n / (self.n + n) * new_s**2 +\
+                     self.n * n / (self.n + n)**2 * (self.old_m - new_m)**2
+        self.new_s = torch.sqrt(self.new_s)
+
+        self.old_m = self.new_m
+        self.old_s = self.new_s
+        self.n += n
+
+    def mean(self):
+        return self.new_m
+
+    def std(self):
+        return self.new_s
