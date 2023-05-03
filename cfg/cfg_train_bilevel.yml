@@ -16,7 +16,7 @@ algorithm:
   desired_kl: 0.01  # 0.01  # 0.02  # 0.02  # 0.008
   value_loss_coef: 1.0
   use_clipped_value_loss: True
-  max_grad_norm: 1.0  # 40.0  # 2.0
+  max_grad_norm: 1.0  # 1.0  # 40.0  # 2.0
   use_sdqn: True
   use_mdqn: True  # False
 

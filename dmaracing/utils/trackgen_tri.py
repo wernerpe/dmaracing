@@ -228,12 +228,12 @@ def get_tri_track_ensemble(device, track_half_width, track_poly_spacing):
                   #  "maps/h_track.csv",
                    ]
     
-    f1_paths = "maps/f1maps"
-    f1_map_paths = []
-    for f in os.listdir(f1_paths):
-        if ".csv" in f:
-            f1_map_paths.append(f1_paths+"/"+f)
-    track_paths = f1_map_paths
+    # f1_paths = "maps/f1maps"
+    # f1_map_paths = []
+    # for f in os.listdir(f1_paths):
+    #     if ".csv" in f:
+    #         f1_map_paths.append(f1_paths+"/"+f)
+    # track_paths = f1_map_paths
     track_names = [tpth[5:-4]+pf for tpth in track_paths for pf in ['_ccw', '_cw']]
     Ntracks = len(track_paths)*2
     track_tile_counts =[]

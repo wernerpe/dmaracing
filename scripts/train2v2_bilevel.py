@@ -85,14 +85,14 @@ if __name__ == "__main__":
     cfg["logdir"] = logdir
 
 
-    INIT_FROM_CHKPT = False  # False
+    INIT_FROM_CHKPT = True  # False
     #active policies
-    runs_hl = ['23_05_02_14_33_58_bilevel_2v2']*2
+    runs_hl = ['23_05_03_13_28_03_bilevel_2v2']*2
     chkpts_hl = [500, 500]
-    runs_ll = ['23_05_02_14_33_58_bilevel_2v2']*2
+    runs_ll = ['23_05_03_13_28_03_bilevel_2v2']*2
     chkpts_ll = [500, 500]
     ##policies to populate adversary buffer
-    adv_runs = ['23_05_02_14_33_58_bilevel_2v2']*2
+    adv_runs = ['23_05_03_13_28_03_bilevel_2v2']*2
     adv_chkpts = [500, 500]
 
     if INIT_FROM_CHKPT:
@@ -109,7 +109,7 @@ if __name__ == "__main__":
 
         cfg['model']['vm_noise_scale_ado'] = 0.1
 
-        cfg_train['policy']['do_train_encoder'] = True  # False
+        cfg_train['policy']['do_train_encoder'] = False
 
 
     train()
