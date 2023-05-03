@@ -85,28 +85,31 @@ if __name__ == "__main__":
     cfg["logdir"] = logdir
 
 
-    INIT_FROM_CHKPT = True  # False
+    INIT_FROM_CHKPT = False  # False
     #active policies
-    runs_hl = ['23_04_27_09_55_32_bilevel_2v2']*2
-    chkpts_hl = [600, 600]
-    runs_ll = ['23_04_27_09_55_32_bilevel_2v2']*2
-    chkpts_ll = [600, 600]
+    runs_hl = ['23_05_02_14_33_58_bilevel_2v2']*2
+    chkpts_hl = [500, 500]
+    runs_ll = ['23_05_02_14_33_58_bilevel_2v2']*2
+    chkpts_ll = [500, 500]
     ##policies to populate adversary buffer
-    adv_runs = ['23_04_27_09_55_32_bilevel_2v2']
-    adv_chkpts = [600]
+    adv_runs = ['23_05_02_14_33_58_bilevel_2v2']*2
+    adv_chkpts = [500, 500]
 
     if INIT_FROM_CHKPT:
         cfg['learn']['agent_dropout_prob_val_ini'] = 0.0
         cfg['learn']['agent_dropout_prob_val_end'] = 0.0
-        cfg['learn']['ppc_prob_val_ini'] = 0.25
-        cfg['learn']['ppc_prob_val_end'] = 0.25
+        cfg['learn']['ppc_prob_val_ini'] = 0.5  # 0.25
+        cfg['learn']['ppc_prob_val_end'] = 0.5  # 0.25
 
         cfg_train['runner']['max_iterations'] = 500
         cfg_train['runner']['iter_per_ll'] = 50  # 20
         cfg_train['runner']['iter_per_hl'] = 50  # 20
         cfg_train['runner']['start_on_ll'] = False
+        cfg_train['runner']['centralized_value_hl'] = 'agents'  # False
 
-        cfg_train['policy']['do_train_encoder'] = False
+        cfg['model']['vm_noise_scale_ado'] = 0.1
+
+        cfg_train['policy']['do_train_encoder'] = True  # False
 
 
     train()

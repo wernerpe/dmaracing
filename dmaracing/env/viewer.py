@@ -51,6 +51,9 @@ class Viewer:
         self.num_agents = self.cfg['sim']['numAgents']
         self.num_envs = self.cfg['sim']['numEnv']
 
+        self.act_ll_off = self.cfg['learn']['defaultactions']
+        self.act_ll_scl = self.cfg['learn']['actionscale']
+
         self.teamsize = teamsize
         
         if self.draw_multiagent:
@@ -649,8 +652,12 @@ class Viewer:
         # y = throttle
 
         # Bounds
-        x_act_min, x_act_max = -0.5, +0.5  # -0.35, +0.35
-        y_act_min, y_act_max = -0.3, +0.5  # +1.30
+        # x_act_min, x_act_max = -1.0, +1.0  # -0.5, +0.5  # -0.35, +0.35
+        # y_act_min, y_act_max = -1.0, +1.0  # -0.3, +0.5  # +1.30
+        x_act_min = self.act_ll_off[0] - self.act_ll_scl[0]
+        x_act_max = self.act_ll_off[0] + self.act_ll_scl[0]
+        y_act_min = self.act_ll_off[1] - self.act_ll_scl[1]
+        y_act_max = self.act_ll_off[1] + self.act_ll_scl[1]
         x_off_bar = 50
         x_ref0 = 25  # x_bar_end + x_off_bar
 
@@ -659,6 +666,9 @@ class Viewer:
 
         def scale_std_to_img(v, v_min, v_max, scale):
             return int(scale * (v) / (v_max - v_min))
+
+        # ll_action_mean = (ll_action_mean - self.act_ll_off) / self.act_ll_scl
+        # ll_action_std = ll_action_std / self.act_ll_scl
 
         ellipse_scale = 70
         ellipse_x_pos = scale_pos_to_img(ll_action_mean[0], x_act_min, x_act_max, ellipse_scale)  # int(ellipse_scale * ll_action_mean[0])

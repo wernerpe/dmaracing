@@ -12,7 +12,7 @@ sim:
   #dependent on the lookaheadhorizon length and number of ado cars in an env
   #this is done in get_cfg directly
   numObservations: -1
-  numConstantObservations: 7  # 8 #vels, rxy, lxy, [maxvel=8obs], last actions, rank, teamrank(, offtrack time = 9)
+  numConstantObservations: 10  # 8 #vels, rxy, lxy, [maxvel=8obs], last actions, rank, teamrank(, offtrack time = 9)  [wheels, time, jump] = 7+3
   numConstantObservationsLL: 5  #  5  # goalpos, goalstd, lltime
   numActions: 2
   numActionsHL: 4  # goalpos, goalstd
@@ -22,6 +22,8 @@ sim:
   collisionstiffness: 80.0
   filtercollisionstoego: False  # True  # False
   reset_timeout_only: False
+
+  tile_jump_lim: 15
 
   logBehaviorEvery: 20
 
@@ -44,7 +46,7 @@ model:
   Dr: 0.892
   max_steer_rate: 2.1 #rad/s
   vm_noise_scale_ego: 0.1  # 0.30
-  vm_noise_scale_ado: 0.5  # 0.3  # 0.3
+  vm_noise_scale_ado: 0.5  # 0.5  # 0.3  # 0.3
   lf_noise_scale: 0.02
   lr_noise_scale: 0.02
   steering_offset_noise_scale: 0.03
@@ -103,7 +105,9 @@ learn:
   actionsmaxhl: [6.0, +0.5, 0.5, 0.3]  # [7.0, +0.55, 0.5, 0.3]  # [6.0, +0.55, 0.5, 0.3]  # [5.0, +0.6, 0.7, 0.7]
   actionsinihl: [+0.0, +0.0, 0.5, 0.5]
 
-  actionsallhl: [[+3.00, +4.00, +5.00, +6.00, +7.00],  # --> NOTE: switched to these instead of linear interpolation 
+  actionsallhl: [[+3.00, +4.00, +5.00, +6.00, +7.00],
+                #  [+1.50, +2.00, +2.50, +3.00, +3.50],
+                #  [+3.00, +4.00, +5.00, +6.00, +7.00],  # --> NOTE: switched to these instead of linear interpolation 
                  [-0.50, -0.25, +0.00, +0.25, +0.50],
                  [+0.05, +0.10, +0.20, +0.40, +0.80],
                  [+0.05, +0.10, +0.20, +0.40, +0.80],]
@@ -117,25 +121,25 @@ learn:
   distance_obs_cutoff: 3.0 #[m]
   race_length_laps: 1
 
-  totalRewardScale: 1.0  # 1.0
-  progressRewardScale: 1.0  # 2.0  # 0.1  # 0.0  # 1.0  # 10.0  # 1.0  # 10.0
-  offtrackRewardScale: -2.0  # -2.0  # -1.0  # -0.2  # -0.2  # -1.0  # -0.1  # -0.1
-  actionRateRewardScale: -0.2  # -0.1  # -0.01  # -0.1
-  rankRewardScale: 5.0  # 2.0  # 1.0  # 1.0  # 5.0  # 5.0  # 1.0
-  collisionRewardScale: -5.0  # -25.0  # -5.0  # -2.0  # -1.0  # -0.2  #-0.2  # -0.02  # -0.2
-  rearendcollisionRewardScale: -5.0
-  accRewardScale: -0.1  # -0.5
-  velRewardScale: -1.0  # -1.0
-  goalRewardScale: 500.0  # 5.0  # 2.0  # 1.0  # 1.0  # 1.0  # 5.0  # NOTE: no *dt prior to 04/26/2023
+  totalRewardScale: 0.1  # 1.0  # 1.0
+  progressRewardScale: 1.0  # 0.0  # 1.0  # 1.0  # 2.0  # 0.1  # 0.0  # 1.0  # 10.0  # 1.0  # 10.0
+  offtrackRewardScale: -0.02  # -2.0  # -2.0  # -1.0  # -0.2  # -0.2  # -1.0  # -0.1  # -0.1
+  actionRateRewardScale: -0.002  # -0.2  # -0.1  # -0.01  # -0.1
+  rankRewardScale: 0.02  # 0.01  # 1.0  # 5.0  # 2.0  # 1.0  # 1.0  # 5.0  # 5.0  # 1.0
+  collisionRewardScale: -0.02  # -2.0  # -25.0  # -5.0  # -2.0  # -1.0  # -0.2  #-0.2  # -0.02  # -0.2
+  rearendcollisionRewardScale: -0.03  # -3.0
+  accRewardScale: 0.0  # -0.001  # -0.1  # -0.5
+  velRewardScale: -0.02  # -2.0  # -1.0
+  goalRewardScale: 5.0  # 5.0  # 500.0  # 5.0  # 2.0  # 1.0  # 1.0  # 1.0  # 5.0  # NOTE: no *dt prior to 04/26/2023
   horizon: 12  #  12  # 12  # 15
 
   trackPenaltyScaleIni: 0.2
   trackPenaltyScaleItr: 100
 
-  episode_length_ll: 20  # 20  # low-level steps in high-level step
+  episode_length_ll: 20  # 20  # 20  # low-level steps in high-level step
 
   timeout: 16.0  # 16.0  # 16.0  # 24.0  # 25.0 #[s]
-  offtrack_reset: 0.5  # 0.5  # 1.0  # 0.8 #[s]
+  offtrack_reset: 0.5  # 0.5  # 0.5  # 1.0  # 0.8 #[s]
 
   vel_noise_scale: 1. #0.5
   track_boundary_noise_scale: 1. # 0.3

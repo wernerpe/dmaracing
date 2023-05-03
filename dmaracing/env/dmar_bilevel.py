@@ -74,6 +74,9 @@ class DmarEnvBilevel:
         self.num_actions_hl = self.simParameters["numActionsHL"]
         self.num_obs_add_ll = self.simParameters["numConstantObservationsLL"]
 
+        self.tile_jump_lim = self.simParameters["tile_jump_lim"]
+        self.prog_jump_lim = self.tile_jump_lim * cfg["track"]["track_poly_spacing"]
+
         # Import TRIKART dynamics model and weights
         self.dyn_model = SwitchedBicycleKinodynamicModel( sim_cfg=self.cfg['sim'],
                                                           model_cfg=self.cfg['model'],
@@ -169,26 +172,29 @@ class DmarEnvBilevel:
         self.time_out_buf = torch_zeros((self.num_envs, self.team_size)) > 1
         self.reset_buf = torch_zeros((self.num_envs, self.team_size)) > 1
         self.reset_buf_tmp = torch_zeros((self.num_envs, self.team_size)) > 1
-        self.update_data = 1.0 + torch_zeros((self.num_envs, 1))
+        self.update_data = 1.0 + torch_zeros((self.num_envs, self.team_size))
         self.agent_left_track = torch_zeros((self.num_envs, self.num_agents)) > 1
         self.episode_length_buf = torch_zeros((self.num_envs, 1))
         self.time_off_track = torch_zeros((self.num_envs, self.num_agents))
         self.dt = cfg["sim"]["dt"]
+
+        self.time_left_frac = torch_zeros((self.num_envs, self.num_agents, 1))
+        self.wheel_off_frac = torch_zeros((self.num_envs, self.num_agents, 1))
 
         self.reset_cause = torch_zeros((self.num_envs, 1))
 
         self.dt_hl = cfg["learn"]["episode_length_ll"]
 
         self.reward_scales = {}
-        self.reward_scales["offtrack"] = cfg["learn"]["offtrackRewardScale"] * self.dt
-        self.reward_scales["progress"] = cfg["learn"]["progressRewardScale"] * self.dt
-        self.reward_scales["actionrate"] = cfg["learn"]["actionRateRewardScale"] * self.dt
-        self.reward_scales["rank"] = cfg["learn"]["rankRewardScale"] * self.dt
-        self.reward_scales["collision"] = cfg["learn"]["collisionRewardScale"] * self.dt
-        self.reward_scales["rearendcollision"] = cfg["learn"]["rearendcollisionRewardScale"] * self.dt
-        self.reward_scales["acceleration"] = cfg["learn"]["accRewardScale"] * self.dt
-        self.reward_scales["velocity"] = cfg["learn"]["velRewardScale"] * self.dt
-        self.reward_scales["goal"] = cfg["learn"]["goalRewardScale"] * self.dt
+        self.reward_scales["offtrack"] = cfg["learn"]["offtrackRewardScale"]  # * self.dt
+        self.reward_scales["progress"] = cfg["learn"]["progressRewardScale"]  # * self.dt
+        self.reward_scales["actionrate"] = cfg["learn"]["actionRateRewardScale"]  # * self.dt
+        self.reward_scales["rank"] = cfg["learn"]["rankRewardScale"]  # * self.dt
+        self.reward_scales["collision"] = cfg["learn"]["collisionRewardScale"]  # * self.dt
+        self.reward_scales["rearendcollision"] = cfg["learn"]["rearendcollisionRewardScale"]  # * self.dt
+        self.reward_scales["acceleration"] = cfg["learn"]["accRewardScale"]  # * self.dt
+        self.reward_scales["velocity"] = cfg["learn"]["velRewardScale"]  # * self.dt
+        self.reward_scales["goal"] = cfg["learn"]["goalRewardScale"]  # * self.dt
         self.reward_scales["total"] = cfg["learn"]["totalRewardScale"]
 
         self.reward_stats = RunningStats()
@@ -752,7 +758,7 @@ class DmarEnvBilevel:
 
             self.progress_other = (
                 torch.clip(torch.cat(tuple([prog for prog in other_progress]), dim=1), min=-self.cfg["learn"]["distance_obs_cutoff"], max=self.cfg["learn"]["distance_obs_cutoff"])
-                * self.active_obs_template - 2.5*(1-self.active_obs_template)
+                * self.active_obs_template - self.cfg["learn"]["distance_obs_cutoff"]*(1-self.active_obs_template)  # 2.5
             )
 
             self.contouring_err_other = (
@@ -763,6 +769,17 @@ class DmarEnvBilevel:
             last_raw_actions = self.last_actions.clone()
             last_raw_actions[:,:, 0] = (last_raw_actions[:,:, 0] - self.default_actions[0])/self.action_scales[0]  
             last_raw_actions[:,:, 1] = (last_raw_actions[:,:, 1] - self.default_actions[1])/self.action_scales[1]  
+
+            self.time_left_frac[:, :, 0] = 1.0 - torch.clamp(1.0 - self.episode_length_buf / (0.8*self.max_episode_length), min=0.0)
+            self.wheel_off_frac[:, :, 0] = ((~self.is_on_track_per_wheel) * 1.0).sum(dim=-1) / 4.0
+            progress_jump = (self.track_progress - self.old_track_progress) * (self.episode_length_buf > 1)
+            progress_jump = torch.clamp(progress_jump, min=-5.0, max=+5.0)
+
+            # print("--------------")
+            # print(self.episode_length_buf[0])
+            # print(self.time_left_frac[0])
+            # print(self.wheel_off_frac[0])
+            # print(progress_jump[0])
             
             #maxvel obs self.dyn_model.dynamics_integrator.dyn_model.max_vel_vec
             self.obs_buf = torch.cat(
@@ -773,9 +790,12 @@ class DmarEnvBilevel:
                     lookahead_lbound_scaled[:,:,:,0], 
                     lookahead_lbound_scaled[:,:,:,1],
                     # self.dyn_model.max_vel_vec,  # NOTE: removed if only used for robustness
+                    2.0 * self.time_left_frac - 1.0,
+                    2.0 * self.wheel_off_frac - 1.0,
+                    progress_jump.view(-1, self.num_agents, 1),
                     last_raw_actions,
-                    self.ranks.view(-1, self.num_agents, 1),
-                    self.teamranks.view(-1, self.num_agents, 1),
+                    self.ranks.view(-1, self.num_agents, 1) - 1.5,
+                    self.teamranks.view(-1, self.num_agents, 1) - 1.0,
                     self.progress_other * 0.3,  # * 0.1,  # HACK: testing 04/24/23
                     self.contouring_err_other,  #  * 0.25,  # HACK: testing 04/24/23
                     torch.sin(rot_other),
@@ -814,7 +834,7 @@ class DmarEnvBilevel:
             # noise_vec = torch.randn_like(self.obs_buf) * 0.1 * self.obs_noise_lvl
             noise_vec = self.generate_noise_vec(self.obs_buf.size())  # self.obs_noise_lvl * (2.0 * (torch.rand(self.obs_buf.size(), device=self.obs_buf.device) - 0.5))
             # noise_vec[..., -7*self.num_agents+5:-7*self.num_agents] = 0.0
-            noise_vec[..., -7*(self.num_agents-1)-4:-7*(self.num_agents-1)] = 0.0
+            noise_vec[..., -7*(self.num_agents-1)-7:-7*(self.num_agents-1)] = 0.0  # -4 w/o time & off-track & jump
             #velocity
             noise_vec[..., 0:3] *= self.vel_noise_scale
             #trackboundaries
@@ -869,11 +889,13 @@ class DmarEnvBilevel:
             self.ll_steps_left,
             1.0 * self.train_ll,
             self.is_on_track_per_wheel,
-            self.targets_off_ahead
+            self.targets_off_ahead,
+            self.time_left_frac,
+            self.prog_jump_lim,
         )
 
     def check_progress_jump(self, progress, old_progress) -> torch.Tensor:
-        return torch.abs(progress - old_progress) > 3.5  # 5.0  # 3.5
+        return torch.abs(progress - old_progress) > self.prog_jump_lim  # 5.0  # 3.5
 
     def check_termination(self) -> None:
         
@@ -883,6 +905,7 @@ class DmarEnvBilevel:
         ### Check cutting
         # reset_progress = (self.check_progress_jump(self.track_progress, self.old_track_progress)[..., 0].view(-1, 1))*(self.episode_length_buf > 2)
         reset_progress = (self.check_progress_jump(self.track_progress, self.old_track_progress)[..., :self.team_size])*(self.episode_length_buf > 2)
+        reset_progress = reset_progress & False  # self.train_ll
         ### Check timeout
         reset_timeout = self.episode_length_buf > self.max_episode_length
         
@@ -1106,7 +1129,7 @@ class DmarEnvBilevel:
         self.last_vel[env_ids, ...] = 0.0
         self.agent_left_track[env_ids, :] = False
 
-        self.reset_buf[env_ids] = False
+        # self.reset_buf[env_ids] = False
         self.reset_buf_tmp[env_ids] = False
         self.update_data[env_ids] = 1.0
 
@@ -1250,8 +1273,12 @@ class DmarEnvBilevel:
         self.trackdir = torch.stack((torch.cos(angs), torch.sin(angs)), dim=2)
         self.trackperp = torch.stack((-torch.sin(angs), torch.cos(angs)), dim=2)
 
-        increment_idx = torch.where(self.active_track_tile - self.old_active_track_tile < 15 - self.track_tile_counts[self.active_track_ids].view(-1, 1))  # avoid farming turns? NOTE: track length - buffer
-        decrement_idx = torch.where(self.active_track_tile - self.old_active_track_tile > 15)
+        # increment_idx = torch.where(self.active_track_tile - self.old_active_track_tile < 15 - self.track_tile_counts[self.active_track_ids].view(-1, 1))  # avoid farming turns? NOTE: track length - buffer
+        # decrement_idx = torch.where(self.active_track_tile - self.old_active_track_tile > 15)
+
+        increment_idx = torch.where(self.active_track_tile - self.old_active_track_tile < -0.9 * self.track_tile_counts[self.active_track_ids].view(-1, 1))
+        decrement_idx = torch.where(self.active_track_tile - self.old_active_track_tile > +0.9 * self.track_tile_counts[self.active_track_ids].view(-1, 1))
+
         self.lap_counter[increment_idx] += 1
         self.lap_counter[decrement_idx] -= 1
 
@@ -1279,7 +1306,7 @@ class DmarEnvBilevel:
         # Compute reward terms
         self.vel = torch.norm(self.states[:,:,self.vn['S_DX']:self.vn['S_DY']+1], dim = -1)
         self.compute_rewards()
-        self.rew_buf = self.rew_buf * self.update_data.view(-1, 1, 1)  # mask HL obs that terminated
+        self.rew_buf[:, :self.team_size] = self.rew_buf[:, :self.team_size] * self.update_data[..., None]  # mask HL obs that terminated
         if self.log_behavior_stats:
             self.update_current_behavior_stats()
         
@@ -1312,6 +1339,8 @@ class DmarEnvBilevel:
             self.is_on_track_per_wheel[env_ids, ...] = True
             self.is_on_track[env_ids, ...] = True
             self.reset_cause[env_ids] = 0.
+            self.time_left_frac[env_ids] = 0.
+            self.wheel_off_frac[env_ids] = 0.
             # Last vel same as init (acc reward)
             self.last_vel = torch.norm(self.states[:,:,self.vn['S_DX']:self.vn['S_DY']+1], dim = -1)
 
@@ -1336,7 +1365,8 @@ class DmarEnvBilevel:
         self.last_vel[:] = self.vel
         self.prev_ranks[:] = self.ranks
 
-        self.update_data = 1.0 * torch.cumsum(self.reset_buf_tmp == self.reset_buf, axis=-1)[..., self.reset_ids]
+        self.update_data = 1.0 * (self.reset_buf_tmp==False)
+      
 
     def render(
         self,
@@ -1724,6 +1754,8 @@ def compute_rewards_jit(
     train_ll: float,
     is_on_track_per_wheel: torch.Tensor,
     targets_off_ahead: torch.Tensor,
+    time_left_frac: torch.Tensor,
+    prog_jump_lim: float,
 ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
 
     train_hl = 1.0 - train_ll
@@ -1731,13 +1763,13 @@ def compute_rewards_jit(
     ### Progress reward
     # Base
     progress_delta = track_progress - old_track_progress
-    progress_jump = 1.0 * (torch.abs(progress_delta) > 3.5)
-    rew_progress = torch.clip(progress_delta, min=-10, max=10) * (1.0 - progress_jump)
-    rew_progress -= 5.0 * progress_jump
+    progress_jump = 1.0 * (torch.abs(progress_delta) > prog_jump_lim)
+    rew_progress = 0 * torch.clip(progress_delta, min=-10, max=10) * (1.0 - progress_jump)
+    rew_progress -= 5.0 * progress_jump  # -3.0  # -5.0
     # LL mod
     rew_progress_ll = 1.0 * rew_progress
     # HL mod
-    rew_progress_hl = 1.0 * rew_progress
+    rew_progress_hl = 0.0 * rew_progress
     
     ### Small velocity penalty
     # Base
@@ -1782,9 +1814,9 @@ def compute_rewards_jit(
     rew_goal = get_multivariate_reward(targets_dist_local, targets_std_local)
     # LL mod
     # rew_goal_ll = 0.05 / ll_steps_left.squeeze(-1) * rew_goal * (vel > 0.5) * torch.exp((vel-0.5)/5.0)  # NOTE: pre-04/24/23
-    rew_goal_ll = (ll_steps_left.squeeze(-1) < 0.15) * rew_goal * (vel > 0.5) * torch.exp((vel-0.5)/5.0)
+    rew_goal_ll = (ll_steps_left.squeeze(-1) < 0.15) * rew_goal * torch.exp((vel-2.0)/4.0)  # * (vel > 0.5)
     # HL mod
-    rew_goal_hl = 0.0 * rew_goal + 5.e-2 * targets_off_ahead[..., 0] / 5.0 * ll_ep_done[..., 0]  # bias towards far away goals
+    rew_goal_hl = 0.0 * rew_goal  #+ 5.e-2 * targets_off_ahead[..., 0] / 5.0 * ll_ep_done[..., 0]  # bias towards far away goals
 
     ### Baseline reward
     # Base
@@ -1805,11 +1837,13 @@ def compute_rewards_jit(
 
         ### Rank reward
         # Base
-        rew_rank = 1.0 * (prev_ranks - ranks) / (1.0 + torch.minimum(prev_ranks, ranks)) + torch.exp(-teamranks)
+        rew_rank = 1.0 * (prev_ranks - ranks) / (1.0 + torch.minimum(prev_ranks, ranks)) + 1.e-2*torch.exp(-teamranks)
+        rew_rank += (time_left_frac[..., 0]==1.0) * (teamranks==0) * 2.0
         # LL mod
         rew_rank_ll = 0.0 * rew_rank
         # HL mod
-        rew_rank_hl = 1.0 * rew_rank * ll_ep_done[..., 0] * dt_hl
+        rew_rank_hl = 1.0 * rew_rank * ll_ep_done[..., 0] * dt_hl  #  + (teamranks==0) * dt_hl
+        # rew_rank_hl += 10.0 * (eps_length > 0.95*max_length) * (teamranks==0)
 
         ### Collision reward
         # Base
@@ -1879,7 +1913,7 @@ def compute_rewards_jit(
     rew_rearend_collision = train_ll * rew_rearend_collision_ll[..., 0] + train_hl * rew_rearend_collision_hl[..., 0]
     rew_rearend_collision *= reward_scales["rearendcollision"] * reward_scales["total"]
     # Baseline
-    rew_baseline = train_ll * rew_baseline_ll + train_hl * rew_baseline_hl
+    rew_baseline = (train_ll * rew_baseline_ll + train_hl * rew_baseline_hl) * reward_scales["total"]
 
     # Combined
     rew_buf[..., 0] = torch.clip(

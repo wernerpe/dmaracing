@@ -16,20 +16,22 @@ algorithm:
   desired_kl: 0.01  # 0.01  # 0.02  # 0.02  # 0.008
   value_loss_coef: 1.0
   use_clipped_value_loss: True
-  max_grad_norm: 40.0  # 2.0
+  max_grad_norm: 1.0  # 40.0  # 2.0
   use_sdqn: True
-  use_mdqn: False
+  use_mdqn: True  # False
 
 runner:
   policy_class_hl_name: MultiTeamBilevelDecCritic #MultiTeamBilevelDecCritic  #MultiTeamBilevelDecCritic  # MultiTeamBilevelActorCritic  # BilevelActorCriticAttention  # BilevelActorCritic
   algorithm_class_hl_name: BimaDecSARSA #BimaDecSARSA  # BimaDecSARSA  # BimaPPO  # BilevelPPO
   policy_class_ll_name: MultiTeamBilevelActorCritic  # BilevelActorCriticAttention  # BilevelActorCritic
   algorithm_class_ll_name: BimaPPO  # BilevelPPO
-  num_steps_per_env_hl: 5  # 20  # 64 # per iteration
+  centralized_value_hl: 'agents'  # True
+  centralized_value_ll: False
+  num_steps_per_env_hl: 8  # 20  # 64 # per iteration
   num_steps_per_env_ll: 40  # 40  # 60
-  max_iterations: 600  # 600  # 1000  # 1300  # 2400  # 1200 # 500 # number of policy updates
+  max_iterations: 500  # 600  # 1000  # 1300  # 2400  # 1200 # 500 # number of policy updates
   iter_per_hl: 20  # 200  # 20  # 20  # 1  # 20
-  iter_per_ll: 600  # 600  # 200  # 400  # 40  # 40  # 100  # 200  # 100 # 300  # 200  # 10  # 200
+  iter_per_ll: 500  # 600  # 200  # 400  # 40  # 40  # 100  # 200  # 100 # 300  # 200  # 10  # 200
   start_on_ll: True
   pretrain_ll_iter: 0  # 200  # 1000
   warmup_hl_iter: 1  # 200
@@ -60,4 +62,4 @@ policy:
   teamsize: 2
   numteams: 2
   numcritics: 1
-  max_num_old_models: 5  # 5
+  max_num_old_models: 10  # 5
