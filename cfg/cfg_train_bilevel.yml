@@ -16,7 +16,7 @@ algorithm:
   desired_kl: 0.01  # 0.01  # 0.02  # 0.02  # 0.008
   value_loss_coef: 1.0
   use_clipped_value_loss: True
-  max_grad_norm: 1.0  # 1.0  # 40.0  # 2.0
+  max_grad_norm: 1.0  # 1.0  # 1.0  # 40.0  # 2.0
   use_sdqn: True
   use_mdqn: True  # False
 
@@ -49,10 +49,10 @@ runner:
   resume_path: None # updated from load_run and chkpt
 
 policy: 
-  actor_hidden_dims: [128, 128]  # [256, 256]  # [256, 128]  # [256, 128]
-  critic_hidden_dims: [256, 256]  # [512, 512]  # [256, 128]  # [256, 128]
-  encoder_embed_dims: [32, 32]  # [64, 64]  # [128]  # [64]
-  encoder_attend_dims: [64]  # [64]  # [128]
+  actor_hidden_dims: [256, 256]  # [128, 128]  # [256, 256]  # [256, 128]  # [256, 128]
+  critic_hidden_dims: [512, 512]  # [256, 256]  # [512, 512]  # [256, 128]  # [256, 128]
+  encoder_embed_dims: [64, 64]  # [32, 32]  # [64, 64]  # [128]  # [64]
+  encoder_attend_dims: [128]  # [64]  # [64]  # [128]
   activation: elu # can be elu, relu, selu, crelu, lrelu, tanh, sigmoid
   init_noise_std: 0.3  # 0.3  # 1.0
   std_per_obs: False  # False

@@ -12,7 +12,7 @@ sim:
   #dependent on the lookaheadhorizon length and number of ado cars in an env
   #this is done in get_cfg directly
   numObservations: -1
-  numConstantObservations: 10  # 8 #vels, rxy, lxy, [maxvel=8obs], last actions, rank, teamrank(, offtrack time = 9)  [wheels, time, jump] = 7+3
+  numConstantObservations: 8  # 8 #vels, rxy, lxy, [maxvel=8obs], last actions, rank, teamrank(, offtrack time = 9)  [wheels, time, jump] = 7+3
   numConstantObservationsLL: 5  #  5  # goalpos, goalstd, lltime
   numActions: 2
   numActionsHL: 4  # goalpos, goalstd
@@ -113,7 +113,7 @@ learn:
                  [+0.05, +0.10, +0.20, +0.40, +0.80],]
   use_hl_uncertainty: True
 
-  agent_dropout_prob_val_ini: 1.0
+  agent_dropout_prob_val_ini: 0.0  # 1.0
   agent_dropout_prob_val_end: 0.0
   agent_dropout_prob_itr_ini: 0  # 50  # 1000
   agent_dropout_prob_itr_end: 200  # 500 
@@ -125,9 +125,9 @@ learn:
   progressRewardScale: 1.0  # 0.0  # 1.0  # 1.0  # 2.0  # 0.1  # 0.0  # 1.0  # 10.0  # 1.0  # 10.0
   offtrackRewardScale: -0.02  # -2.0  # -2.0  # -1.0  # -0.2  # -0.2  # -1.0  # -0.1  # -0.1
   actionRateRewardScale: -0.002  # -0.2  # -0.1  # -0.01  # -0.1
-  rankRewardScale: 2.0  # 0.02  # 0.01  # 1.0  # 5.0  # 2.0  # 1.0  # 1.0  # 5.0  # 5.0  # 1.0
-  collisionRewardScale: -0.02  # -2.0  # -25.0  # -5.0  # -2.0  # -1.0  # -0.2  #-0.2  # -0.02  # -0.2
-  rearendcollisionRewardScale: -0.03  # -3.0
+  rankRewardScale: 2.0  # 5.0  # 2.0  # 0.02  # 0.01  # 1.0  # 5.0  # 2.0  # 1.0  # 1.0  # 5.0  # 5.0  # 1.0
+  collisionRewardScale: -0.03  # -0.02  # -2.0  # -25.0  # -5.0  # -2.0  # -1.0  # -0.2  #-0.2  # -0.02  # -0.2
+  rearendcollisionRewardScale: -0.05  # -0.03  # -3.0
   accRewardScale: -0.001  # -0.1  # -0.5
   velRewardScale: -0.02  # -2.0  # -1.0
   goalRewardScale: 5.0  # 5.0  # 500.0  # 5.0  # 2.0  # 1.0  # 1.0  # 1.0  # 5.0  # NOTE: no *dt prior to 04/26/2023

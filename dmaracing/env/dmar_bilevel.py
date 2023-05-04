@@ -334,6 +334,8 @@ class DmarEnvBilevel:
         self.prev_ranks = torch.zeros(
             (self.num_envs, self.num_agents), requires_grad=False, device=self.device, dtype=torch.int
         )
+        self.initial_team_rank = torch.zeros(
+            (self.num_envs, self.num_agents), requires_grad=False, device=self.device, dtype=torch.int)
 
         # HACK: targets
         self.targets_pos_world = torch.zeros(
@@ -790,8 +792,8 @@ class DmarEnvBilevel:
                     lookahead_lbound_scaled[:,:,:,0], 
                     lookahead_lbound_scaled[:,:,:,1],
                     # self.dyn_model.max_vel_vec,  # NOTE: removed if only used for robustness
-                    2.0 * self.time_left_frac - 1.0,
-                    2.0 * self.wheel_off_frac - 1.0,
+                    # 2.0 * self.time_left_frac - 1.0,  # NOTE: removed 05/04/23 evening
+                    # 2.0 * self.wheel_off_frac - 1.0,  # NOTE: removed 05/04/23 evening
                     progress_jump.view(-1, self.num_agents, 1),
                     last_raw_actions,
                     self.ranks.view(-1, self.num_agents, 1) - 1.5,
@@ -834,7 +836,7 @@ class DmarEnvBilevel:
             # noise_vec = torch.randn_like(self.obs_buf) * 0.1 * self.obs_noise_lvl
             noise_vec = self.generate_noise_vec(self.obs_buf.size())  # self.obs_noise_lvl * (2.0 * (torch.rand(self.obs_buf.size(), device=self.obs_buf.device) - 0.5))
             # noise_vec[..., -7*self.num_agents+5:-7*self.num_agents] = 0.0
-            noise_vec[..., -7*(self.num_agents-1)-7:-7*(self.num_agents-1)] = 0.0  # -4 w/o time & off-track & jump
+            noise_vec[..., -7*(self.num_agents-1)-5:-7*(self.num_agents-1)] = 0.0  # -4 w/o time & off-track & jump ; 7 with all new obs
             #velocity
             noise_vec[..., 0:3] *= self.vel_noise_scale
             #trackboundaries
@@ -892,6 +894,7 @@ class DmarEnvBilevel:
             self.targets_off_ahead,
             self.time_left_frac,
             self.prog_jump_lim,
+            self.initial_team_rank,
         )
 
     def check_progress_jump(self, progress, old_progress) -> torch.Tensor:
@@ -1108,6 +1111,8 @@ class DmarEnvBilevel:
 
         for team in self.teams:
             self.teamranks[:, team] = torch.min(self.ranks[:, team], dim = 1)[0].reshape(-1,1).type(torch.int)
+
+        self.initial_team_rank[env_ids, :] = self.teamranks[env_ids, :].clone()
 
         self.is_collision[env_ids, ...] = False
         self.is_rearend_collision[env_ids, ...] = 0
@@ -1756,6 +1761,7 @@ def compute_rewards_jit(
     targets_off_ahead: torch.Tensor,
     time_left_frac: torch.Tensor,
     prog_jump_lim: float,
+    initial_team_rank: torch.Tensor,
 ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
 
     train_hl = 1.0 - train_ll
@@ -1838,11 +1844,15 @@ def compute_rewards_jit(
         ### Rank reward
         # Base
         rew_rank = 1.0 * (prev_ranks - ranks) / (1.0 + torch.minimum(prev_ranks, ranks)) + 1.e-2*torch.exp(-teamranks)
-        rew_rank += (time_left_frac[..., 0]==1.0) * (teamranks==0) * 2.0
+        # NOTE: removed below on 05/04/23 evening
+        # rew_rank += (time_left_frac[..., 0]==1.0) * (teamranks==0) * 2.0 
+        # rew_rank += (time_left_frac[..., 0]==1.0) * (teamranks - initial_team_rank) * 0.1  # NOTE: not visible from obs
+        # NOTE: replaced above with this
+        rew_rank += (teamranks - initial_team_rank) * 0.2
         # LL mod
         rew_rank_ll = 0.0 * rew_rank
         # HL mod
-        rew_rank_hl = 1.0 * rew_rank * ll_ep_done[..., 0] * dt_hl  #  + (teamranks==0) * dt_hl
+        rew_rank_hl = 1.0 * rew_rank * ll_ep_done[..., 0]  # * dt_hl  #  + (teamranks==0) * dt_hl
         # rew_rank_hl += 10.0 * (eps_length > 0.95*max_length) * (teamranks==0)
 
         ### Collision reward
