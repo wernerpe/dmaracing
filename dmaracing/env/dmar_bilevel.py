@@ -418,6 +418,7 @@ class DmarEnvBilevel:
             self.stats_start_from_behind_current = torch.zeros((self.num_envs), device = self.device)
             self.stats_win_from_behind_last_race = torch.zeros((self.num_envs), device = self.device)
             self.stats_lead_time_current = torch.zeros((self.num_envs), device = self.device)
+            self.stats_lap_time_current = torch.zeros((self.num_envs), device = self.device)
             self.stats_lead_time_last_race = torch.zeros((self.num_envs), device = self.device)
             self.stats_last_ranks = torch.zeros((self.num_envs, self.num_agents), device = self.device)
 
@@ -792,8 +793,8 @@ class DmarEnvBilevel:
                     lookahead_lbound_scaled[:,:,:,0], 
                     lookahead_lbound_scaled[:,:,:,1],
                     # self.dyn_model.max_vel_vec,  # NOTE: removed if only used for robustness
-                    # 2.0 * self.time_left_frac - 1.0,  # NOTE: removed 05/04/23 evening
-                    # 2.0 * self.wheel_off_frac - 1.0,  # NOTE: removed 05/04/23 evening
+                    2.0 * self.time_left_frac - 1.0,  # NOTE: removed 05/04/23 evening
+                    2.0 * self.wheel_off_frac - 1.0,  # NOTE: removed 05/04/23 evening
                     progress_jump.view(-1, self.num_agents, 1),
                     last_raw_actions,
                     self.ranks.view(-1, self.num_agents, 1) - 1.5,
@@ -836,7 +837,7 @@ class DmarEnvBilevel:
             # noise_vec = torch.randn_like(self.obs_buf) * 0.1 * self.obs_noise_lvl
             noise_vec = self.generate_noise_vec(self.obs_buf.size())  # self.obs_noise_lvl * (2.0 * (torch.rand(self.obs_buf.size(), device=self.obs_buf.device) - 0.5))
             # noise_vec[..., -7*self.num_agents+5:-7*self.num_agents] = 0.0
-            noise_vec[..., -7*(self.num_agents-1)-5:-7*(self.num_agents-1)] = 0.0  # -4 w/o time & off-track & jump ; 7 with all new obs
+            noise_vec[..., -7*(self.num_agents-1)-7:-7*(self.num_agents-1)] = 0.0  # -4 w/o time & off-track & jump ; 7 with all new obs
             #velocity
             noise_vec[..., 0:3] *= self.vel_noise_scale
             #trackboundaries
@@ -1281,8 +1282,8 @@ class DmarEnvBilevel:
         # increment_idx = torch.where(self.active_track_tile - self.old_active_track_tile < 15 - self.track_tile_counts[self.active_track_ids].view(-1, 1))  # avoid farming turns? NOTE: track length - buffer
         # decrement_idx = torch.where(self.active_track_tile - self.old_active_track_tile > 15)
 
-        increment_idx = torch.where(self.active_track_tile - self.old_active_track_tile < -0.9 * self.track_tile_counts[self.active_track_ids].view(-1, 1))
-        decrement_idx = torch.where(self.active_track_tile - self.old_active_track_tile > +0.9 * self.track_tile_counts[self.active_track_ids].view(-1, 1))
+        increment_idx = torch.where(self.active_track_tile - self.old_active_track_tile < -0.2 * self.track_tile_counts[self.active_track_ids].view(-1, 1))  # 0.9
+        decrement_idx = torch.where(self.active_track_tile - self.old_active_track_tile > +0.2 * self.track_tile_counts[self.active_track_ids].view(-1, 1))  # 0.9
 
         self.lap_counter[increment_idx] += 1
         self.lap_counter[decrement_idx] -= 1
@@ -1538,6 +1539,7 @@ class DmarEnvBilevel:
         self.stats_ado_left_track_current[env_ids] = 0 
         self.stats_start_from_behind_current[env_ids] = -1
         self.stats_lead_time_current[env_ids] = 0
+        self.stats_lap_time_current[env_ids] = 0
 
     def reset_track_stats(self, env_ids):
         self.stats_percentage_sa_laptime_last_race[env_ids] = -1
@@ -1550,6 +1552,11 @@ class DmarEnvBilevel:
         self.stats_lead_time_current[:] += self.dt*(self.ranks[:, 0]==0)
         
         self.stats_last_ranks[:] = self.ranks[:] 
+
+        time_ep = (self.episode_length_buf*self.dt*self.decimation).view(-1,)
+        prog_ep = torch.clip(self.track_progress[:, 0].view(-1,), min = 0)
+        track_len_ep = self.track_lengths[self.active_track_ids].view(-1,)
+        self.stats_lap_time_current[:] = (track_len_ep/ (prog_ep+1e-6)) * time_ep 
 
 
 # OLD REFERENCE
@@ -1791,6 +1798,7 @@ def compute_rewards_jit(
     back_axel_off_track = (1.0 * ~is_on_track_per_wheel[..., 2]) * (1.0 * ~is_on_track_per_wheel[..., 3])
     num_wheels_off_track = ((~is_on_track_per_wheel) * 1.0).sum(dim=-1)
     rew_on_track = 0.5*num_wheels_off_track + 1.0*front_axel_off_track + 1.0*back_axel_off_track
+    # rew_on_track -= (num_wheels_off_track == 0) * 0.1  # 0.5
     # LL mod
     rew_on_track_ll = 1.0 * rew_on_track
     # HL mod
@@ -1807,8 +1815,8 @@ def compute_rewards_jit(
     ### Action rate penalty
     # Base
     act_diff = torch.square(actions - last_actions)
-    act_diff[..., 0] *= 5.0  # 20.0  # 5.0  # 25.0
-    act_diff[..., 1] *= 1.0  # 10.0
+    act_diff[..., 0] *= 1.0  # 5.0  # 20.0  # 5.0  # 25.0
+    act_diff[..., 1] *= 1.0  # 1.0  # 10.0
     rew_actionrate = torch.sum(act_diff, dim=2)
     # LL mod
     rew_actionrate_ll = 1.0 * rew_actionrate
@@ -1820,7 +1828,8 @@ def compute_rewards_jit(
     rew_goal = get_multivariate_reward(targets_dist_local, targets_std_local)
     # LL mod
     # rew_goal_ll = 0.05 / ll_steps_left.squeeze(-1) * rew_goal * (vel > 0.5) * torch.exp((vel-0.5)/5.0)  # NOTE: pre-04/24/23
-    rew_goal_ll = (ll_steps_left.squeeze(-1) < 0.15) * rew_goal * torch.exp((vel-2.0)/4.0)  # * (vel > 0.5)
+    rew_goal_ll = (ll_steps_left.squeeze(-1) < 0.15) * rew_goal * torch.exp((vel-2.0)/4.0)  # NOTE: pre-05/05/23  ||| * (vel > 0.5)
+    # rew_goal_ll = 0.05 / ll_steps_left.squeeze(-1) * rew_goal * torch.exp((vel-2.0)/4.0)
     # HL mod
     rew_goal_hl = 0.0 * rew_goal  #+ 5.e-2 * targets_off_ahead[..., 0] / 5.0 * ll_ep_done[..., 0]  # bias towards far away goals
 
@@ -1843,12 +1852,14 @@ def compute_rewards_jit(
 
         ### Rank reward
         # Base
-        rew_rank = 1.0 * (prev_ranks - ranks) / (1.0 + torch.minimum(prev_ranks, ranks)) + 1.e-2*torch.exp(-teamranks)
+        rew_rank = 1.0 * (prev_ranks - ranks) / (1.0 + torch.minimum(prev_ranks, ranks)) # + 1.e-2*torch.exp(-teamranks)
         # NOTE: removed below on 05/04/23 evening
-        # rew_rank += (time_left_frac[..., 0]==1.0) * (teamranks==0) * 2.0 
-        # rew_rank += (time_left_frac[..., 0]==1.0) * (teamranks - initial_team_rank) * 0.1  # NOTE: not visible from obs
-        # NOTE: replaced above with this
-        rew_rank += (teamranks - initial_team_rank) * 0.2
+        rew_rank += (time_left_frac[..., 0]==1.0) * (teamranks==0) * 2.0 
+        rew_rank += (time_left_frac[..., 0]==1.0) * (initial_team_rank - teamranks) * 0.25  # 0.1  # NOTE: not visible from obs
+        rew_rank += 1.e-1*torch.exp(-ranks)
+        # # NOTE: replaced above with this
+        # rew_rank += (teamranks==0) * 0.5
+        # rew_rank += (initial_team_rank - teamranks) * 0.1
         # LL mod
         rew_rank_ll = 0.0 * rew_rank
         # HL mod

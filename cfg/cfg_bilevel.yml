@@ -12,7 +12,7 @@ sim:
   #dependent on the lookaheadhorizon length and number of ado cars in an env
   #this is done in get_cfg directly
   numObservations: -1
-  numConstantObservations: 8  # 8 #vels, rxy, lxy, [maxvel=8obs], last actions, rank, teamrank(, offtrack time = 9)  [wheels, time, jump] = 7+3
+  numConstantObservations: 10  # 8 #vels, rxy, lxy, [maxvel=8obs], last actions, rank, teamrank(, offtrack time = 9)  [wheels, time, jump] = 7+3
   numConstantObservationsLL: 5  #  5  # goalpos, goalstd, lltime
   numActions: 2
   numActionsHL: 4  # goalpos, goalstd
@@ -105,7 +105,8 @@ learn:
   actionsmaxhl: [6.0, +0.5, 0.5, 0.3]  # [7.0, +0.55, 0.5, 0.3]  # [6.0, +0.55, 0.5, 0.3]  # [5.0, +0.6, 0.7, 0.7]
   actionsinihl: [+0.0, +0.0, 0.5, 0.5]
 
-  actionsallhl: [[+3.00, +4.00, +5.00, +6.00, +7.00],
+  actionsallhl: [[+4.00, +5.00, +6.00, +7.00, +8.00],
+                # [+2.00, +2.50, +3.00, +3.50, +4.00],
                 #  [+1.50, +2.00, +2.50, +3.00, +3.50],
                 #  [+3.00, +4.00, +5.00, +6.00, +7.00],  # --> NOTE: switched to these instead of linear interpolation 
                  [-0.50, -0.25, +0.00, +0.25, +0.50],
@@ -122,15 +123,15 @@ learn:
   race_length_laps: 1
 
   totalRewardScale: 0.1  # 1.0  # 1.0
-  progressRewardScale: 1.0  # 0.0  # 1.0  # 1.0  # 2.0  # 0.1  # 0.0  # 1.0  # 10.0  # 1.0  # 10.0
-  offtrackRewardScale: -0.02  # -2.0  # -2.0  # -1.0  # -0.2  # -0.2  # -1.0  # -0.1  # -0.1
-  actionRateRewardScale: -0.002  # -0.2  # -0.1  # -0.01  # -0.1
+  progressRewardScale: 0.5  # 1.0  # 0.5  # 1.0  # 0.0  # 1.0  # 1.0  # 2.0  # 0.1  # 0.0  # 1.0  # 10.0  # 1.0  # 10.0
+  offtrackRewardScale: -0.02  # -0.04  # -0.02  # -2.0  # -2.0  # -1.0  # -0.2  # -0.2  # -1.0  # -0.1  # -0.1
+  actionRateRewardScale: -0.006  # -0.01 # -0.006  # -0.002  # -0.2  # -0.1  # -0.01  # -0.1
   rankRewardScale: 2.0  # 5.0  # 2.0  # 0.02  # 0.01  # 1.0  # 5.0  # 2.0  # 1.0  # 1.0  # 5.0  # 5.0  # 1.0
-  collisionRewardScale: -0.03  # -0.02  # -2.0  # -25.0  # -5.0  # -2.0  # -1.0  # -0.2  #-0.2  # -0.02  # -0.2
-  rearendcollisionRewardScale: -0.05  # -0.03  # -3.0
-  accRewardScale: -0.001  # -0.1  # -0.5
+  collisionRewardScale: -0.03  # -0.03  # -0.02  # -2.0  # -25.0  # -5.0  # -2.0  # -1.0  # -0.2  #-0.2  # -0.02  # -0.2
+  rearendcollisionRewardScale: -0.02  # -0.05  # -0.03  # -3.0
+  accRewardScale: 0.0  # -0.001  # -0.1  # -0.5
   velRewardScale: -0.02  # -2.0  # -1.0
-  goalRewardScale: 5.0  # 5.0  # 500.0  # 5.0  # 2.0  # 1.0  # 1.0  # 1.0  # 5.0  # NOTE: no *dt prior to 04/26/2023
+  goalRewardScale: 10.0  # 5.0  # 5.0  # 500.0  # 5.0  # 2.0  # 1.0  # 1.0  # 1.0  # 5.0  # NOTE: no *dt prior to 04/26/2023
   horizon: 12  #  12  # 12  # 15
 
   trackPenaltyScaleIni: 0.2

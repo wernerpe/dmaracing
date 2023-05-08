@@ -61,8 +61,15 @@ def eval():
 
     # runner.populate_adversary_buffer(adv_model_paths_hl, adv_model_paths_ll)
 
+    # Inference
     policy_eval_hl = runner.get_inference_policy_hl(device=env.device)
     policy_eval_ll = runner.get_inference_policy_ll(device=env.device)
+
+    # Stochastic
+    # runner.alg_hl.actor_critic.to(env.device)
+    # runner.alg_ll.actor_critic.to(env.device)
+    # policy_eval_hl = runner.alg_hl.actor_critic.act
+    # policy_eval_ll = runner.alg_ll.actor_critic.act
 
     # run_eval(env, policy_eval_hl, policy_eval_ll)
     # run_eval_sensitivity(env, policy_eval_hl, policy_eval_ll)
@@ -115,27 +122,55 @@ def run_eval(env, policy_hl, policy_ll):
             if ~torch.any(~already_done):
                 break
     
+def reset_environment_for_evaluation(env):
+    # with torch.inference_mode():
+    _, _ = env.reset()
+    env.total_step = 0
+    env.episode_length_buf *= 0.0
+    obs, privileged_obs = env.get_observations(), env.get_privileged_observations()
+    critic_obs = privileged_obs if privileged_obs is not None else obs
+    obs, critic_obs = obs.to(env.device), critic_obs.to(env.device)
+    return obs, critic_obs 
 
 def run_eval_winrate(env, policy_hl, policy_ll):
 
-    num_episodes = 10  # 10
+    num_episodes = 3  # 1  # 10
     teamranks_all = 0
     wincounts_all = 0
 
-    max_hl_steps = env.max_episode_length // env.dt_hl
+    max_hl_steps = 50  # env.max_episode_length // env.dt_hl
+
+    ego_name = 'ckpt' + str(checkpoint)
+    opp_name = ''
+    if cfg['learn']['ppc_prob_val_ini']==1.0:
+        opp_name += 'ppc'
+    else:
+        opp_name += 'ckpt' + str(checkpoint_opp)
+    filename = 'test_stats_' + ego_name + '_vs_' + opp_name + '.csv'
+
+    # assert num_episodes == 1
 
     for ep in range(num_episodes):
 
         total_steps = 0
 
-        obs, _ = env.reset()
+        # obs, _ = env.reset()
+        obs, _ = reset_environment_for_evaluation(env)
         env.log_episode = True
         env._global_step = ep
 
         # env.dyn_model.max_vel_vec = 3.0 + 0.0*env.dyn_model.max_vel_vec
         # env.dyn_model.max_vel_vec[:, 2:] = 2.0
 
-        already_done = env.reset_buf > 1000
+        is_already_done = torch.ones((obs.shape[0],), dtype=torch.int32, device=obs.device) == 0
+
+        initial_teamrank = obs[:, 0, -22] + 1.0
+        final_teamrank = 1e6*torch.ones((obs.shape[0],), dtype=torch.float32, device=obs.device)
+        final_collision = 1e6*torch.ones((obs.shape[0],), dtype=torch.float32, device=obs.device)
+        final_overtakes = 1e6*torch.ones((obs.shape[0],), dtype=torch.float32, device=obs.device)
+        final_offtrack = 1e6*torch.ones((obs.shape[0],), dtype=torch.float32, device=obs.device)
+        final_leadtime = 1e6*torch.ones((obs.shape[0],), dtype=torch.float32, device=obs.device)
+        final_laptime = 1e6*torch.ones((obs.shape[0],), dtype=torch.float32, device=obs.device)
 
         for i_hl in range(max_hl_steps):
             actions_hl_raw = policy_hl(obs)
@@ -146,9 +181,26 @@ def run_eval_winrate(env, policy_hl, policy_ll):
                 actions_ll = policy_ll(obs_ll)
 
                 # actions_ll = actions_ll.view((*actions_ll.shape[:-1], 2, 2))
-                prev_teamrank = obs[:, 0, -22]
+                prev_teamrank = obs[:, 0, -22] + 1.0
+                prev_ego_collision = env.stats_num_collisions_current.clone()
+                prev_ego_overtakes = env.stats_overtakes_current.clone()
+                prev_ego_offtrack = env.stats_ego_left_track_current.clone()
+                prev_ego_leadtime = env.stats_lead_time_current.clone()
+                prev_ego_laptime = env.stats_lap_time_current.clone()
 
-                obs, privileged_obs, rewards, dones, infos = env.step(actions_ll)
+                # t0 = time.time()
+                obs, privileged_obs, rewards, dones, infos = env.step(actions_ll)  # --> currently 0.23s per step
+                # print("Time = " + str(time.time() - t0))
+
+                is_done = dones.any(dim=-1) | (env.lap_counter.max(dim=-1)[0]==3)
+                reset_ids = torch.where(is_done & ~is_already_done)
+
+                final_teamrank[reset_ids] = prev_teamrank[reset_ids]
+                final_collision[reset_ids] = prev_ego_collision[reset_ids]
+                final_overtakes[reset_ids] = prev_ego_overtakes[reset_ids]
+                final_offtrack[reset_ids] = prev_ego_offtrack[reset_ids]
+                final_leadtime[reset_ids] = prev_ego_leadtime[reset_ids]
+                final_laptime[reset_ids] = prev_ego_laptime[reset_ids]
 
                 total_steps += 1
 
@@ -158,16 +210,47 @@ def run_eval_winrate(env, policy_hl, policy_ll):
                 # for msg in viewermsg:
                 #     env.viewer.add_string(msg)
                 
-                already_done |= dones
-                if ~torch.any(~already_done):
+                is_already_done |= is_done
+                if ~torch.any(~is_already_done):
                     break
-        teamranks_all += prev_teamrank.sum().cpu().item()  # obs[:, 0, -22].sum().cpu().item()
-        wincounts_all += (prev_teamrank==0).sum().cpu().item()
+            
+            if ~torch.any(~is_already_done):
+                    break
+                
+        # Get final teamranks from envs that did not terminate
+        not_done_ids = torch.where(~is_already_done)
+        final_teamrank[not_done_ids] = prev_teamrank[not_done_ids]
+        final_collision[not_done_ids] = prev_ego_collision[not_done_ids]
+        final_overtakes[not_done_ids] = prev_ego_overtakes[not_done_ids]
+        final_offtrack[not_done_ids] = prev_ego_offtrack[not_done_ids]
+        final_leadtime[not_done_ids] = prev_ego_leadtime[not_done_ids]
+        final_laptime[not_done_ids] = prev_ego_laptime[not_done_ids]  # NOTE: should only consider above 0 progress, e.g. set max to 1k?
+
+        teamranks_all += final_teamrank.sum().cpu().item()  # obs[:, 0, -22].sum().cpu().item()
+        wincounts_all += (final_teamrank==0).sum().cpu().item()
 
         winrate = np.round(wincounts_all / (obs.shape[0] * (ep+1)), 3)
 
+        frac_win_from_behind = torch.sum((initial_teamrank>0) & (final_teamrank==0))/torch.sum((initial_teamrank>0))
+        frac_win_from_ahead = torch.sum((initial_teamrank==0) & (final_teamrank==0))/torch.sum((initial_teamrank>0))
+
+        print('-------------------------------------')
         print('Completed ' + str(obs.shape[0] * (ep+1)) + '/' + str(obs.shape[0] * num_episodes) + ' episodes: avg team rank = ' + str(np.round(teamranks_all / (obs.shape[0] * (ep+1)), 3)))
         print('Completed ' + str(obs.shape[0] * (ep+1)) + '/' + str(obs.shape[0] * num_episodes) + ' episodes: avg win rate = ' + str(winrate))
+        print('-------------------------------------')
+
+        data = torch.stack((
+            initial_teamrank,
+            final_teamrank,
+            final_collision,
+            final_overtakes,
+            final_offtrack,
+            final_leadtime,
+            final_laptime,
+        ), axis=-1)
+        data = data.cpu().numpy()
+        names = "startrank,teamrank,collisions,overtakes,offtrack,leadtime,laptime"
+        np.savetxt(logdir + '/' + filename, data, delimiter=',', header=names, comments="")
 
     return winrate
 
@@ -254,29 +337,39 @@ if __name__ == "__main__":
     args.headless =  True 
 
 
-    checkpoints_to_play = [1000]
+    checkpoints_to_play = [1000]  # [-1, 500, 600, 700, 800, 900, 1000]
 
     winrate_results = []
     for checkpoint_opp in checkpoints_to_play:
 
       # ### Run information
       exp_name = 'tri_2v2_vhc_rear'  # 'tri_single_blr_hierarchical'
-      timestamp = '23_05_04_11_51_13_bilevel_2v2'  #'23_03_23_11_34_55_bilevel_2v2'  # '23_03_20_19_06_44_bilevel_2v2'  # '23_02_21_17_16_07_bilevel_2v2'  # '23_01_31_14_30_58_bilevel_2v2'  # '23_01_31_11_54_24_bilevel_2v2'
+      timestamp = '23_05_06_22_51_54_bilevel_2v2'  #'23_03_23_11_34_55_bilevel_2v2'  # '23_03_20_19_06_44_bilevel_2v2'  # '23_02_21_17_16_07_bilevel_2v2'  # '23_01_31_14_30_58_bilevel_2v2'  # '23_01_31_11_54_24_bilevel_2v2'
       checkpoint = 1000  # 500  # 1300
-      #active policies
-      runs_hl = [timestamp, '23_05_04_11_51_13_bilevel_2v2']  # '23_02_22_21_18_03_bilevel_2v2'
-      chkpts_hl = [checkpoint, checkpoint_opp]
-      runs_ll = [timestamp, '23_05_04_11_51_13_bilevel_2v2']
-      chkpts_ll = [checkpoint, checkpoint_opp]
-      ##policies to populate adversary buffer
-      adv_runs = ['23_05_04_11_51_13_bilevel_2v2']
-      adv_chkpts = [checkpoint]
 
-
-      path_cfg = os.getcwd() + '/logs/' + exp_name + '/' + runs_hl[0]
+      path_cfg = os.getcwd() + '/logs/' + exp_name + '/' + timestamp
       cfg, cfg_train, logdir_root = getcfg(path_cfg, postfix='', postfix_train='')
       cfg['viewer']['logEvery'] = 1  # -1
-      cfg['sim']['numEnv'] = 1  # 100
+      cfg['sim']['numEnv'] = 1000
+
+      if checkpoint_opp==-1:
+          # Play against PPC
+          cfg['learn']['ppc_prob_val_ini'] = 1.0  # 0.0 vs 1.0
+          cfg['learn']['ppc_prob_val_end'] = 1.0  # 0.0 vs 1.0
+          checkpoint_opp = checkpoint
+      else:
+          # Play against checkpoint
+          cfg['learn']['ppc_prob_val_ini'] = 0.0  # 0.0 vs 1.0
+          cfg['learn']['ppc_prob_val_end'] = 0.0  # 0.0 vs 1.0
+          
+      #active policies
+      runs_hl = [timestamp, '23_05_06_22_51_54_bilevel_2v2']  # '23_02_22_21_18_03_bilevel_2v2'
+      chkpts_hl = [checkpoint, checkpoint_opp]
+      runs_ll = [timestamp, '23_05_06_22_51_54_bilevel_2v2']
+      chkpts_ll = [checkpoint, checkpoint_opp]
+      ##policies to populate adversary buffer
+      adv_runs = ['23_05_06_22_51_54_bilevel_2v2']
+      adv_chkpts = [checkpoint]
 
       # cfg_train['policy']['numteams'] = 2
       # cfg_train['policy']['teamsize'] = 2
@@ -284,8 +377,8 @@ if __name__ == "__main__":
       cfg['learn']['agent_dropout_prob_val_ini'] = 0.0
       cfg['learn']['agent_dropout_prob_val_end'] = 0.0
       cfg['learn']['steer_ado_with_PPC'] = True  # True  # False
-      cfg['learn']['ppc_prob_val_ini'] = 1.0  # 0.0
-      cfg['learn']['ppc_prob_val_end'] = 1.0  # 0.0
+      # cfg['learn']['ppc_prob_val_ini'] = 0.0  # 0.0 vs 1.0
+      # cfg['learn']['ppc_prob_val_end'] = 0.0  # 0.0 vs 1.0
       # cfg['learn']['resetrand'] = [0.05, 0.05, 0.5, 2.0, 0.01,  0.5, 0.0]  # [0.05, 0.05, 0.2, 0.1, 0.01, 0.1, 0.0]
       cfg["sim"]["reset_timeout_only"] = True
       cfg["sim"]["filtercollisionstoego"] = False
@@ -293,7 +386,7 @@ if __name__ == "__main__":
       cfg['model']['vm_noise_scale_ego'] = 0.1
       cfg['model']['vm_noise_scale_ado'] = 0.1
       cfg["track"]["track_half_width"] = 0.6  # 0.63
-      # cfg["learn"]["timeout"] = 30.0  # 16.0
+      cfg["learn"]["timeout"] = 50.0  # 30.0  # 16.0
 
       cfg['teams'] = dict()
       cfg['teams']['numteams'] = cfg_train['policy']['numteams']

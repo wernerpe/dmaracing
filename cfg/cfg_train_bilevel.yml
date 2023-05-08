@@ -6,17 +6,23 @@ track_cfgs: True
 
 algorithm:
   # clip_param: 0.2
+  clip_param_hl: 0.2
+  clip_param_ll: 0.2
   # entropy_coef: 0.01  # 0.01  # 0.02
-  num_learning_epochs: 2  # 5  #  5  # 15
-  num_mini_batches: 4  # 4  # 1  # 6 # this is per agent
+  entropy_coef_hl: 0.01  # 0.005  # 0.01
+  entropy_coef_ll: 0.01  # 0.005  # 0.01
+  num_learning_epochs: 2  # 2  # 5  #  5  # 15
+  num_mini_batches: 4  # 4  # 4  # 1  # 6 # this is per agent
   learning_rate: 1.e-3  # 1.e-4  # 5.e-5
   # schedule: adaptive # could be adaptive, linear or fixed
   # gamma: 0.99
+  gamma_hl: 0.99
+  gamma_ll: 0.99
   lam: 0.95
   desired_kl: 0.01  # 0.01  # 0.02  # 0.02  # 0.008
   value_loss_coef: 1.0
   use_clipped_value_loss: True
-  max_grad_norm: 1.0  # 1.0  # 1.0  # 40.0  # 2.0
+  max_grad_norm: 10.0  # 1.0  # 1.0  # 40.0  # 2.0
   use_sdqn: True
   use_mdqn: True  # False
 
@@ -27,7 +33,7 @@ runner:
   algorithm_class_ll_name: BimaPPO  # BilevelPPO
   centralized_value_hl: 'agents'  # True
   centralized_value_ll: False
-  num_steps_per_env_hl: 8  # 20  # 64 # per iteration
+  num_steps_per_env_hl: 8  # 16  # 8  # 20  # 64 # per iteration
   num_steps_per_env_ll: 40  # 40  # 60
   max_iterations: 500  # 600  # 1000  # 1300  # 2400  # 1200 # 500 # number of policy updates
   iter_per_hl: 20  # 200  # 20  # 20  # 1  # 20
@@ -49,13 +55,13 @@ runner:
   resume_path: None # updated from load_run and chkpt
 
 policy: 
-  actor_hidden_dims: [256, 256]  # [128, 128]  # [256, 256]  # [256, 128]  # [256, 128]
-  critic_hidden_dims: [512, 512]  # [256, 256]  # [512, 512]  # [256, 128]  # [256, 128]
+  actor_hidden_dims: [256, 256]  # [512, 512]  # [256, 256]  # [128, 128]  # [256, 256]  # [256, 128]  # [256, 128]
+  critic_hidden_dims: [512, 512]  # [1024, 1024]  # [512, 512]  # [256, 256]  # [512, 512]  # [256, 128]  # [256, 128]
   encoder_embed_dims: [64, 64]  # [32, 32]  # [64, 64]  # [128]  # [64]
-  encoder_attend_dims: [128]  # [64]  # [64]  # [128]
+  encoder_attend_dims: [128]  # [256]  # [128]  # [64]  # [64]  # [128]
   activation: elu # can be elu, relu, selu, crelu, lrelu, tanh, sigmoid
   init_noise_std: 0.3  # 0.3  # 1.0
-  std_per_obs: False  # False
+  std_per_obs: True  # False
   attentive: True
   encoder_type: attention4  # attention{1, 2, 3, 4}
   do_train_encoder: True
