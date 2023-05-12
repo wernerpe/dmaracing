@@ -2,7 +2,7 @@ test: False
 trackRaceStatistics: False #makes sim substantially slower
 logBehaviorStatistics: True
 sim:
-  numEnv: 2048  # 1024
+  numEnv: 1024  # 1024
   #number of racing agents per env
   numAgents: 4
   dt: 0.01  # 0.01  # 0.02 #[s] # If using this with TRI dynamics model, this must be 0.02 to match the refresh frequency of the model
@@ -89,7 +89,7 @@ learn:
   ppc_prob_itr_ini: 200  # 50  # 100
   ppc_prob_itr_end: 400  # 500  # 150  # 300  # 1300
   ppc_prob_val_ini: 1.0
-  ppc_prob_val_end: 1.0  # 0.2  # 0.3
+  ppc_prob_val_end: 0.2  # 0.2  # 0.3
   use_timeouts: True
   use_track_curriculum: True
   #[posx, posy, theta, vellong, vellat, dtheta, steer]

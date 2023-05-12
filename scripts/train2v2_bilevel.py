@@ -87,21 +87,21 @@ if __name__ == "__main__":
 
     INIT_FROM_CHKPT = True  # False
     #active policies
-    runs_hl = ['23_05_05_20_43_40_bilevel_2v2']*2
-    chkpts_hl = [500, 500]
-    runs_ll = ['23_05_05_20_43_40_bilevel_2v2']*2
-    chkpts_ll = [500, 500]
+    runs_hl = ['23_05_10_18_24_26_bilevel_2v2']*2
+    chkpts_hl = [1000, 1000]
+    runs_ll = ['23_05_10_18_24_26_bilevel_2v2']*2
+    chkpts_ll = [1000, 1000]
     ##policies to populate adversary buffer
-    adv_runs = ['23_05_05_20_43_40_bilevel_2v2']*2
-    adv_chkpts = [500, 500]
+    adv_runs = ['23_05_10_18_24_26_bilevel_2v2']*4
+    adv_chkpts = [400, 500, 600, 1000]
 
     if INIT_FROM_CHKPT:
         cfg['learn']['agent_dropout_prob_val_ini'] = 0.0
         cfg['learn']['agent_dropout_prob_val_end'] = 0.0
-        cfg['learn']['ppc_prob_val_ini'] = 0.5  # 0.25
-        cfg['learn']['ppc_prob_val_end'] = 0.5  # 0.25
+        cfg['learn']['ppc_prob_val_ini'] = 0.3  # 0.25
+        cfg['learn']['ppc_prob_val_end'] = 0.3  # 0.25
 
-        cfg_train['runner']['max_iterations'] = 1000  # 500
+        cfg_train['runner']['max_iterations'] = 5000  # 500
         cfg_train['runner']['iter_per_ll'] = 50  # 20
         cfg_train['runner']['iter_per_hl'] = 50  # 50  # 20
         cfg_train['runner']['start_on_ll'] = False
