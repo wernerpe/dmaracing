@@ -197,7 +197,7 @@ def get_tri_track_ensemble(device, track_half_width, track_poly_spacing):
     # Load a centerline track, generate polygons and matricies
     track_paths = [
                   # "maps/large_oval.csv", 
-                  # "maps/large_oval_dense.csv",  # NOTE: this
+                  # "maps/large_oval_dense.csv",  # [NOTE: this]
                   #  "maps/large_square_track.csv",
                    #"maps/squiggles.csv",
                    "maps/squiggles_dense.csv",  # NOTE: this ; slight overlap at 0.65
@@ -219,7 +219,7 @@ def get_tri_track_ensemble(device, track_half_width, track_poly_spacing):
                   # #  "maps/orca.csv",
                   "maps/orca_dense.csv",  # NOTE: this
                   #  "maps/oval_diag.csv",
-                  #  "maps/oval_diag_dense.csv",  # NOTE: this
+                  #  "maps/oval_diag_dense.csv",  # [NOTE: this]
                   #  "maps/triangle.csv",
                   #  "maps/complicated.csv",
                   # #  "maps/oversize1.csv",

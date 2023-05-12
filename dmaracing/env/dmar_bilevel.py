@@ -135,6 +135,7 @@ class DmarEnvBilevel:
 
         # print("track loaded with ", self.track_num_tiles, " tiles")
         self.log_video_freq = cfg["viewer"]["logEvery"]
+        self.log_video_active = True
         self.viewer = Viewer(
             cfg,
             self.track_centerlines,
@@ -242,6 +243,11 @@ class DmarEnvBilevel:
         self.ppc_prob_itr_end = cfg["learn"]["ppc_prob_itr_end"]
         self.ppc_prob = self.ppc_prob_val_ini
 
+        self.vm_noise_scale_ado_val_ini = cfg["model"]["vm_noise_scale_ado_val_ini"]
+        self.vm_noise_scale_ado_val_end = cfg["model"]["vm_noise_scale_ado_val_end"]
+        self.vm_noise_scale_ado_itr_ini = cfg["model"]["vm_noise_scale_ado_itr_ini"]
+        self.vm_noise_scale_ado_itr_end = cfg["model"]["vm_noise_scale_ado_itr_end"]
+
         self.action_min_hl = cfg["learn"]["actionsminhl"]
         self.action_max_hl = cfg["learn"]["actionsmaxhl"]
         self.action_ini_hl = cfg["learn"]["actionsinihl"]
@@ -334,7 +340,11 @@ class DmarEnvBilevel:
         self.prev_ranks = torch.zeros(
             (self.num_envs, self.num_agents), requires_grad=False, device=self.device, dtype=torch.int
         )
+        self.prev_teamranks = torch.zeros(
+            (self.num_envs, self.num_agents), requires_grad=False, device=self.device, dtype=torch.int)
         self.initial_team_rank = torch.zeros(
+            (self.num_envs, self.num_agents), requires_grad=False, device=self.device, dtype=torch.int)
+        self.initial_rank = torch.zeros(
             (self.num_envs, self.num_agents), requires_grad=False, device=self.device, dtype=torch.int)
 
         # HACK: targets
@@ -482,6 +492,11 @@ class DmarEnvBilevel:
     def set_ppc_prob(self, iter):
         progress = min(max(iter-self.ppc_prob_itr_ini, 0.0)/(self.ppc_prob_itr_end - self.ppc_prob_itr_ini), 1.0)
         self.ppc_prob = self.ppc_prob_val_ini + progress * (self.ppc_prob_val_end - self.ppc_prob_val_ini)
+
+    def set_vm_noise_scale_ado(self, iter):
+        progress = min(max(iter-self.vm_noise_scale_ado_itr_ini, 0.0)/(self.vm_noise_scale_ado_itr_end - self.vm_noise_scale_ado_itr_ini), 1.0)
+        vm_noise_scale_ado = self.vm_noise_scale_ado_val_ini + progress * (self.vm_noise_scale_ado_val_end - self.vm_noise_scale_ado_val_ini)
+        self.dyn_model.update_vm_noise_scale_ado(vm_noise_scale_ado)
 
     def set_video_log_ep(self, iter):
         self.log_episode_next = self.log_episode_next or ((iter % self.log_video_freq)==0 and iter!=0)
@@ -878,6 +893,7 @@ class DmarEnvBilevel:
             self.ranks if self.num_agents>1 else None,
             self.teamranks if self.num_agents>1 else None,
             self.prev_ranks if self.num_agents>1 else None,
+            self.prev_teamranks if self.num_agents>1 else None,
             self.is_collision,
             self.is_rearend_collision,
             self.reward_terms,
@@ -896,6 +912,7 @@ class DmarEnvBilevel:
             self.time_left_frac,
             self.prog_jump_lim,
             self.initial_team_rank,
+            self.initial_rank,
         )
 
     def check_progress_jump(self, progress, old_progress) -> torch.Tensor:
@@ -1114,6 +1131,7 @@ class DmarEnvBilevel:
             self.teamranks[:, team] = torch.min(self.ranks[:, team], dim = 1)[0].reshape(-1,1).type(torch.int)
 
         self.initial_team_rank[env_ids, :] = self.teamranks[env_ids, :].clone()
+        self.initial_rank[env_ids, :] = self.ranks[env_ids, :].clone()
 
         self.is_collision[env_ids, ...] = False
         self.is_rearend_collision[env_ids, ...] = 0
@@ -1122,6 +1140,7 @@ class DmarEnvBilevel:
         self.use_ppc_vec[env_ids, -num_opponents:] = 1.0 * (torch.rand(len(env_ids), num_opponents, 1, device=self.device) < self.ppc_prob)
 
         self.prev_ranks[env_ids, ...] = self.ranks[env_ids, ...]
+        self.prev_teamranks[env_ids, ...] = self.teamranks[env_ids, ...]
 
         self.lap_counter[env_ids, :] = 0
         self.episode_length_buf[env_ids] = 0.0
@@ -1262,6 +1281,20 @@ class DmarEnvBilevel:
         self.time_off_track += 1.0 * ~self.is_on_track
         self.time_off_track *= 1.0 * ~self.is_on_track  # reset if on track again
 
+
+        # #update drag_reduction
+        # self.drag_reduction_points[:, self.drag_reduction_write_idx:self.drag_reduction_write_idx+self.num_agents, :] = \
+        #                 self.states[:,:,0:2]
+        # self.drag_reduction_write_idx = (self.drag_reduction_write_idx + self.num_agents) % self.drag_reduction_points.shape[1]
+        # leading_pts = self.states[:,:,0:2] + 5*torch.cat((torch.cos(self.states[:,:,2].view(self.num_envs, self.num_agents,1)),
+        #                                                   torch.sin(self.states[:,:,2].view(self.num_envs, self.num_agents,1))), dim = 2)
+
+        # dists = leading_pts.view(self.num_envs, self.num_agents,1,2) - self.drag_reduction_points.view(self.num_envs, 1, -1, 2)
+        # dists = torch.min(torch.norm(dists, dim=3), dim=2)[0]
+        # self.drag_reduced[:] = False 
+        # self.drag_reduced = dists <= 3.0
+
+
         # Update ego position at end of LL episodes
         update_ego_pos = self.ll_ep_done[0, 0]
         # ego_pos_world = update_ego_pos * self.states[0, 0, :2]  #  + (1.0 - update_ego_pos) * self.ego_pos_world
@@ -1282,8 +1315,8 @@ class DmarEnvBilevel:
         # increment_idx = torch.where(self.active_track_tile - self.old_active_track_tile < 15 - self.track_tile_counts[self.active_track_ids].view(-1, 1))  # avoid farming turns? NOTE: track length - buffer
         # decrement_idx = torch.where(self.active_track_tile - self.old_active_track_tile > 15)
 
-        increment_idx = torch.where(self.active_track_tile - self.old_active_track_tile < -0.2 * self.track_tile_counts[self.active_track_ids].view(-1, 1))  # 0.9
-        decrement_idx = torch.where(self.active_track_tile - self.old_active_track_tile > +0.2 * self.track_tile_counts[self.active_track_ids].view(-1, 1))  # 0.9
+        increment_idx = torch.where(self.active_track_tile - self.old_active_track_tile < -0.95 * self.track_tile_counts[self.active_track_ids].view(-1, 1))  # 0.9
+        decrement_idx = torch.where(self.active_track_tile - self.old_active_track_tile > +0.20 * self.track_tile_counts[self.active_track_ids].view(-1, 1))  # 0.9
 
         self.lap_counter[increment_idx] += 1
         self.lap_counter[decrement_idx] -= 1
@@ -1308,6 +1341,9 @@ class DmarEnvBilevel:
                 self.stats_overtakes_current[idx_uninit] = 0
 
         self.contouring_err = torch.einsum("eac, eac-> ea", self.trackperp, self.tile_car_vec)
+
+        # ### HACK
+        # self.dyn_model.max_vel_vec_dynamic = self.dyn_model.max_vel_vec + self.ranks[..., None] * 0.1
 
         # Compute reward terms
         self.vel = torch.norm(self.states[:,:,self.vn['S_DX']:self.vn['S_DY']+1], dim = -1)
@@ -1369,7 +1405,8 @@ class DmarEnvBilevel:
         #self.last_steer[:,:,0] = self.actions[..., self.vn['A_STEER']]
         #self.last_last_steer[:] = self.last_steer[:]
         self.last_vel[:] = self.vel
-        self.prev_ranks[:] = self.ranks
+        self.prev_ranks[:] = self.ranks.clone()
+        self.prev_teamranks[:] = self.teamranks.clone()
 
         self.update_data = 1.0 * (self.reset_buf_tmp==False)
       
@@ -1380,14 +1417,14 @@ class DmarEnvBilevel:
         # if log_video freq is set only redner in fixed intervals
         if self.log_video_freq >= 0:
             self.viewer.mark_env(self.trained_agent_slot)
-            if self.log_episode:
+            if self.log_episode and self.log_video_active:
                 self.viewer_events = self.viewer.render(
                     self.states[:, :, [0, 1, 2, 6]], self.slip, self.drag_reduced, self.wheel_locations_world, self.interpolated_centers, self.interpolated_bounds, 
                     self.targets_pos_world, self.targets_rew01_local, self.targets_rot_world, self.targets_dist_track, self.actions, self.time_off_track,
                     self._action_probs_hl, self._action_mean_ll, self._action_std_ll,
                     self.is_on_track_per_wheel, self.vels_body, self.dyn_model.max_vel_vec, self.step_reward_terms, self.reset_cause, self.track_progress, self.active_track_tile,
                     self.ranks if self.num_agents>1 else None, self._global_step, self.all_targets_pos_world_env0, self.all_egoagent_pos_world_env0, self.last_actions,
-                    self.active_track_tile, self.targets_tile_idx, self._values_ll, None, None, self.use_ppc_vec,
+                    self.active_track_tile, self.targets_tile_idx, self._values_ll, None, None, self.use_ppc_vec, self.ppc.lookahead_points,
                 )
         else:
             self.viewer_events = self.viewer.render(
@@ -1396,7 +1433,7 @@ class DmarEnvBilevel:
                 self._action_probs_hl, self._action_mean_ll, self._action_std_ll,
                 self.is_on_track_per_wheel, self.vels_body, self.dyn_model.max_vel_vec, self.step_reward_terms, self.reset_cause, self.track_progress, self.active_track_tile,
                 self.ranks if self.num_agents>1 else None, self._global_step, self.all_targets_pos_world_env0, self.all_egoagent_pos_world_env0, self.last_actions,
-                self.active_track_tile, self.targets_tile_idx, self._values_ll, None, None, self.use_ppc_vec,
+                self.active_track_tile, self.targets_tile_idx, self._values_ll, None, None, self.use_ppc_vec, self.ppc.lookahead_points,
             )
 
     def write_behavior_stats(self) -> None:
@@ -1751,6 +1788,7 @@ def compute_rewards_jit(
     ranks: Union[torch.Tensor,None],
     teamranks: Union[torch.Tensor,None],
     prev_ranks: Union[torch.Tensor,None],
+    prev_teamranks: Union[torch.Tensor,None],
     is_collision: torch.Tensor,
     is_rear_end_collision: torch.Tensor,
     reward_terms: Dict[str, torch.Tensor],
@@ -1769,6 +1807,7 @@ def compute_rewards_jit(
     time_left_frac: torch.Tensor,
     prog_jump_lim: float,
     initial_team_rank: torch.Tensor,
+    initial_rank: torch.Tensor,
 ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
 
     train_hl = 1.0 - train_ll
@@ -1852,11 +1891,16 @@ def compute_rewards_jit(
 
         ### Rank reward
         # Base
-        rew_rank = 1.0 * (prev_ranks - ranks) / (1.0 + torch.minimum(prev_ranks, ranks)) # + 1.e-2*torch.exp(-teamranks)
-        # NOTE: removed below on 05/04/23 evening
-        rew_rank += (time_left_frac[..., 0]==1.0) * (teamranks==0) * 2.0 
-        rew_rank += (time_left_frac[..., 0]==1.0) * (initial_team_rank - teamranks) * 0.25  # 0.1  # NOTE: not visible from obs
-        rew_rank += 1.e-1*torch.exp(-ranks)
+        # rew_rank = 1.0 * (prev_ranks - ranks) / (1.0 + torch.minimum(prev_ranks, ranks)) # + 1.e-2*torch.exp(-teamranks)
+        ### Team-based
+        rew_rank = 1.0 * (prev_teamranks - teamranks) / (1.0 + torch.minimum(prev_teamranks, teamranks))  # NOTE: testing as alternative to above
+        rew_rank += (time_left_frac[..., 0]==1.0) * (teamranks==0) * 2.0 # NOTE: removed this and below on 05/04/23 evening
+        rew_rank += (time_left_frac[..., 0]==1.0) * (initial_team_rank - teamranks) * 0.5  # * 0.25  # 0.1  # NOTE: not visible from obs
+        # ### Individual-based
+        # rew_rank = 1.0 * (prev_ranks - ranks) / (1.0 + torch.minimum(prev_ranks, ranks))  # NOTE: testing as alternative to above
+        # rew_rank += (time_left_frac[..., 0]==1.0) * (ranks==0) * 2.0 # NOTE: removed this and below on 05/04/23 evening
+        # rew_rank += (time_left_frac[..., 0]==1.0) * (initial_rank - ranks) * 0.5  # * 0.25  # 0.1  # NOTE: not visible from obs
+        # rew_rank += 1.e-1*torch.exp(-ranks)  # NOTE: removed 05/09/2023
         # # NOTE: replaced above with this
         # rew_rank += (teamranks==0) * 0.5
         # rew_rank += (initial_team_rank - teamranks) * 0.1

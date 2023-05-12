@@ -6,3 +6,4 @@ myScript.sh*
 *sh.log*
 sc_train2v2_bilevel_dealy.sh
 testing/
+figures/
