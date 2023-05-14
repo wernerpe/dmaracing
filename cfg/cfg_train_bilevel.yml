@@ -9,9 +9,9 @@ algorithm:
   clip_param_hl: 0.2
   clip_param_ll: 0.2
   # entropy_coef: 0.01  # 0.01  # 0.02
-  entropy_coef_hl: 0.01  # 0.005  # 0.01
-  entropy_coef_ll: 0.01  # 0.005  # 0.01
-  num_learning_epochs: 2  # 2  # 5  #  5  # 15
+  entropy_coef_hl: 0.01  # 0.01  # 0.005  # 0.01
+  entropy_coef_ll: 0.01  # 0.01  # 0.005  # 0.01
+  num_learning_epochs: 2  # 2  # 2  # 5  #  5  # 15
   num_mini_batches: 4  # 4  # 4  # 1  # 6 # this is per agent
   learning_rate: 1.e-3  # 1.e-4  # 5.e-5
   # schedule: adaptive # could be adaptive, linear or fixed
@@ -45,7 +45,7 @@ runner:
   population_sample_interval: 40 #20  # 20  # 100 #number of iterations before the opponent policy is updated
   population_update_interval: 60
   # logging
-  save_interval: 100  # 200  # 100  # 50 # check for potential saves every this many iterations
+  save_interval: 100  # 100  # 200  # 100  # 50 # check for potential saves every this many iterations
   experiment_name: 'tri_2v2_vhc_rear'  # 'tri_single_blr_hierarchical'
   run_name: ''
   # load and resume

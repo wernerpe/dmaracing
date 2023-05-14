@@ -85,7 +85,7 @@ if __name__ == "__main__":
     cfg["logdir"] = logdir
 
 
-    INIT_FROM_CHKPT = True  # False
+    INIT_FROM_CHKPT = False  # False
     #active policies
     runs_hl = ['23_05_10_18_24_26_bilevel_2v2']*2
     chkpts_hl = [1000, 1000]

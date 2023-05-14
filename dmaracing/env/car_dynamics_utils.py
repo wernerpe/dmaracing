@@ -469,7 +469,7 @@ class SwitchedBicycleKinodynamicModel(nn.Module):
         self.Dr = model_cfg['Dr']
 
         self.vm_noise_scale_ego = model_cfg['vm_noise_scale_ego']
-        self.vm_noise_scale_ado = model_cfg['vm_noise_scale_ado']
+        self.vm_noise_scale_ado = model_cfg['vm_noise_scale_ado_val_ini']
         self.lf_noise_scale = model_cfg['lf_noise_scale']
         self.lr_noise_scale = model_cfg['lr_noise_scale']
         self.steering_offset_noise_scale = model_cfg['steering_offset_noise_scale']
@@ -602,6 +602,9 @@ class SwitchedBicycleKinodynamicModel(nn.Module):
         next_state[:, :, self.vn['S_THETA']] += 0.8*shove[:,:,2]  #  * self.dt/0.02 (maybe?)
         return next_state
     
+    def update_vm_noise_scale_ado(self, vm_noise_scale_ado):
+        self.vm_noise_scale_ado = vm_noise_scale_ado
+    
     def update_noise_vec(self, envs, noise_level, team_size):
         if not self.test:
             self.lf_noise[envs] = torch_unif_rand((len(envs), 1), -self.lf_noise_scale*noise_level, self.lf_noise_scale*noise_level, device=self.device)
@@ -611,6 +614,7 @@ class SwitchedBicycleKinodynamicModel(nn.Module):
         # self.max_vel_vec[envs] = self.max_vel*(1 - self.vm_noise_scale*noise_level) + torch_unif_rand((len(envs), self.num_agents, 1), 0, self.vm_noise_scale*self.max_vel*noise_level, device=self.device)
         self.max_vel_vec[envs, :team_size] = self.max_vel*(1 - self.vm_noise_scale_ego*noise_level) + torch_unif_rand((len(envs), team_size, 1), 0, self.vm_noise_scale_ego*self.max_vel*noise_level, device=self.device)
         self.max_vel_vec[envs, team_size:] = self.max_vel*(1 - self.vm_noise_scale_ado*noise_level) + torch_unif_rand((len(envs), self.num_agents-team_size, 1), 0, self.vm_noise_scale_ado*self.max_vel*noise_level, device=self.device)
+        self.max_vel_vec_dynamic = self.max_vel_vec.clone()
 
     def init_noise_vec(self, num_envs):
         self.lf_noise = torch.zeros((num_envs,  self.num_agents, ), dtype=torch.float, device= self.device)
@@ -619,6 +623,7 @@ class SwitchedBicycleKinodynamicModel(nn.Module):
         
         self.steering_offset_noise = torch.zeros((num_envs, self.num_agents, ), dtype=torch.float, device= self.device)
         self.max_vel_vec = self.max_vel*torch.ones((num_envs, self.num_agents, 1), dtype=torch.float, device= self.device)
+        self.max_vel_vec_dynamic = self.max_vel*torch.ones((num_envs, self.num_agents, 1), dtype=torch.float, device= self.device)
         self.alphaf_model_mean = torch.tile(self.alphaf_model_mean, (num_envs, 1)).view(-1,1, len(self.alphaf_model_mean))
         self.w_sample = self.alphaf_model_mean.clone()
         self.last_steer = torch.zeros((num_envs, self.num_agents), dtype=torch.float, device= self.device)

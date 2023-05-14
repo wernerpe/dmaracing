@@ -122,7 +122,7 @@ class Viewer:
       reward_terms=None, reset_cause=None, track_progress=None, active_tile=None,
       ranks=None, global_step=None, all_targets_pos_world_env0=None, all_egoagent_pos_world_env0=None,
       last_actions=None, tile_idx_car=None, tile_idx_trg=None, values_ll=None, values_ll_min=None, values_ll_max=None,
-      use_ppc_vec=None):
+      use_ppc_vec=None, ppc_lookahead_points=None):
         self.state = state.clone()
         self.slip = slip.clone()
         self.wheel_locs = wheel_locs.clone()
@@ -205,7 +205,17 @@ class Viewer:
 
             if False:
                 self.display_ego_state(state)
+
             
+            # ### PPC debug
+            # self.add_point(ppc_lookahead_points[0, 2, 0].cpu().numpy()[None], 5, (0, 255, 0), -1)
+            # self.add_point(ppc_lookahead_points[0, 3, 0].cpu().numpy()[None], 5, (255, 0, 0), -1)
+            # wot_ado0 = wheels_on_track[0, 2].cpu().numpy()
+            # wot_ado0_str = str(int(wot_ado0[0])) + str(int(wot_ado0[1])) + str(int(wot_ado0[2])) + str(int(wot_ado0[3]))
+            # cv.putText(self.img, "Ado0=" + wot_ado0_str, (470, 140), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
+            # wot_ado1 = wheels_on_track[0, 3].cpu().numpy()
+            # wot_ado1_str = str(int(wot_ado1[0])) + str(int(wot_ado1[1])) + str(int(wot_ado1[2])) + str(int(wot_ado1[3]))
+            # cv.putText(self.img, "Ado1=" + wot_ado1_str, (470, 170), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
 
             self.draw_points(self.img)
             self.draw_lines(self.img)

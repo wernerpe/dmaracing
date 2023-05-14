@@ -7,7 +7,7 @@ import sys
 import shutil
 import numpy as np
 import time
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+# os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
 def eval():
     env = DmarEnvBilevel(cfg, args)
@@ -48,18 +48,18 @@ def eval():
     policy_ll_jit.save(save_dir + "/ll_model/jit_model_" +str(modelnr_ll)+".pt")
     exit()
     
-    # #populate adversary buffer
-    # adv_model_paths_hl, adv_model_paths_ll = [], []
-    # for run_hl, chkpt_hl, run_ll, chkpt_ll in zip(runs_hl, chkpts_hl, runs_ll, chkpts_ll):
+    #populate adversary buffer
+    adv_model_paths_hl, adv_model_paths_ll = [], []
+    for run_hl, chkpt_hl, run_ll, chkpt_ll in zip(runs_hl, chkpts_hl, runs_ll, chkpts_ll):
 
-    #     dir_hl, modelnr_hl = get_run(logdir_root, run=run_hl + '/hl_model', chkpt=chkpt_hl)
-    #     adv_model_paths_hl.append("{}/model_{}.pt".format(dir_hl, modelnr_hl))
-    #     print("Loading HL model" + adv_model_paths_hl[-1])
-    #     dir_ll, modelnr_ll = get_run(logdir_root, run=run_ll + '/ll_model', chkpt=chkpt_ll)
-    #     adv_model_paths_ll.append("{}/model_{}.pt".format(dir_ll, modelnr_ll))
-    #     print("Loading LL model" + adv_model_paths_ll[-1])
+        dir_hl, modelnr_hl = get_run(logdir_root, run=run_hl + '/hl_model', chkpt=chkpt_hl)
+        adv_model_paths_hl.append("{}/model_{}.pt".format(dir_hl, modelnr_hl))
+        print("Loading HL model" + adv_model_paths_hl[-1])
+        dir_ll, modelnr_ll = get_run(logdir_root, run=run_ll + '/ll_model', chkpt=chkpt_ll)
+        adv_model_paths_ll.append("{}/model_{}.pt".format(dir_ll, modelnr_ll))
+        print("Loading LL model" + adv_model_paths_ll[-1])
 
-    # runner.populate_adversary_buffer(adv_model_paths_hl, adv_model_paths_ll)
+    runner.populate_adversary_buffer(adv_model_paths_hl, adv_model_paths_ll)
 
     # Inference
     policy_eval_hl = runner.get_inference_policy_hl(device=env.device)
@@ -123,6 +123,8 @@ def run_eval(env, policy_hl, policy_ll):
                 break
     
 def reset_environment_for_evaluation(env):
+    env.set_reset_agent_ids(reset_id_num=2)
+
     # with torch.inference_mode():
     _, _ = env.reset()
     env.total_step = 0
@@ -134,21 +136,23 @@ def reset_environment_for_evaluation(env):
 
 def run_eval_winrate(env, policy_hl, policy_ll):
 
-    num_episodes = 3  # 1  # 10
+    num_episodes = 1  # 1  # 10
     teamranks_all = 0
     wincounts_all = 0
 
     max_hl_steps = 50  # env.max_episode_length // env.dt_hl
 
-    ego_name = 'ckpt' + str(checkpoint)
+    ego_name = 'ckpt' + str(ego_checkpoint)
     opp_name = ''
     if cfg['learn']['ppc_prob_val_ini']==1.0:
         opp_name += 'ppc'
     else:
-        opp_name += 'ckpt' + str(checkpoint_opp)
-    filename = 'test_stats_' + ego_name + '_vs_' + opp_name + '.csv'
+        opp_name += 'ckpt' + str(ado_checkpoint)
+        if ado_run_different:
+            opp_name += '_action'
+    filename = 'stats_afs1em3_' + ego_name + '_vs_' + opp_name + '.csv'
 
-    # assert num_episodes == 1
+    assert num_episodes == 1
 
     for ep in range(num_episodes):
 
@@ -173,9 +177,11 @@ def run_eval_winrate(env, policy_hl, policy_ll):
         final_laptime = 1e6*torch.ones((obs.shape[0],), dtype=torch.float32, device=obs.device)
 
         for i_hl in range(max_hl_steps):
-            actions_hl_raw = policy_hl(obs)
+            # actions_hl_raw = policy_hl(obs)
             # reward_ep_ll = torch.zeros(self.env.num_envs, self.num_agents, 1, dtype=torch.float, device=self.device)
             for i_ll in range(env.dt_hl):
+                actions_hl_raw = policy_hl(obs)
+
                 actions_hl = env.project_into_track_frame(actions_hl_raw)
                 obs_ll = torch.concat((obs, actions_hl), dim=-1)
                 actions_ll = policy_ll(obs_ll)
@@ -193,7 +199,7 @@ def run_eval_winrate(env, policy_hl, policy_ll):
                 # print("Time = " + str(time.time() - t0))
 
                 is_done = dones.any(dim=-1) | (env.lap_counter.max(dim=-1)[0]==3)
-                reset_ids = torch.where(is_done & ~is_already_done)
+                reset_ids = torch.where(is_done & ~is_already_done)[0]
 
                 final_teamrank[reset_ids] = prev_teamrank[reset_ids]
                 final_collision[reset_ids] = prev_ego_collision[reset_ids]
@@ -201,6 +207,9 @@ def run_eval_winrate(env, policy_hl, policy_ll):
                 final_offtrack[reset_ids] = prev_ego_offtrack[reset_ids]
                 final_leadtime[reset_ids] = prev_ego_leadtime[reset_ids]
                 final_laptime[reset_ids] = prev_ego_laptime[reset_ids]
+
+                # if 0 in reset_ids:
+                #     env.log_video_active = False
 
                 total_steps += 1
 
@@ -232,7 +241,7 @@ def run_eval_winrate(env, policy_hl, policy_ll):
         winrate = np.round(wincounts_all / (obs.shape[0] * (ep+1)), 3)
 
         frac_win_from_behind = torch.sum((initial_teamrank>0) & (final_teamrank==0))/torch.sum((initial_teamrank>0))
-        frac_win_from_ahead = torch.sum((initial_teamrank==0) & (final_teamrank==0))/torch.sum((initial_teamrank>0))
+        frac_win_from_ahead = torch.sum((initial_teamrank==0) & (final_teamrank==0))/torch.sum((initial_teamrank==0))
 
         print('-------------------------------------')
         print('Completed ' + str(obs.shape[0] * (ep+1)) + '/' + str(obs.shape[0] * num_episodes) + ' episodes: avg team rank = ' + str(np.round(teamranks_all / (obs.shape[0] * (ep+1)), 3)))
@@ -251,6 +260,8 @@ def run_eval_winrate(env, policy_hl, policy_ll):
         data = data.cpu().numpy()
         names = "startrank,teamrank,collisions,overtakes,offtrack,leadtime,laptime"
         np.savetxt(logdir + '/' + filename, data, delimiter=',', header=names, comments="")
+
+        print("Time offtrack = " +  str(final_offtrack.mean()))
 
     return winrate
 
@@ -337,75 +348,87 @@ if __name__ == "__main__":
     args.headless =  True 
 
 
-    checkpoints_to_play = [1000]  # [-1, 500, 600, 700, 800, 900, 1000]
+    ado_checkpoints = [1000]  # [-1, 500, 600, 700, 800, 900, 1000]
 
     winrate_results = []
-    for checkpoint_opp in checkpoints_to_play:
+    for ado_checkpoint in ado_checkpoints:
 
-      # ### Run information
-      exp_name = 'tri_2v2_vhc_rear'  # 'tri_single_blr_hierarchical'
-      timestamp = '23_05_06_22_51_54_bilevel_2v2'  #'23_03_23_11_34_55_bilevel_2v2'  # '23_03_20_19_06_44_bilevel_2v2'  # '23_02_21_17_16_07_bilevel_2v2'  # '23_01_31_14_30_58_bilevel_2v2'  # '23_01_31_11_54_24_bilevel_2v2'
-      checkpoint = 1000  # 500  # 1300
+        ego_checkpoints = [1000]  # [500, 600, 700, 800, 900, 1000]
+        for ego_checkpoint in ego_checkpoints:
+            # ### Run information
+            exp_name = 'tri_2v2_vhc_rear'  # 'tri_single_blr_hierarchical'
+            timestamp = '23_05_09_22_12_45_bilevel_2v2'  #'23_03_23_11_34_55_bilevel_2v2'  # '23_03_20_19_06_44_bilevel_2v2'  # '23_02_21_17_16_07_bilevel_2v2'  # '23_01_31_14_30_58_bilevel_2v2'  # '23_01_31_11_54_24_bilevel_2v2'
+            # checkpoint = 1000  # 500  # 1300
 
-      path_cfg = os.getcwd() + '/logs/' + exp_name + '/' + timestamp
-      cfg, cfg_train, logdir_root = getcfg(path_cfg, postfix='', postfix_train='')
-      cfg['viewer']['logEvery'] = 1  # -1
-      cfg['sim']['numEnv'] = 1000
+            # ego_checkpoint = ado_checkpoint  # HACK: remove after testing
 
-      if checkpoint_opp==-1:
-          # Play against PPC
-          cfg['learn']['ppc_prob_val_ini'] = 1.0  # 0.0 vs 1.0
-          cfg['learn']['ppc_prob_val_end'] = 1.0  # 0.0 vs 1.0
-          checkpoint_opp = checkpoint
-      else:
-          # Play against checkpoint
-          cfg['learn']['ppc_prob_val_ini'] = 0.0  # 0.0 vs 1.0
-          cfg['learn']['ppc_prob_val_end'] = 0.0  # 0.0 vs 1.0
-          
-      #active policies
-      runs_hl = [timestamp, '23_05_06_22_51_54_bilevel_2v2']  # '23_02_22_21_18_03_bilevel_2v2'
-      chkpts_hl = [checkpoint, checkpoint_opp]
-      runs_ll = [timestamp, '23_05_06_22_51_54_bilevel_2v2']
-      chkpts_ll = [checkpoint, checkpoint_opp]
-      ##policies to populate adversary buffer
-      adv_runs = ['23_05_06_22_51_54_bilevel_2v2']
-      adv_chkpts = [checkpoint]
+            path_cfg = os.getcwd() + '/logs/' + exp_name + '/' + timestamp
+            cfg, cfg_train, logdir_root = getcfg(path_cfg, postfix='', postfix_train='')
+            cfg['viewer']['logEvery'] = 1  # -1
+            cfg['sim']['numEnv'] = 1000
 
-      # cfg_train['policy']['numteams'] = 2
-      # cfg_train['policy']['teamsize'] = 2
-      # cfg['learn']['agent_dropout_prob'] = 0.0
-      cfg['learn']['agent_dropout_prob_val_ini'] = 0.0
-      cfg['learn']['agent_dropout_prob_val_end'] = 0.0
-      cfg['learn']['steer_ado_with_PPC'] = True  # True  # False
-      # cfg['learn']['ppc_prob_val_ini'] = 0.0  # 0.0 vs 1.0
-      # cfg['learn']['ppc_prob_val_end'] = 0.0  # 0.0 vs 1.0
-      # cfg['learn']['resetrand'] = [0.05, 0.05, 0.5, 2.0, 0.01,  0.5, 0.0]  # [0.05, 0.05, 0.2, 0.1, 0.01, 0.1, 0.0]
-      cfg["sim"]["reset_timeout_only"] = True
-      cfg["sim"]["filtercollisionstoego"] = False
-      # cfg['model']['max_vel'] = 3.5
-      cfg['model']['vm_noise_scale_ego'] = 0.1
-      cfg['model']['vm_noise_scale_ado'] = 0.1
-      cfg["track"]["track_half_width"] = 0.6  # 0.63
-      cfg["learn"]["timeout"] = 50.0  # 30.0  # 16.0
+            if ado_checkpoint==-1:
+                # Play against PPC
+                cfg['learn']['ppc_prob_val_ini'] = 1.0  # 0.0 vs 1.0
+                cfg['learn']['ppc_prob_val_end'] = 1.0  # 0.0 vs 1.0
+                ado_checkpoint_to_use = ego_checkpoint
+            else:
+                # Play against checkpoint
+                cfg['learn']['ppc_prob_val_ini'] = 0.0  # 0.0 vs 1.0
+                cfg['learn']['ppc_prob_val_end'] = 0.0  # 0.0 vs 1.0
+                ado_checkpoint_to_use = ado_checkpoint
+                
+            #active policies
+            runs_hl = [timestamp, '23_05_09_22_12_45_bilevel_2v2']  # '23_02_22_21_18_03_bilevel_2v2'
+            chkpts_hl = [ego_checkpoint, ado_checkpoint_to_use]
+            runs_ll = [timestamp, '23_05_09_22_12_45_bilevel_2v2']
+            chkpts_ll = [ego_checkpoint, ado_checkpoint_to_use]
+            ##policies to populate adversary buffer
+            adv_runs = ['23_05_09_22_12_45_bilevel_2v2']
+            adv_chkpts = [ego_checkpoint]
 
-      cfg['teams'] = dict()
-      cfg['teams']['numteams'] = cfg_train['policy']['numteams']
-      cfg['teams']['teamsize'] = cfg_train['policy']['teamsize']
+            ado_run_different = False
+            if runs_hl[0] != runs_hl[1]:
+                ado_run_different = True
 
-      if not "centralized_value_hl" in cfg_train["runner"]:
-          cfg_train["runner"]["centralized_value_hl"] = True
-          cfg_train["runner"]["centralized_value_ll"] = False
+            # cfg_train['policy']['numteams'] = 2
+            # cfg_train['policy']['teamsize'] = 2
+            # cfg['learn']['agent_dropout_prob'] = 0.0
+            cfg['learn']['agent_dropout_prob_val_ini'] = 0.0
+            cfg['learn']['agent_dropout_prob_val_end'] = 0.0
+            cfg['learn']['steer_ado_with_PPC'] = True  # True  # False
+            # cfg['learn']['ppc_prob_val_ini'] = 0.0  # 0.0 vs 1.0
+            # cfg['learn']['ppc_prob_val_end'] = 0.0  # 0.0 vs 1.0
+            # cfg['learn']['resetrand'] = [0.05, 0.05, 0.5, 2.0, 0.01,  0.5, 0.0]  # [0.05, 0.05, 0.2, 0.1, 0.01, 0.1, 0.0]
+            cfg["sim"]["reset_timeout_only"] = True
+            cfg["sim"]["filtercollisionstoego"] = False
+            # cfg['model']['max_vel'] = 3.0  # NOTE: PPC leaves track too much o/t/w?!
+            cfg['model']['vm_noise_scale_ego'] = 0.1
+            cfg['model']['vm_noise_scale_ado'] = 0.1
+            # cfg["track"]["track_half_width"] = 0.6  # 0.63
+            cfg["learn"]["timeout"] = 40.0  # 40.0  # 50.0  # 30.0  # 16.0
+            # cfg["track"]["seed"] = 3
 
-      args.override_cfg_with_args(cfg, cfg_train)
-      set_dependent_cfg_entries(cfg, cfg_train)
+            cfg['model']['alpha_f_sigma'] = [[1.e-3 * e for e in elem] for elem in cfg['model']['alpha_f_sigma']]
 
-      # logdir = logdir_root +'/'+timestamp+'_no_dist_to_go_' + cfg_train['runner']['algorithm_class_name']+'_'+str(cfg_train['runner']['num_steps_per_env'])
-      # logdir = logdir_root +'/'+timestamp + cfg_train['runner']['algorithm_class_name']+'_'+str(cfg_train['runner']['num_steps_per_env'])
-      logdir = logdir_root +'/eval/'+timestamp
-      cfg["logdir"] = logdir
+            cfg['teams'] = dict()
+            cfg['teams']['numteams'] = cfg_train['policy']['numteams']
+            cfg['teams']['teamsize'] = cfg_train['policy']['teamsize']
 
-      winrate_result = eval()
+            if not "centralized_value_hl" in cfg_train["runner"]:
+                cfg_train["runner"]["centralized_value_hl"] = True
+                cfg_train["runner"]["centralized_value_ll"] = False
 
-      winrate_results.append(winrate_result)
+            args.override_cfg_with_args(cfg, cfg_train)
+            set_dependent_cfg_entries(cfg, cfg_train)
+
+            # logdir = logdir_root +'/'+timestamp+'_no_dist_to_go_' + cfg_train['runner']['algorithm_class_name']+'_'+str(cfg_train['runner']['num_steps_per_env'])
+            # logdir = logdir_root +'/'+timestamp + cfg_train['runner']['algorithm_class_name']+'_'+str(cfg_train['runner']['num_steps_per_env'])
+            logdir = logdir_root +'/eval/'+timestamp  #  + '_v9'
+            cfg["logdir"] = logdir
+
+            winrate_result = eval()
+
+            winrate_results.append(winrate_result)
 
     pass
