@@ -52,7 +52,7 @@ def step_cars(
         b_track,
         S_track,
     )
-    new_state = dyn_model.forward(dyn_state.clone(), dyn_control, contact_wrenches, shove).detach()
+    new_state = dyn_model.forward(dyn_state.clone(), dyn_control, contact_wrenches, shove, drag_reduced).detach()
     slip *= (dyn_model.time_since_col<dyn_model.col_decay_time).view(-1, state.shape[1], 1)
     
     if collide:

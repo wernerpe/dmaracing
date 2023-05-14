@@ -63,6 +63,7 @@ def play():
                     (f"""{'rearend1:':>{10}}{' '}{env.is_rearend_collision[0,1,0].item():.2f}"""),
                     (f"""{'rearend2:':>{10}}{' '}{env.is_rearend_collision[0,2,0].item():.2f}"""),
                     (f"""{'rearend3:':>{10}}{' '}{env.is_rearend_collision[0,3,0].item():.2f}"""),
+                    (f"""{'drag_reduced:':>{10}}{' '}{env.drag_reduced[0,0].item():.2f}"""),
                      #(f"""{'rewards:':>{10}}{' '}{100*rewnp[env.viewer.env_idx_render]:.2f}"""   ),
                      #(f"""{'velocity x:':>{10}}{' '}{env.states[0, 0, 3].item():.2f}"""),
                      #(f"""{'velocity y:':>{10}}{' '}{obsnp[env.viewer.env_idx_render, 1]:.2f}"""),
@@ -93,7 +94,10 @@ def play():
 
         env.viewer.clear_markers()
         wheelloc = (env.wheel_locations_world[env.viewer.env_idx_render, ag, 1, :].view(1,2)).cpu().numpy()
+        leadpoint = (env.leading_pts[env.viewer.env_idx_render, 0, :].view(1,2)).cpu().numpy()
+        
         env.viewer.add_point(wheelloc, 2,(222,10,0), 2)
+        env.viewer.add_point(leadpoint, 2,(222,10,0), 2)
         #env.track_centerlines
         
         # self.targets_pos_world, self.targets_rew01_local, self.targets_rot_world, self.targets_dist_track, self.actions, self.time_off_track,

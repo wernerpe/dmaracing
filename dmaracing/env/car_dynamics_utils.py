@@ -56,7 +56,7 @@ def allocate_car_dynamics_tensors(task):
     task.wheels_on_track_segments = torch.zeros((task.num_envs, task.num_agents, 4, task.max_track_num_tiles), requires_grad=False, device=task.device)>1
     task.slip = torch.zeros((task.num_envs, task.num_agents, 4), requires_grad=False, device=task.device)>1
     task.wheel_locations_world = torch.zeros((task.num_envs, task.num_agents, 4, 2), requires_grad=False, device=task.device)
-    task.drag_reduction_points = torch.zeros((task.num_envs, task.num_agents*30, 2), requires_grad=False, device=task.device)
+    task.drag_reduction_points = torch.zeros((task.num_envs, task.num_agents*20, 2), requires_grad=False, device=task.device)
     task.drag_reduction_write_idx = 0
     task.drag_reduced = torch.zeros((task.num_envs, task.num_agents), requires_grad=False, device=task.device) > 1.0
     
@@ -478,6 +478,9 @@ class SwitchedBicycleKinodynamicModel(nn.Module):
         self.time_since_col = 100.*torch.ones((self.num_envs, self.num_agents), dtype=torch.float, device= device)
         self.col_decay_time = model_cfg['col_decay_time']
 
+        self.drag_reduction_multiplier = model_cfg['drag_reduction_multiplier']
+        self.use_drag_reduction = model_cfg['use_drag_reduction']
+
         self.vn = vn
         #BLR ModelParameters for TRI KART
         self.alphaf_model_mean = torch.tensor(model_cfg['alpha_f_mean'], device=self.device)
@@ -493,7 +496,7 @@ class SwitchedBicycleKinodynamicModel(nn.Module):
         self.par = par
         self.vn = vn
 
-    def get_state_derivative(self, state, actions, col_wrenches):
+    def get_state_derivative(self, state, actions, col_wrenches, drag_reduced):
         # https://onlinelibrary.wiley.com/doi/pdf/10.1002/oca.2123
         # 
         # [x, y, theta, xdot, ydot, thetadot]
@@ -501,7 +504,7 @@ class SwitchedBicycleKinodynamicModel(nn.Module):
         steer = 1.5739 *torch.clip(actions[:, :, self.vn['A_STEER']], -0.35, 0.35) - 0.044971
         steer = torch.clip(steer-self.last_steer, -self.max_d_steer, self.max_d_steer) + steer
 
-        fast_fwd = state[:, :, self.vn['S_DX']] > self.max_vel_vec.squeeze()
+        fast_fwd = state[:, :, self.vn['S_DX']] > (self.max_vel_vec*(1 + (1.0*self.use_drag_reduction)*self.drag_reduction_multiplier*drag_reduced[:,:,None])).squeeze()
         fast_bwd = -state[:, :, self.vn['S_DX']] > 0.1  # 0.01
         gas = actions[:, :, self.vn['A_GAS']]
         gas_clip = 1.0*fast_fwd*torch.clip(gas, -1,0) + 1.0*fast_bwd*torch.clip(gas, 0,1) + ~(fast_fwd|fast_bwd) *  torch.clip(gas, -1.0, 0.3)
@@ -592,8 +595,8 @@ class SwitchedBicycleKinodynamicModel(nn.Module):
 
         return dstate
 
-    def forward(self, state, actions, col_wrenches, shove):
-        d_state = self.get_state_derivative(state, actions, col_wrenches)
+    def forward(self, state, actions, col_wrenches, shove, drag_reduced):
+        d_state = self.get_state_derivative(state, actions, col_wrenches, drag_reduced)
         next_state = state + self.dt * d_state
         next_state[..., self.vn['S_X']:self.vn['S_Y'] + 1] += shove[...,:2]  #  * self.dt/0.02 (maybe?)
         next_state[:, :, self.vn['S_THETA']] += 0.8*shove[:,:,2]  #  * self.dt/0.02 (maybe?)

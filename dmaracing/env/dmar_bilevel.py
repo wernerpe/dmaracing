@@ -1268,6 +1268,20 @@ class DmarEnvBilevel:
         self.all_egoagent_pos_world_env0.append(update_ego_pos * self.states[0, 0, :2])
         self.all_targets_pos_world_env0.append(update_ego_pos * self.targets_pos_world[0, 0])
 
+          
+        #update drag_reduction
+        self.drag_reduction_points[:, self.drag_reduction_write_idx:self.drag_reduction_write_idx+self.num_agents, :] = \
+                        self.states[:,:,0:2]
+        self.drag_reduction_write_idx = (self.drag_reduction_write_idx + self.num_agents) % self.drag_reduction_points.shape[1]
+        self.leading_pts = self.states[:,:,0:2] + self.cfg['model']['drag_lead_distance']*torch.cat((torch.cos(self.states[:,:,2].view(self.num_envs, self.num_agents,1)),
+                                                          torch.sin(self.states[:,:,2].view(self.num_envs, self.num_agents,1))), dim = 2)
+
+        dists = self.leading_pts.view(self.num_envs, self.num_agents,1,2) - self.drag_reduction_points.view(self.num_envs, 1, -1, 2)
+        dists = torch.min(torch.norm(dists, dim=3), dim=2)[0]
+        self.drag_reduced[:] = False 
+        if self.cfg['model']['use_drag_reduction']:
+            self.drag_reduced = dists <= self.cfg['model']['drag_reduction_wake_width'] #3.0 #
+
         self.info["agent_active"] = self.active_agents
 
         # compute closest point on centerline

@@ -22,7 +22,7 @@ sim:
   collisionstiffness: 80.0
   filtercollisionstoego: False  # True  # False
   reset_timeout_only: False
-
+  
   tile_jump_lim: 15
 
   logBehaviorEvery: 20
@@ -61,7 +61,12 @@ model:
   d_steer: 0.1
   k_vel: 1.0 
   d_vel: 0.2
-  
+
+  use_drag_reduction: True
+  drag_lead_distance: 0.8
+  drag_reduction_wake_width: 0.3
+  drag_reduction_multiplier: 0.25
+
 viewer:
   width: 1200  # 1200
   height: 1200  # 1200
