@@ -74,6 +74,8 @@ class DmarEnvBilevel:
         self.num_actions_hl = self.simParameters["numActionsHL"]
         self.num_obs_add_ll = self.simParameters["numConstantObservationsLL"]
 
+        self.use_hierarchical_policy = cfg["policy"]["use_hierarchical_policy"]
+
         self.tile_jump_lim = self.simParameters["tile_jump_lim"]
         self.prog_jump_lim = self.tile_jump_lim * cfg["track"]["track_poly_spacing"]
 
@@ -912,6 +914,7 @@ class DmarEnvBilevel:
             self.prog_jump_lim,
             self.initial_team_rank,
             self.initial_rank,
+            1.0 * self.use_hierarchical_policy,
         )
 
     def check_progress_jump(self, progress, old_progress) -> torch.Tensor:
@@ -927,7 +930,7 @@ class DmarEnvBilevel:
         reset_progress = (self.check_progress_jump(self.track_progress, self.old_track_progress)[..., :self.team_size])*(self.episode_length_buf > 2)
         reset_progress = reset_progress & False  # self.train_ll
         ### Check timeout
-        reset_timeout = self.episode_length_buf > self.max_episode_length
+        reset_timeout = self.episode_length_buf > self.max_episode_length - 1
         
         self.reset_cause = 1e0 * reset_offtrack + 1e1 * reset_progress + 1e2 * reset_timeout
         # self.reset_buf_tmp = reset_offtrack | reset_progress | reset_timeout  # | self.reset_buf_tmp
@@ -941,7 +944,7 @@ class DmarEnvBilevel:
         if not self.train_ll:  # FIXME: check this
             self.reset_buf = torch.logical_and(self.reset_buf_tmp, torch.remainder((self.total_step) * torch.ones_like(self.reset_buf), self.dt_hl)==0)
         else:
-            self.reset_buf = self.reset_buf_tmp
+            self.reset_buf[:] = self.reset_buf_tmp
 
     def reset(self) -> Tuple[torch.Tensor, Union[None, torch.Tensor]]:
         print("Resetting")
@@ -1417,12 +1420,12 @@ class DmarEnvBilevel:
 
         self.old_active_track_tile = self.active_track_tile
         self.old_track_progress = self.track_progress
-        self.last_actions = self.actions.clone()
+        self.last_actions[:] = self.actions
         #self.last_steer[:,:,0] = self.actions[..., self.vn['A_STEER']]
         #self.last_last_steer[:] = self.last_steer[:]
         self.last_vel[:] = self.vel
-        self.prev_ranks[:] = self.ranks.clone()
-        self.prev_teamranks[:] = self.teamranks.clone()
+        self.prev_ranks[:] = self.ranks
+        self.prev_teamranks[:] = self.teamranks
 
         self.update_data = 1.0 * (self.reset_buf_tmp==False)
       
@@ -1824,6 +1827,7 @@ def compute_rewards_jit(
     prog_jump_lim: float,
     initial_team_rank: torch.Tensor,
     initial_rank: torch.Tensor,
+    use_hierarchical_policy: float,
 ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
 
     train_hl = 1.0 - train_ll
@@ -1908,10 +1912,10 @@ def compute_rewards_jit(
         ### Rank reward
         # Base
         # rew_rank = 1.0 * (prev_ranks - ranks) / (1.0 + torch.minimum(prev_ranks, ranks)) # + 1.e-2*torch.exp(-teamranks)
-        ### Team-based
-        rew_rank = 1.0 * (prev_teamranks - teamranks) / (1.0 + torch.minimum(prev_teamranks, teamranks))  # NOTE: testing as alternative to above
-        rew_rank += (time_left_frac[..., 0]==1.0) * (teamranks==0) * 2.0 # NOTE: removed this and below on 05/04/23 evening
-        rew_rank += (time_left_frac[..., 0]==1.0) * (initial_team_rank - teamranks) * 0.5  # * 0.25  # 0.1  # NOTE: not visible from obs
+        # ### Team-based
+        # rew_rank = 1.0 * (prev_teamranks - teamranks) / (1.0 + torch.minimum(prev_teamranks, teamranks))  # NOTE: testing as alternative to above
+        # rew_rank += (time_left_frac[..., 0]==1.0) * (teamranks==0) * 2.0 # NOTE: removed this and below on 05/04/23 evening
+        # rew_rank += (time_left_frac[..., 0]==1.0) * (initial_team_rank - teamranks) * 0.5  # * 0.25  # 0.1  # NOTE: not visible from obs
         # ### Individual-based
         # rew_rank = 1.0 * (prev_ranks - ranks) / (1.0 + torch.minimum(prev_ranks, ranks))  # NOTE: testing as alternative to above
         # rew_rank += (time_left_frac[..., 0]==1.0) * (ranks==0) * 2.0 # NOTE: removed this and below on 05/04/23 evening
@@ -1920,11 +1924,36 @@ def compute_rewards_jit(
         # # NOTE: replaced above with this
         # rew_rank += (teamranks==0) * 0.5
         # rew_rank += (initial_team_rank - teamranks) * 0.1
+
+        ### Different rank versions
+        # # Version 1
+        # rew_rank = 1.0 * (prev_ranks - ranks) / (1.0 + torch.minimum(prev_ranks, ranks))
+        # rew_rank += (time_left_frac[..., 0]==1.0) * (teamranks==0) * 2.0
+        # rew_rank += (time_left_frac[..., 0]==1.0) * (initial_team_rank - teamranks) * 0.25
+        # rew_rank += 1.e-1*torch.exp(-ranks)
+        # rew_rank += 1.e-2*torch.exp(-teamranks)
+        # # Version 2
+        # rew_rank = 1.0 * (prev_ranks - ranks) / (1.0 + torch.minimum(prev_ranks, ranks))
+        # rew_rank += (time_left_frac[..., 0]==1.0) * (teamranks==0) * 2.0
+        # rew_rank += (time_left_frac[..., 0]==1.0) * (initial_team_rank - teamranks) * 0.25
+        # # Version 3
+        # rew_rank = 1.0 * (prev_teamranks - teamranks) / (1.0 + torch.minimum(prev_teamranks, teamranks))
+        # rew_rank += (time_left_frac[..., 0]==1.0) * (teamranks==0) * 2.0
+        # rew_rank += (time_left_frac[..., 0]==1.0) * (initial_team_rank - teamranks) * 0.25
+        # Version 4
+        rew_rank = 1.0 * (prev_teamranks - teamranks) / (1.0 + torch.minimum(prev_teamranks, teamranks))
+        rew_rank += (time_left_frac[..., 0]==1.0) * (teamranks==0) * 2.0
+        rew_rank += (time_left_frac[..., 0]==1.0) * (initial_team_rank - teamranks) * 0.25
+        rew_rank += 1.e-1*torch.exp(-ranks)
+        rew_rank += 1.e-2*torch.exp(-teamranks)
+
         # LL mod
         rew_rank_ll = 0.0 * rew_rank
         # HL mod
         rew_rank_hl = 1.0 * rew_rank * ll_ep_done[..., 0]  # * dt_hl  #  + (teamranks==0) * dt_hl
         # rew_rank_hl += 10.0 * (eps_length > 0.95*max_length) * (teamranks==0)
+
+        rew_rank_ll = (1.0 - use_hierarchical_policy) * rew_rank_hl
 
         ### Collision reward
         # Base
