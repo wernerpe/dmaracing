@@ -348,16 +348,16 @@ if __name__ == "__main__":
     args.headless =  True 
 
 
-    ado_checkpoints = [1000]  # [-1, 500, 600, 700, 800, 900, 1000]
+    ado_checkpoints = [-1]  # [-1, 500, 600, 700, 800, 900, 1000]
 
     winrate_results = []
     for ado_checkpoint in ado_checkpoints:
 
-        ego_checkpoints = [1000]  # [500, 600, 700, 800, 900, 1000]
+        ego_checkpoints = [3600, 3000, 2500, 2000, 1000]  # [500, 600, 700, 800, 900, 1000]
         for ego_checkpoint in ego_checkpoints:
             # ### Run information
             exp_name = 'tri_2v2_vhc_rear'  # 'tri_single_blr_hierarchical'
-            timestamp = '23_05_09_22_12_45_bilevel_2v2'  #'23_03_23_11_34_55_bilevel_2v2'  # '23_03_20_19_06_44_bilevel_2v2'  # '23_02_21_17_16_07_bilevel_2v2'  # '23_01_31_14_30_58_bilevel_2v2'  # '23_01_31_11_54_24_bilevel_2v2'
+            timestamp = '23_05_13_18_23_35_bilevel_2v2'  #'23_03_23_11_34_55_bilevel_2v2'  # '23_03_20_19_06_44_bilevel_2v2'  # '23_02_21_17_16_07_bilevel_2v2'  # '23_01_31_14_30_58_bilevel_2v2'  # '23_01_31_11_54_24_bilevel_2v2'
             # checkpoint = 1000  # 500  # 1300
 
             # ego_checkpoint = ado_checkpoint  # HACK: remove after testing
@@ -379,12 +379,12 @@ if __name__ == "__main__":
                 ado_checkpoint_to_use = ado_checkpoint
                 
             #active policies
-            runs_hl = [timestamp, '23_05_09_22_12_45_bilevel_2v2']  # '23_02_22_21_18_03_bilevel_2v2'
+            runs_hl = [timestamp, '23_05_13_18_23_35_bilevel_2v2']  # '23_02_22_21_18_03_bilevel_2v2'
             chkpts_hl = [ego_checkpoint, ado_checkpoint_to_use]
-            runs_ll = [timestamp, '23_05_09_22_12_45_bilevel_2v2']
+            runs_ll = [timestamp, '23_05_13_18_23_35_bilevel_2v2']
             chkpts_ll = [ego_checkpoint, ado_checkpoint_to_use]
             ##policies to populate adversary buffer
-            adv_runs = ['23_05_09_22_12_45_bilevel_2v2']
+            adv_runs = ['23_05_13_18_23_35_bilevel_2v2']
             adv_chkpts = [ego_checkpoint]
 
             ado_run_different = False
@@ -414,10 +414,18 @@ if __name__ == "__main__":
             cfg['teams'] = dict()
             cfg['teams']['numteams'] = cfg_train['policy']['numteams']
             cfg['teams']['teamsize'] = cfg_train['policy']['teamsize']
-
             if not "centralized_value_hl" in cfg_train["runner"]:
                 cfg_train["runner"]["centralized_value_hl"] = True
                 cfg_train["runner"]["centralized_value_ll"] = False
+            if not "use_hierarchical_policy" in cfg_train["runner"]:
+                cfg_train["runner"]["use_hierarchical_policy"] = True
+            if not 'use_drag_reduction' in cfg['model']:
+                cfg['model']['use_drag_reduction'] = False
+                cfg['model']['drag_lead_distance'] = -1
+                cfg['model']['drag_reduction_wake_width'] = -1
+                cfg['model']['drag_reduction_multiplier'] = -1
+            cfg['policy'] = dict()
+            cfg['policy']['use_hierarchical_policy'] = cfg_train["runner"]["use_hierarchical_policy"]
 
             args.override_cfg_with_args(cfg, cfg_train)
             set_dependent_cfg_entries(cfg, cfg_train)
