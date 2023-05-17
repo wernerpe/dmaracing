@@ -25,32 +25,32 @@ def eval():
     runner.load_multi_path(model_paths_hl, model_paths_ll, load_optimizer=True)
 
 
-    save_dir = 'logs/saved_models/'+timestamp
-    if not os.path.exists(save_dir):
-        os.mkdir(save_dir)
-        os.mkdir(save_dir+'/hl_model')
-        os.mkdir(save_dir+'/ll_model')
-    shutil.copy(logdir_root+'/'+timestamp+'/cfg.yml', save_dir+'/cfg.yml' )
-    shutil.copy(logdir_root+'/'+timestamp+'/cfg_train.yml', save_dir+'/cfg_train.yml' )
+    # save_dir = 'logs/saved_models/'+ego_timestamp + '_rank_rew_v8'
+    # if not os.path.exists(save_dir):
+    #     os.mkdir(save_dir)
+    #     os.mkdir(save_dir+'/hl_model')
+    #     os.mkdir(save_dir+'/ll_model')
+    # shutil.copy(logdir_root+'/'+ego_timestamp+'/cfg.yml', save_dir+'/cfg.yml' )
+    # shutil.copy(logdir_root+'/'+ego_timestamp+'/cfg_train.yml', save_dir+'/cfg_train.yml' )
     
-    # ### Save jit models to original folder
-    if hasattr(runner.alg_hl.actor_critic.teamacs[0].ac, 'actor'):
-        policy_hl_jit = torch.jit.script(runner.alg_hl.actor_critic.teamacs[0].ac.actor.to('cpu'))
-        policy_hl_jit.save(save_dir+ "/hl_model/jit_model_" +str(modelnr_hl)+".pt")
-    else:
-        policy_hl_jit = torch.jit.script(runner.alg_hl.actor_critic.teamacs[0].ac.critic.to('cpu'))
-        policy_hl_jit.save(save_dir+ "/hl_model/jit_critic_model_" +str(modelnr_hl)+".pt")
+    # # ### Save jit models to original folder
+    # if hasattr(runner.alg_hl.actor_critic.teamacs[0].ac, 'actor'):
+    #     policy_hl_jit = torch.jit.script(runner.alg_hl.actor_critic.teamacs[0].ac.actor.to('cpu'))
+    #     policy_hl_jit.save(save_dir+ "/hl_model/jit_model_" +str(modelnr_hl)+".pt")
+    # else:
+    #     policy_hl_jit = torch.jit.script(runner.alg_hl.actor_critic.teamacs[0].ac.critic.to('cpu'))
+    #     policy_hl_jit.save(save_dir+ "/hl_model/jit_critic_model_" +str(modelnr_hl)+".pt")
 
-    policy_ll_jit = torch.jit.script(runner.alg_ll.actor_critic.teamacs[0].ac.actor.to('cpu'))
-    policy_ll_jit.save(save_dir + "/ll_model/jit_model_" +str(modelnr_ll)+".pt")
+    # policy_ll_jit = torch.jit.script(runner.alg_ll.actor_critic.teamacs[0].ac.actor.to('cpu'))
+    # policy_ll_jit.save(save_dir + "/ll_model/jit_model_" +str(modelnr_ll)+".pt")
 
-    policy_ll_jit = torch.jit.script(runner.alg_ll.actor_critic.teamacs[0].ac.actor.to('cpu'))
-    policy_ll_jit.save(save_dir + "/ll_model/jit_model_" +str(modelnr_ll)+".pt")
-    exit()
+    # policy_ll_jit = torch.jit.script(runner.alg_ll.actor_critic.teamacs[0].ac.actor.to('cpu'))
+    # policy_ll_jit.save(save_dir + "/ll_model/jit_model_" +str(modelnr_ll)+".pt")
+    # # exit()
     
     #populate adversary buffer
     adv_model_paths_hl, adv_model_paths_ll = [], []
-    for run_hl, chkpt_hl, run_ll, chkpt_ll in zip(runs_hl, chkpts_hl, runs_ll, chkpts_ll):
+    for run_hl, chkpt_hl, run_ll, chkpt_ll in zip(adv_runs, adv_chkpts, adv_runs, adv_chkpts):
 
         dir_hl, modelnr_hl = get_run(logdir_root, run=run_hl + '/hl_model', chkpt=chkpt_hl)
         adv_model_paths_hl.append("{}/model_{}.pt".format(dir_hl, modelnr_hl))
@@ -149,7 +149,7 @@ def run_eval_winrate(env, policy_hl, policy_ll):
     else:
         opp_name += 'ckpt' + str(ado_checkpoint)
         if ado_run_different:
-            opp_name += '_action'
+            opp_name += '_action'  #'_action'
     filename = 'stats_afs1em3_' + ego_name + '_vs_' + opp_name + '.csv'
 
     assert num_episodes == 1
@@ -224,7 +224,7 @@ def run_eval_winrate(env, policy_hl, policy_ll):
                     break
             
             if ~torch.any(~is_already_done):
-                    break
+                break
                 
         # Get final teamranks from envs that did not terminate
         not_done_ids = torch.where(~is_already_done)
@@ -348,7 +348,8 @@ if __name__ == "__main__":
     args.headless =  True 
 
 
-    ado_checkpoints = [-1]  # [-1, 500, 600, 700, 800, 900, 1000]
+    ado_checkpoints = [1000]  # [-1, 500, 600, 700, 800, 900, 1000]
+    ado_timestamp = '23_05_15_08_34_59_bilevel_2v2'
 
     winrate_results = []
     for ado_checkpoint in ado_checkpoints:
@@ -357,12 +358,12 @@ if __name__ == "__main__":
         for ego_checkpoint in ego_checkpoints:
             # ### Run information
             exp_name = 'tri_2v2_vhc_rear'  # 'tri_single_blr_hierarchical'
-            timestamp = '23_05_13_18_23_35_bilevel_2v2'  #'23_03_23_11_34_55_bilevel_2v2'  # '23_03_20_19_06_44_bilevel_2v2'  # '23_02_21_17_16_07_bilevel_2v2'  # '23_01_31_14_30_58_bilevel_2v2'  # '23_01_31_11_54_24_bilevel_2v2'
+            ego_timestamp = '23_05_06_08_54_00_bilevel_2v2'  #'23_03_23_11_34_55_bilevel_2v2'  # '23_03_20_19_06_44_bilevel_2v2'  # '23_02_21_17_16_07_bilevel_2v2'  # '23_01_31_14_30_58_bilevel_2v2'  # '23_01_31_11_54_24_bilevel_2v2'
             # checkpoint = 1000  # 500  # 1300
 
             # ego_checkpoint = ado_checkpoint  # HACK: remove after testing
 
-            path_cfg = os.getcwd() + '/logs/' + exp_name + '/' + timestamp
+            path_cfg = os.getcwd() + '/logs/' + exp_name + '/' + ego_timestamp
             cfg, cfg_train, logdir_root = getcfg(path_cfg, postfix='', postfix_train='')
             cfg['viewer']['logEvery'] = 1  # -1
             cfg['sim']['numEnv'] = 1000
@@ -379,13 +380,13 @@ if __name__ == "__main__":
                 ado_checkpoint_to_use = ado_checkpoint
                 
             #active policies
-            runs_hl = [timestamp, '23_05_13_18_23_35_bilevel_2v2']  # '23_02_22_21_18_03_bilevel_2v2'
+            runs_hl = [ego_timestamp, ado_timestamp]  # '23_02_22_21_18_03_bilevel_2v2'
             chkpts_hl = [ego_checkpoint, ado_checkpoint_to_use]
-            runs_ll = [timestamp, '23_05_13_18_23_35_bilevel_2v2']
+            runs_ll = [ego_timestamp, ado_timestamp]
             chkpts_ll = [ego_checkpoint, ado_checkpoint_to_use]
             ##policies to populate adversary buffer
-            adv_runs = ['23_05_13_18_23_35_bilevel_2v2']
-            adv_chkpts = [ego_checkpoint]
+            adv_runs = [ado_timestamp]
+            adv_chkpts = [ado_checkpoint_to_use]
 
             ado_run_different = False
             if runs_hl[0] != runs_hl[1]:
@@ -400,13 +401,16 @@ if __name__ == "__main__":
             # cfg['learn']['ppc_prob_val_ini'] = 0.0  # 0.0 vs 1.0
             # cfg['learn']['ppc_prob_val_end'] = 0.0  # 0.0 vs 1.0
             # cfg['learn']['resetrand'] = [0.05, 0.05, 0.5, 2.0, 0.01,  0.5, 0.0]  # [0.05, 0.05, 0.2, 0.1, 0.01, 0.1, 0.0]
-            cfg["sim"]["reset_timeout_only"] = True
+            cfg["sim"]["reset_timeout_only"] = True  # True
             cfg["sim"]["filtercollisionstoego"] = False
             # cfg['model']['max_vel'] = 3.0  # NOTE: PPC leaves track too much o/t/w?!
             cfg['model']['vm_noise_scale_ego'] = 0.1
-            cfg['model']['vm_noise_scale_ado'] = 0.1
+            cfg['model']['vm_noise_scale_ado_val_ini'] = 0.1
+            cfg['model']['vm_noise_scale_ado_val_end'] = 0.1
+            cfg["model"]["vm_noise_scale_ado_itr_ini"] = 0
+            cfg["model"]["vm_noise_scale_ado_itr_end"] = 1
             # cfg["track"]["track_half_width"] = 0.6  # 0.63
-            cfg["learn"]["timeout"] = 40.0  # 40.0  # 50.0  # 30.0  # 16.0
+            cfg["learn"]["timeout"] = 40.0  # 40.0  # 40.0  # 50.0  # 30.0  # 16.0
             # cfg["track"]["seed"] = 3
 
             cfg['model']['alpha_f_sigma'] = [[1.e-3 * e for e in elem] for elem in cfg['model']['alpha_f_sigma']]
@@ -432,7 +436,7 @@ if __name__ == "__main__":
 
             # logdir = logdir_root +'/'+timestamp+'_no_dist_to_go_' + cfg_train['runner']['algorithm_class_name']+'_'+str(cfg_train['runner']['num_steps_per_env'])
             # logdir = logdir_root +'/'+timestamp + cfg_train['runner']['algorithm_class_name']+'_'+str(cfg_train['runner']['num_steps_per_env'])
-            logdir = logdir_root +'/eval/'+timestamp  #  + '_v9'
+            logdir = logdir_root +'/eval/'+ego_timestamp + '_testing'  #  + '_v9'
             cfg["logdir"] = logdir
 
             winrate_result = eval()
