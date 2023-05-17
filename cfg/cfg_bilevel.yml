@@ -96,9 +96,9 @@ learn:
   steer_ado_with_PPC: True  # True
   iters_ado_with_PPC: 200  # 150  # 500  # 5000
   ppc_prob_itr_ini: 500  # 200  # 50  # 100
-  ppc_prob_itr_end: 501  # 400  # 500  # 150  # 300  # 1300
+  ppc_prob_itr_end: 700  # 400  # 500  # 150  # 300  # 1300
   ppc_prob_val_ini: 1.0
-  ppc_prob_val_end: 1.0  # 1.0  # 0.2  # 0.3
+  ppc_prob_val_end: 0.3  # 1.0  # 0.2  # 0.3
   use_timeouts: True
   use_track_curriculum: True
   #[posx, posy, theta, vellong, vellat, dtheta, steer]

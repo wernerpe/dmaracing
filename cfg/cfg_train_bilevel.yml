@@ -36,9 +36,9 @@ runner:
   use_hierarchical_policy: True  # True
   num_steps_per_env_hl: 8  # 16  # 8  # 16  # 8  # 20  # 64 # per iteration
   num_steps_per_env_ll: 40  # 60  # 40  # 40  # 60
-  max_iterations: 1500  # 500  # 600  # 1000  # 1300  # 2400  # 1200 # 500 # number of policy updates
+  max_iterations: 1000  # 500  # 600  # 1000  # 1300  # 2400  # 1200 # 500 # number of policy updates
   iter_per_hl: 20  # 50  # 200  # 20  # 20  # 1  # 20
-  iter_per_ll: 500  # 500  # 600  # 200  # 400  # 40  # 40  # 100  # 200  # 100 # 300  # 200  # 10  # 200
+  iter_per_ll: 1000  # 500  # 600  # 200  # 400  # 40  # 40  # 100  # 200  # 100 # 300  # 200  # 10  # 200
   start_on_ll: True
   pretrain_ll_iter: 0  # 500  # 0  # 200  # 1000
   warmup_hl_iter: 1  # 200

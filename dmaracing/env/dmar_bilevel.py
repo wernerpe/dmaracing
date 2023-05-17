@@ -928,7 +928,7 @@ class DmarEnvBilevel:
         ### Check cutting
         # reset_progress = (self.check_progress_jump(self.track_progress, self.old_track_progress)[..., 0].view(-1, 1))*(self.episode_length_buf > 2)
         reset_progress = (self.check_progress_jump(self.track_progress, self.old_track_progress)[..., :self.team_size])*(self.episode_length_buf > 2)
-        reset_progress = reset_progress & False  # self.train_ll
+        reset_progress = reset_progress & False #self.train_ll
         ### Check timeout
         reset_timeout = self.episode_length_buf > self.max_episode_length - 1
         
@@ -1132,8 +1132,8 @@ class DmarEnvBilevel:
         for team in self.teams:
             self.teamranks[:, team] = torch.min(self.ranks[:, team], dim = 1)[0].reshape(-1,1).type(torch.int)
 
-        self.initial_team_rank[env_ids, :] = self.teamranks[env_ids, :].clone()
-        self.initial_rank[env_ids, :] = self.ranks[env_ids, :].clone()
+        self.initial_team_rank[env_ids, :] = self.teamranks[env_ids, :]
+        self.initial_rank[env_ids, :] = self.ranks[env_ids, :]
 
         self.is_collision[env_ids, ...] = False
         self.is_rearend_collision[env_ids, ...] = 0
@@ -1282,20 +1282,6 @@ class DmarEnvBilevel:
         self.is_on_track = torch.any(torch.any(self.wheels_on_track_segments, dim=3), dim=2)
         self.time_off_track += 1.0 * ~self.is_on_track
         self.time_off_track *= 1.0 * ~self.is_on_track  # reset if on track again
-
-
-        # #update drag_reduction
-        # self.drag_reduction_points[:, self.drag_reduction_write_idx:self.drag_reduction_write_idx+self.num_agents, :] = \
-        #                 self.states[:,:,0:2]
-        # self.drag_reduction_write_idx = (self.drag_reduction_write_idx + self.num_agents) % self.drag_reduction_points.shape[1]
-        # leading_pts = self.states[:,:,0:2] + 5*torch.cat((torch.cos(self.states[:,:,2].view(self.num_envs, self.num_agents,1)),
-        #                                                   torch.sin(self.states[:,:,2].view(self.num_envs, self.num_agents,1))), dim = 2)
-
-        # dists = leading_pts.view(self.num_envs, self.num_agents,1,2) - self.drag_reduction_points.view(self.num_envs, 1, -1, 2)
-        # dists = torch.min(torch.norm(dists, dim=3), dim=2)[0]
-        # self.drag_reduced[:] = False 
-        # self.drag_reduced = dists <= 3.0
-
 
         # Update ego position at end of LL episodes
         update_ego_pos = self.ll_ep_done[0, 0]
@@ -1785,6 +1771,13 @@ class DmarEnvBilevel:
 
 
 
+#@torch.jit.script
+def get_multivariate_reward(dist : torch.Tensor, stddev: torch.Tensor):
+    exponent = -0.5 * ((dist / stddev)**2).sum(axis=-1)
+    denominator = (2*torch.pi * torch.sqrt(torch.prod(stddev, axis=-1)))
+    pdf_dist = torch.exp(exponent) / denominator
+    return pdf_dist
+
 
 ### jit functions
 #@torch.jit.script
@@ -1871,8 +1864,8 @@ def compute_rewards_jit(
     ### Action rate penalty
     # Base
     act_diff = torch.square(actions - last_actions)
-    act_diff[..., 0] *= 1.0  # 5.0  # 20.0  # 5.0  # 25.0
-    act_diff[..., 1] *= 1.0  # 1.0  # 10.0
+    act_diff[..., 0] *= 2.0  #1.0 # 5.0  # 20.0  # 5.0  # 25.0
+    act_diff[..., 1] *= 2.0  # 1.0  # 10.0
     rew_actionrate = torch.sum(act_diff, dim=2)
     # LL mod
     rew_actionrate_ll = 1.0 * rew_actionrate
@@ -2054,10 +2047,3 @@ def compute_rewards_jit(
 
 
     return rew_buf, reward_terms, step_reward_terms
-
-
-def get_multivariate_reward(dist, stddev):
-    exponent = -0.5 * ((dist / stddev)**2).sum(axis=-1)
-    denominator = (2*torch.pi * torch.sqrt(torch.prod(stddev, axis=-1)))
-    pdf_dist = torch.exp(exponent) / denominator
-    return pdf_dist

@@ -38,8 +38,8 @@ def play():
         t1 = time.time()
         #actions[0 , ag, 0] = -0.2 #steer_cmd
         #actions[0 , ag, 1] = 1.0
-        if USE_PPC:
-            actions[:,:,:] = ppc.step()[:,:,:]
+        # if USE_PPC:
+        #     actions[:,:,:] = ppc.step()[:,:,:]
         #env.states[0,0,0:3] = 0
         #env.states[0,0,0] = 2
         #env.states[0,0,0] = -0.05
@@ -159,6 +159,12 @@ if __name__ == "__main__":
 
     cfg['learn']['offtrack_reset'] = 10
     cfg['learn']['timeout'] = 100
+    
+    #HACK: dummy parameter
+    cfg['policy'] = dict()
+    cfg['policy']['use_hierarchical_policy'] = True
+    
+    
     cfg['model']['OFFTRACK_FRICTION_SCALE'] = 1
     cfg['model']['drag_reduction'] = 1.0
     cfg['test'] = False
