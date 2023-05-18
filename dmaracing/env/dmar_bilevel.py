@@ -928,7 +928,7 @@ class DmarEnvBilevel:
         reset_progress = (self.check_progress_jump(self.track_progress, self.old_track_progress)[..., :self.team_size])*(self.episode_length_buf > 2)
         reset_progress = reset_progress & False  # self.train_ll
         ### Check timeout
-        reset_timeout = self.episode_length_buf > self.max_episode_length
+        reset_timeout = self.episode_length_buf > self.max_episode_length - 1
         
         self.reset_cause = 1e0 * reset_offtrack + 1e1 * reset_progress + 1e2 * reset_timeout
         # self.reset_buf_tmp = reset_offtrack | reset_progress | reset_timeout  # | self.reset_buf_tmp
@@ -942,7 +942,7 @@ class DmarEnvBilevel:
         if not self.train_ll:  # FIXME: check this
             self.reset_buf = torch.logical_and(self.reset_buf_tmp, torch.remainder((self.total_step) * torch.ones_like(self.reset_buf), self.dt_hl)==0)
         else:
-            self.reset_buf = self.reset_buf_tmp
+            self.reset_buf[:] = self.reset_buf_tmp
 
     def reset(self) -> Tuple[torch.Tensor, Union[None, torch.Tensor]]:
         print("Resetting")
@@ -1315,7 +1315,7 @@ class DmarEnvBilevel:
         # increment_idx = torch.where(self.active_track_tile - self.old_active_track_tile < 15 - self.track_tile_counts[self.active_track_ids].view(-1, 1))  # avoid farming turns? NOTE: track length - buffer
         # decrement_idx = torch.where(self.active_track_tile - self.old_active_track_tile > 15)
 
-        increment_idx = torch.where(self.active_track_tile - self.old_active_track_tile < -0.95 * self.track_tile_counts[self.active_track_ids].view(-1, 1))  # 0.9
+        increment_idx = torch.where(self.active_track_tile - self.old_active_track_tile < -0.20 * self.track_tile_counts[self.active_track_ids].view(-1, 1))  # 0.95 ; 0.9
         decrement_idx = torch.where(self.active_track_tile - self.old_active_track_tile > +0.20 * self.track_tile_counts[self.active_track_ids].view(-1, 1))  # 0.9
 
         self.lap_counter[increment_idx] += 1
@@ -1871,6 +1871,7 @@ def compute_rewards_jit(
     # rew_goal_ll = 0.05 / ll_steps_left.squeeze(-1) * rew_goal * torch.exp((vel-2.0)/4.0)
     # HL mod
     rew_goal_hl = 0.0 * rew_goal  #+ 5.e-2 * targets_off_ahead[..., 0] / 5.0 * ll_ep_done[..., 0]  # bias towards far away goals
+    # rew_goal_hl = 1.e-2 * rew_goal_ll
 
     ### Baseline reward
     # Base
@@ -1892,10 +1893,10 @@ def compute_rewards_jit(
         ### Rank reward
         # Base
         # rew_rank = 1.0 * (prev_ranks - ranks) / (1.0 + torch.minimum(prev_ranks, ranks)) # + 1.e-2*torch.exp(-teamranks)
-        ### Team-based
-        rew_rank = 1.0 * (prev_teamranks - teamranks) / (1.0 + torch.minimum(prev_teamranks, teamranks))  # NOTE: testing as alternative to above
-        rew_rank += (time_left_frac[..., 0]==1.0) * (teamranks==0) * 2.0 # NOTE: removed this and below on 05/04/23 evening
-        rew_rank += (time_left_frac[..., 0]==1.0) * (initial_team_rank - teamranks) * 0.5  # * 0.25  # 0.1  # NOTE: not visible from obs
+        # ### Team-based
+        # rew_rank = 1.0 * (prev_teamranks - teamranks) / (1.0 + torch.minimum(prev_teamranks, teamranks))  # NOTE: testing as alternative to above
+        # rew_rank += (time_left_frac[..., 0]==1.0) * (teamranks==0) * 2.0 # NOTE: removed this and below on 05/04/23 evening
+        # rew_rank += (time_left_frac[..., 0]==1.0) * (initial_team_rank - teamranks) * 0.5  # * 0.25  # 0.1  # NOTE: not visible from obs
         # ### Individual-based
         # rew_rank = 1.0 * (prev_ranks - ranks) / (1.0 + torch.minimum(prev_ranks, ranks))  # NOTE: testing as alternative to above
         # rew_rank += (time_left_frac[..., 0]==1.0) * (ranks==0) * 2.0 # NOTE: removed this and below on 05/04/23 evening
@@ -1904,6 +1905,56 @@ def compute_rewards_jit(
         # # NOTE: replaced above with this
         # rew_rank += (teamranks==0) * 0.5
         # rew_rank += (initial_team_rank - teamranks) * 0.1
+
+        ### Different rank versions
+        # # Version 1
+        # rew_rank = 1.0 * (prev_ranks - ranks) / (1.0 + torch.minimum(prev_ranks, ranks))
+        # rew_rank += (time_left_frac[..., 0]==1.0) * (teamranks==0) * 2.0
+        # rew_rank += (time_left_frac[..., 0]==1.0) * (initial_team_rank - teamranks) * 0.25
+        # rew_rank += 1.e-1*torch.exp(-ranks)
+        # rew_rank += 1.e-2*torch.exp(-teamranks)
+        # # Version 2
+        # rew_rank = 1.0 * (prev_ranks - ranks) / (1.0 + torch.minimum(prev_ranks, ranks))
+        # rew_rank += (time_left_frac[..., 0]==1.0) * (teamranks==0) * 2.0
+        # rew_rank += (time_left_frac[..., 0]==1.0) * (initial_team_rank - teamranks) * 0.25
+        # # Version 3
+        # rew_rank = 1.0 * (prev_teamranks - teamranks) / (1.0 + torch.minimum(prev_teamranks, teamranks))
+        # rew_rank += (time_left_frac[..., 0]==1.0) * (teamranks==0) * 2.0
+        # rew_rank += (time_left_frac[..., 0]==1.0) * (initial_team_rank - teamranks) * 0.25
+        # # Version 4
+        # rew_rank = 1.0 * (prev_teamranks - teamranks) / (1.0 + torch.minimum(prev_teamranks, teamranks))
+        # rew_rank += (time_left_frac[..., 0]==1.0) * (teamranks==0) * 2.0
+        # rew_rank += (time_left_frac[..., 0]==1.0) * (initial_team_rank - teamranks) * 0.25
+        # rew_rank += 1.e-1*torch.exp(-ranks)
+        # rew_rank += 1.e-2*torch.exp(-teamranks)
+        # # Version 5
+        # rew_rank = 1.0 * (prev_teamranks - teamranks) / (1.0 + torch.minimum(prev_teamranks, teamranks))
+        # rew_rank += (time_left_frac[..., 0]==1.0) * (teamranks==0) * 2.0
+        # rew_rank += (time_left_frac[..., 0]==1.0) * (initial_team_rank - teamranks) * 0.25
+        # rew_rank += 1.e-1*torch.exp(-ranks)
+        # # Version 6
+        # rew_rank = 1.0 * (prev_ranks - ranks) / (1.0 + torch.minimum(prev_ranks, ranks))
+        # rew_rank += (time_left_frac[..., 0]==1.0) * (teamranks==0) * 2.0
+        # rew_rank += (time_left_frac[..., 0]==1.0) * (initial_team_rank - teamranks) * 0.25
+        # rew_rank += 1.e-1*torch.exp(-ranks)
+        # # Version 7
+        # rew_rank = 1.0 * (prev_teamranks - teamranks) / (1.0 + torch.minimum(prev_teamranks, teamranks))
+        # rew_rank += (time_left_frac[..., 0]==1.0) * (teamranks==0) * 2.0
+        # rew_rank += (time_left_frac[..., 0]==1.0) * (initial_team_rank - teamranks) * 0.25
+        # rew_rank += 1.e-1*torch.exp(-ranks)
+        # rew_rank += 1.e-1*torch.exp(-teamranks)
+        # # Version 8
+        # rew_rank = 1.0 * (prev_teamranks - teamranks) / (1.0 + torch.minimum(prev_teamranks, teamranks))
+        # rew_rank += (time_left_frac[..., 0]==1.0) * (teamranks==0) * 2.0
+        # rew_rank += (time_left_frac[..., 0]==1.0) * (initial_team_rank - teamranks) * 0.25
+        # rew_rank += 1.e-1*torch.exp(-teamranks)
+        # Version 9
+        rew_rank = 1.0 * (prev_ranks - ranks) / (1.0 + torch.minimum(prev_ranks, ranks))
+        rew_rank += (time_left_frac[..., 0]==1.0) * (ranks==0) * 2.0
+        rew_rank += (time_left_frac[..., 0]==1.0) * (initial_rank - ranks) * 0.25
+        rew_rank += 1.e-1*torch.exp(-ranks)
+        
+
         # LL mod
         rew_rank_ll = 0.0 * rew_rank
         # HL mod

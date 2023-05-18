@@ -47,10 +47,10 @@ model:
   max_steer_rate: 2.1 #rad/s
   vm_noise_scale_ego: 0.1  # 0.30
   # vm_noise_scale_ado: 0.5  # 5  # 0.5  # 0.3  # 0.3
-  vm_noise_scale_ado_itr_ini: 200  # 50  # 100
-  vm_noise_scale_ado_itr_end: 800  # 500  # 150  # 300  # 1300
+  vm_noise_scale_ado_itr_ini: 499  # 50  # 100
+  vm_noise_scale_ado_itr_end: 500  # 500  # 150  # 300  # 1300
   vm_noise_scale_ado_val_ini: 0.5
-  vm_noise_scale_ado_val_end: 0.1 
+  vm_noise_scale_ado_val_end: 0.5 
   lf_noise_scale: 0.02
   lr_noise_scale: 0.02
   steering_offset_noise_scale: 0.03
@@ -90,10 +90,10 @@ track:
 learn:
   steer_ado_with_PPC: True  # True
   iters_ado_with_PPC: 200  # 150  # 500  # 5000
-  ppc_prob_itr_ini: 400  # 50  # 100
-  ppc_prob_itr_end: 1000  # 500  # 150  # 300  # 1300
+  ppc_prob_itr_ini: 499  # 50  # 100
+  ppc_prob_itr_end: 500  # 500  # 150  # 300  # 1300
   ppc_prob_val_ini: 1.0
-  ppc_prob_val_end: 0.2  # 1.0  # 0.2  # 0.3
+  ppc_prob_val_end: 1.0  # 1.0  # 0.2  # 0.3
   use_timeouts: True
   use_track_curriculum: True
   #[posx, posy, theta, vellong, vellat, dtheta, steer]
