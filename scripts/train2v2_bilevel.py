@@ -87,12 +87,12 @@ if __name__ == "__main__":
 
     INIT_FROM_CHKPT = True  # False
     #active policies
-    runs_hl = ['23_05_05_20_43_40_bilevel_2v2']*2
+    runs_hl = ['23_05_18_21_26_57_bilevel_2v2']*2
     chkpts_hl = [500, 500]
-    runs_ll = ['23_05_05_20_43_40_bilevel_2v2']*2
+    runs_ll = ['23_05_18_21_26_57_bilevel_2v2']*2
     chkpts_ll = [500, 500]
     ##policies to populate adversary buffer
-    adv_runs = ['23_05_05_20_43_40_bilevel_2v2']*2
+    adv_runs = ['23_05_18_21_26_57_bilevel_2v2']*2
     adv_chkpts = [500, 500]
 
     if INIT_FROM_CHKPT:
@@ -105,7 +105,7 @@ if __name__ == "__main__":
         cfg_train['runner']['iter_per_ll'] = 50  # 20
         cfg_train['runner']['iter_per_hl'] = 50  # 50  # 20
         cfg_train['runner']['start_on_ll'] = False
-        cfg_train['runner']['centralized_value_hl'] = 'independent'  # 'agents'  # False
+        cfg_train['runner']['centralized_value_hl'] = 'agents'  # 'agents'  # False
 
         cfg['model']['vm_noise_scale_ado_val_ini'] = 0.3  # 0.5  # 0.1
         cfg['model']['vm_noise_scale_ado_val_end'] = 0.3  # 0.1
