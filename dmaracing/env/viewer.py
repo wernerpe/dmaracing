@@ -122,7 +122,7 @@ class Viewer:
       reward_terms=None, reset_cause=None, track_progress=None, active_tile=None,
       ranks=None, global_step=None, all_targets_pos_world_env0=None, all_egoagent_pos_world_env0=None,
       last_actions=None, tile_idx_car=None, tile_idx_trg=None, values_ll=None, values_ll_min=None, values_ll_max=None,
-      use_ppc_vec=None, ppc_lookahead_points=None):
+      use_ppc_vec=None, ppc_lookahead_points=None, hl_svo_probs=None):
         self.state = state.clone()
         self.slip = slip.clone()
         self.wheel_locs = wheel_locs.clone()
@@ -169,6 +169,9 @@ class Viewer:
 
             if hl_action_probs is not None:
                 self.draw_action_distributions_new(hl_action_probs, ll_action_mean, ll_action_std, targets_distance, actions, last_actions)
+
+            if hl_svo_probs is not None:
+                self.draw_svo_distribution(hl_svo_probs)
 
             if wheels_on_track is not None and not draw_reduced:
                 self.draw_wheel_on_track_indicators(wheels_on_track, time_off_track)
@@ -771,7 +774,34 @@ class Viewer:
         cv.putText(self.img, "t=" + "{:.2f}".format(actions[1]), (x_ref0, bar_bottom), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
         cv.putText(self.img, "LL act", (x_ref0, bar_bottom + 30), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
 
-        
+
+    def draw_svo_distribution(self, hl_svo_probs):
+
+        hl_svo_probs = hl_svo_probs[0, 0, 0].cpu().numpy()
+
+        bar_scale = 30
+        bar_bottom = 170
+
+        # width budget = 70
+        # per bar = int(width budget / len(hl_action_probs[0]))
+        # separation = int(max(1.0, per bar * 0.2))
+        # bar width = per bar - separation
+
+        width_budget = 65
+        bar_budget = int(width_budget / len(hl_svo_probs))
+        separation = int(max(1.0, bar_budget * 0.3))  # 3
+        bar_width = bar_budget - separation  # 10
+
+        # ### High-level controller ###
+        # Action 1
+        x_start = 490  # 150  # 35  # 125
+        y_start = bar_bottom
+        for idx, action_prob in enumerate(hl_svo_probs):
+            x_bar_start = x_start + idx * (bar_width + separation)
+            x_bar_end = x_bar_start + bar_width
+            cv.rectangle(self.img, (x_bar_start, y_start), (x_bar_end, y_start - int(action_prob * bar_scale)), color=(255, 0, 0), thickness=-1)
+        cv.putText(self.img, "SVO", (x_start+15, bar_bottom+20), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
+
 
 
     def _render_interactive(self):
