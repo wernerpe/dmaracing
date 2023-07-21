@@ -13,6 +13,7 @@ matplotlib.rcParams['pdf.fonttype'] = 42
 matplotlib.rcParams['ps.fonttype'] = 42
 matplotlib.rcParams["legend.handlelength"] = 1.0
 matplotlib.rcParams["legend.columnspacing"] = 1.5
+# plt.rcParams["axes.axisbelow"] = False
 
 from matplotlib.patches import Circle, RegularPolygon
 from matplotlib.path import Path
@@ -148,7 +149,8 @@ for config_exp1 in configs_exp1:
     data = np.genfromtxt(logdir + config_exp1, dtype=float, delimiter=',', names=True) 
 
     ### Winrate
-    did_win = data['teamrank']==0
+    # did_win = data['teamrank']==0  # Ego=1000
+    did_win = data['teamrank']!=0  # Ego=checkpoint
     winrate_mean = did_win.mean()
     winrate_stdv = did_win.std()
 
@@ -209,7 +211,8 @@ for config_exp2 in configs_exp2:
     data = np.genfromtxt(logdir + config_exp2, dtype=float, delimiter=',', names=True) 
 
     ## Winrate
-    did_win = data['teamrank']!=0  # NOTE: PPC=ego
+    # did_win = data['teamrank']!=0  # NOTE: PPC=ego
+    did_win = data['teamrank']==0  # NOTE: RL=ego
     winrate_mean = did_win.mean()
     winrate_stdv = did_win.std()
 
@@ -247,11 +250,76 @@ for config_exp2 in configs_exp2:
     exp2_leadtimes.append(avg_leadtime)
 
 
+logdir = './logs/tri_2v2_vhc_rear/eval/23_05_06_08_54_00_bilevel_2v2_testing/'
+
+### Experiment 3 - Ego checkpoints vs Action centralization
+configs_exp3 = [
+    'stats_afs1em3_ckpt500_vs_ckpt500_23_05_25_22_03_05.csv',
+    'stats_afs1em3_ckpt600_vs_ckpt600_23_05_25_22_03_05.csv',
+    'stats_afs1em3_ckpt700_vs_ckpt700_23_05_25_22_03_05.csv',
+    'stats_afs1em3_ckpt800_vs_ckpt800_23_05_25_22_03_05.csv',
+    'stats_afs1em3_ckpt900_vs_ckpt900_23_05_25_22_03_05.csv',
+    'stats_afs1em3_ckpt1000_vs_ckpt1000_23_05_25_22_03_05.csv',
+]
+
+exp3_winrate_mean = []
+exp3_winrate_stdv = []
+exp3_winrate_behind = []
+exp3_winrate_ahead = []
+exp3_collisions = []
+exp3_offtrack = []
+exp3_overtakes = []
+exp3_laptimes = []
+exp3_leadtimes = []
+for config_exp3 in configs_exp3:  
+    data = np.genfromtxt(logdir + config_exp3, dtype=float, delimiter=',', names=True) 
+
+    ### Winrate
+    did_win = data['teamrank']==0
+    winrate_mean = did_win.mean()
+    winrate_stdv = did_win.std()
+
+    exp3_winrate_mean.append(winrate_mean)
+    exp3_winrate_stdv.append(winrate_stdv)
+
+    ### Winrate vs initial position
+    initial_teamrank = data['startrank']
+    final_teamrank = data['teamrank']
+    frac_win_from_behind = np.sum((initial_teamrank>0) & (final_teamrank==0))/np.sum((initial_teamrank>0))
+    frac_win_from_ahead = np.sum((initial_teamrank==0) & (final_teamrank==0))/np.sum((initial_teamrank==0))
+    exp3_winrate_behind.append(frac_win_from_behind)
+    exp3_winrate_ahead.append(frac_win_from_ahead)
+
+    ### Collisions
+    avg_collisions = data['collisions'].mean()
+    exp3_collisions.append(avg_collisions)
+
+    ### Offtrack
+    avg_offtrack = data['offtrack'].mean()
+    exp3_offtrack.append(avg_offtrack)
+
+    ### Overtakes
+    avg_overtakes = data['overtakes'].mean()
+    exp3_overtakes.append(avg_overtakes)
+
+    ### Laptime
+    laptimes = data['laptime']
+    outliers = laptimes > 1e3
+    avg_laptime = laptimes[~outliers].mean()
+    exp3_laptimes.append(avg_laptime)
+
+    ### Leadtime
+    avg_leadtime = data['leadtime'].mean()
+    exp3_leadtimes.append(avg_leadtime)
+
+
 steps = [500, 600, 700, 800, 900, 1000]
 exp1_winrate_mean = np.array(exp1_winrate_mean) * 100.0
 exp1_winrate_stdv = np.array(exp1_winrate_stdv) * 100.0
 exp2_winrate_mean = np.array(exp2_winrate_mean) * 100.0
 exp2_winrate_stdv = np.array(exp2_winrate_stdv) * 100.0
+exp3_winrate_mean = np.array(exp3_winrate_mean) * 100.0
+exp3_winrate_stdv = np.array(exp3_winrate_stdv) * 100.0
 
 colors = sns.color_palette("husl", 3)
 text_size = 16
@@ -259,36 +327,42 @@ label_size = 14
 
 with sns.axes_style("darkgrid"):
     # figure, axes = plt.subplots(nrows=1, ncols=2, figsize=(24, 5))
-    figure = plt.figure(figsize=(15, 4))
-    gridspec = figure.add_gridspec(1, 6)
+    # figure = plt.figure(figsize=(15, 4))
+    # gridspec = figure.add_gridspec(1, 6)
+    figure = plt.figure(figsize=(12, 8), constrained_layout = True)
+    gridspec = figure.add_gridspec(7, 2)
 
     alpha = 0.1
     linewidth = 3
 
-    axis = figure.add_subplot(gridspec[:3])
+    axis = figure.add_subplot(gridspec[:4, :])
     # axis.fill_between(steps, exp1_winrate_mean - exp1_winrate_stdv, exp1_winrate_mean + exp1_winrate_stdv, color=list(colors[0] + (alpha,)))
-    axis.plot(steps, exp2_winrate_mean, linestyle='--', color='k', linewidth=linewidth, label=r'Pure pursuit')
-    axis.plot(steps, exp1_winrate_mean, linestyle='-', color=list(colors[0]), linewidth=linewidth, label=r'Policy 1000')
+    axis.plot(steps, exp2_winrate_mean, linestyle='--', color='k', linewidth=linewidth, label=r'Pure Pursuit')
+    axis.plot(steps, exp3_winrate_mean, linestyle='-', color=list(colors[1]), linewidth=linewidth, label=r'RL Independent')
+    axis.plot(steps, exp1_winrate_mean, linestyle='-', color=list(colors[0]), linewidth=linewidth, label=r'RL Team [at 1k]')
+    axis.plot(np.NaN, np.NaN, '-', color='none', label=r'Opponent:')
 
     axis.set_xlim([500, 1000])
     axis.set_ylim([0.0, 100.0])
-    axis.set_xlabel(r"Opponent checkpoint [iteration]", fontsize=text_size)
+    axis.set_xlabel(r"Iteration", fontsize=text_size)
     axis.set_ylabel(r"Win rate [%]", fontsize=text_size)
-    axis.set_title(r"Policy Win Rate over Training Iterations" + '\n', fontsize=text_size)
+    axis.set_title(r"Win Rate of RL Team over Training Iterations" + '\n', fontsize=text_size)
 
     axis.tick_params(axis='both', which='major', labelsize=label_size)
 
     legend_size = 16
-    offset = (0.5, -0.4)
+    # offset = (0.5, -0.4)
+    offset = (0.5, 0.0)
     axis.legend(*map(reversed, axis.get_legend_handles_labels()), loc='lower center', prop={'size': legend_size}, ncol=7, bbox_to_anchor=offset, handletextpad=0.5)
 
 # # PNG
 # fig_name = './figures/sim_eval.png'
 # figure.savefig(fig_name, bbox_inches='tight', format='png')
 
+offset = (0.5, -0.3)
 
-### Radar chart
-stats_radar = [
+### Radar chart data
+stats_radar2 = [
     exp2_laptimes,
     exp2_winrate_ahead, 
     exp2_winrate_behind,
@@ -297,11 +371,30 @@ stats_radar = [
     exp2_collisions,
     # exp2_leadtimes,
 ]
-stats_radar = np.stack(stats_radar, axis=-1)
-stats_radar = stats_radar[[0,2,5]]
-stats_radar = stats_radar / stats_radar.max(axis=0)
+stats_radar2 = np.stack(stats_radar2, axis=-1)
+stats_radar2 = stats_radar2[[1,3,5]]
+
+stats_radar3 = [
+    exp3_laptimes,
+    exp3_winrate_ahead, 
+    exp3_winrate_behind,
+    exp3_overtakes,
+    exp3_offtrack,
+    exp3_collisions,
+    # exp3_leadtimes,
+]
+stats_radar3 = np.stack(stats_radar3, axis=-1)
+stats_radar3 = stats_radar3[[1,3,5]]
+stats_radar_max = np.concatenate((stats_radar2, stats_radar3), axis=0).max(axis=0)
+
+### Radar chart vs PPC
+# stats_radar2 = stats_radar2 / stats_radar2.max(axis=0)
+stats_radar2[:, 0] = stats_radar2[:, 0] / stats_radar2[:, 0].max(axis=0)
+stats_radar2[:, 3] = stats_radar2[:, 3] / stats_radar2[:, 3].max(axis=0)
+stats_radar2[:, 4] = stats_radar2[:, 4] / stats_radar2[:, 4].max(axis=0)
+stats_radar2[:, 5] = stats_radar2[:, 5] / stats_radar2[:, 5].max(axis=0)
 data_radar = [[r'Laptime', r'Wins as' + '\n' + r'leader', r'Wins as' + '\n' + r'pursuer', r'Overtakes', r'Off-track', r'Collision'],  # , 'Leadtime'],
-        (r'Policy Characteristics' + '\n', stats_radar)]
+        (r'Behavior vs Pure Pursuit' + '\n', stats_radar2)]
 
 N = len(data_radar[0])
 theta = radar_factory(N, frame='polygon')
@@ -312,26 +405,84 @@ title, case_data = data_radar[1]
 # fig.subplots_adjust(top=0.85, bottom=0.05)
 
 with sns.axes_style("darkgrid"):
-    axis = figure.add_subplot(gridspec[3:], projection='radar')
+    axis = figure.add_subplot(gridspec[4:, 0], projection='radar')
+    axis.plot(np.NaN, np.NaN, '-', color='none', label='')
 
-    axis.set_rgrids([0.2, 0.4, 0.6, 0.8])
+    axis.set_rgrids([0.0, 0.2, 0.4, 0.6, 0.8])
     axis.set_title(title,  position=(0.5, 1.1), ha='center', fontdict={'fontsize': text_size})
 
     for idx, d in enumerate(case_data):
         line = axis.plot(theta, d, linewidth=linewidth, color=colors[::-1][idx])
         axis.fill(theta, d,  alpha=0.25, label='_nolegend_', color=colors[::-1][idx])
     axis.set_varlabels(data_radar[0], fontsize=text_size)
-    axis.set_ylim([0.4, 1.1])
-    axis.set_yticks([0.6, 0.8, 1.0])
+    # axis.set_ylim([0.4, 1.1])
+    axis.set_ylim([0.0, 1.1])
+    axis.set_yticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0])
+    axis.set_yticklabels(['', '0.2', '', '0.6', '', '1.0'])
 
     axis.tick_params(axis='both', which='major', labelsize=label_size)
 
-    labels = ('Policy: 500', '700', '1000')
+    labels = ('Iteration:', '600', '800', '1000')
     legend = axis.legend(labels, loc='lower center', prop={'size': legend_size}, ncol=7, bbox_to_anchor=offset, handletextpad=0.5)
 
     # legend_size = 16
     # offset = (0.5, -0.4)
     # axis.legend(*map(reversed, axis.get_legend_handles_labels()), loc='lower center', prop={'size': legend_size}, ncol=7, bbox_to_anchor=offset, handletextpad=0.5)
+
+
+### Radar chart vs No teaming
+# stats_radar3 = stats_radar3 / stats_radar3.max(axis=0)
+stats_radar3[:, 0] = stats_radar3[:, 0] / stats_radar3[:, 0].max(axis=0)
+stats_radar3[:, 3] = stats_radar3[:, 3] / stats_radar3[:, 3].max(axis=0)
+stats_radar3[:, 4] = stats_radar3[:, 4] / stats_radar3[:, 4].max(axis=0)
+stats_radar3[:, 5] = stats_radar3[:, 5] / stats_radar3[:, 5].max(axis=0)
+data_radar = [[r'Laptime', r'Wins as' + '\n' + r'leader', r'Wins as' + '\n' + r'pursuer', r'Overtakes', r'Off-track', r'Collision'],  # , 'Leadtime'],
+        (r'Behavior vs RL Independent' + '\n', stats_radar3)]
+
+N = len(data_radar[0])
+theta = radar_factory(N, frame='polygon')
+
+title, case_data = data_radar[1]
+
+# fig, ax = plt.subplots(figsize=(6, 6), subplot_kw=dict(projection='radar'))
+# fig.subplots_adjust(top=0.85, bottom=0.05)
+
+# from matplotlib.lines import Line2D
+# l = Line2D([0],[0],color="w")
+
+with sns.axes_style("darkgrid"):
+    axis = figure.add_subplot(gridspec[4:, 1], projection='radar')
+    axis.plot(np.NaN, np.NaN, '-', color='none', label='')
+
+    axis.set_rgrids([0.0, 0.2, 0.4, 0.6, 0.8])
+    axis.set_title(title,  position=(0.5, 1.1), ha='center', fontdict={'fontsize': text_size})
+
+    for idx, d in enumerate(case_data):
+        line = axis.plot(theta, d, linewidth=linewidth, color=colors[::-1][idx])
+        axis.fill(theta, d,  alpha=0.25, label='_nolegend_', color=colors[::-1][idx])
+    axis.set_varlabels(data_radar[0], fontsize=text_size)
+    # axis.set_ylim([0.4, 1.1])
+    axis.set_ylim([0.0, 1.1])
+    axis.set_yticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0])
+    axis.set_yticklabels(['', '0.2', '', '0.6', '', '1.0'])
+
+    axis.tick_params(axis='both', which='major', labelsize=label_size)
+
+    labels = ('Iteration:', '600', '800', '1000')
+    legend = axis.legend(labels, loc='lower center', prop={'size': legend_size}, ncol=7, bbox_to_anchor=offset, handletextpad=0.5)
+
+    # handles, labels = axis.get_legend_handles_labels()
+    
+    # import matplotlib.patches as mpatches
+    # label1 = r"Policy"
+    # empty_patch1 = mpatches.Patch(color='none', label=label1)
+
+    # handles = [handles[2], handles[1], handles[0], empty_patch1]
+    # labels = [labels[2], labels[1], labels[0], label1]
+
+    # legend1 = figure.legend(*map(reversed, (handles, labels)), loc='lower center', prop={'size': legend_size}, ncol=4, bbox_to_anchor=offset, handletextpad=0.5)  # For 2x3 plot
+    # figure.add_artist(legend1)
+
 
 fig_name = './figures/sim_eval_radar.png'
 figure.savefig(fig_name, bbox_inches='tight', format='png')

@@ -16,11 +16,14 @@ def train():
         for run_hl, chkpt_hl, run_ll, chkpt_ll in zip(runs_hl, chkpts_hl, runs_ll, chkpts_ll):
             dir_hl, modelnr_hl = get_run(logdir_root, run=run_hl + '/hl_model', chkpt=chkpt_hl)
             model_paths_hl.append("{}/model_{}.pt".format(dir_hl, modelnr_hl))
-            print("Loading HL model" + model_paths_hl[-1])
+            if LOAD_HL:
+                print("Loading HL model" + model_paths_hl[-1])
+            else:
+                print("Skipping HL model loading")
             dir_ll, modelnr_ll = get_run(logdir_root, run=run_ll + '/ll_model', chkpt=chkpt_ll)
             model_paths_ll.append("{}/model_{}.pt".format(dir_ll, modelnr_ll))
             print("Loading LL model" + model_paths_ll[-1])
-        runner.load_multi_path(model_paths_hl, model_paths_ll, load_optimizer=True)
+        runner.load_multi_path(model_paths_hl, model_paths_ll, load_hl=LOAD_HL, load_optimizer=True)
         
         #populate adversary buffer
         adv_model_paths_hl, adv_model_paths_ll = [], []
@@ -84,8 +87,19 @@ if __name__ == "__main__":
     logdir = logdir_root +'/'+timestamp + '_bilevel_2v2'
     cfg["logdir"] = logdir
 
+    use_hierarchical_policy = cfg_train["runner"]["use_hierarchical_policy"]
+    if not use_hierarchical_policy:
+        
+        # cfg["sim"]["numConstantObservationsLL"] = 0
+        cfg["learn"]["goalRewardScale"] = 0.0
 
-    INIT_FROM_CHKPT = False  # False
+        cfg_train["runner"]["iter_per_ll"] = cfg_train["runner"]["max_iterations"]
+        cfg_train["runner"]["iter_per_hl"] = 0
+
+    # cfg_train['runner']['start_on_ll'] = False  # FIXME: remove after testing
+
+    INIT_FROM_CHKPT = True  # False
+    LOAD_HL = False
     #active policies
     runs_hl = ['23_05_05_20_43_40_bilevel_2v2']*2
     chkpts_hl = [500, 500]

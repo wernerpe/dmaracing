@@ -392,6 +392,7 @@ class DmarEnvBilevel:
         )
         
         self._action_probs_hl, self._action_mean_ll, self._action_std_ll, self.targets_rew01_local  = None, None, None, None
+        self._svo_probs_hl = None
 
         self._global_step = 0
         self.log_episode = False
@@ -523,6 +524,9 @@ class DmarEnvBilevel:
 
     def set_hl_action_probs(self, probs):
         self._action_probs_hl = probs.clone()
+
+    def set_hl_svo_probs(self, probs):
+        self._svo_probs_hl = probs.clone()
 
     def set_ll_action_stats(self, mean, std):
         self._action_mean_ll = mean.clone()
@@ -1426,7 +1430,7 @@ class DmarEnvBilevel:
                     self._action_probs_hl, self._action_mean_ll, self._action_std_ll,
                     self.is_on_track_per_wheel, self.vels_body, self.dyn_model.max_vel_vec, self.step_reward_terms, self.reset_cause, self.track_progress, self.active_track_tile,
                     self.ranks if self.num_agents>1 else None, self._global_step, self.all_targets_pos_world_env0, self.all_egoagent_pos_world_env0, self.last_actions,
-                    self.active_track_tile, self.targets_tile_idx, self._values_ll, None, None, self.use_ppc_vec, self.ppc.lookahead_points,
+                    self.active_track_tile, self.targets_tile_idx, self._values_ll, None, None, self.use_ppc_vec, None, self._svo_probs_hl,
                 )
         else:
             self.viewer_events = self.viewer.render(
@@ -1435,7 +1439,7 @@ class DmarEnvBilevel:
                 self._action_probs_hl, self._action_mean_ll, self._action_std_ll,
                 self.is_on_track_per_wheel, self.vels_body, self.dyn_model.max_vel_vec, self.step_reward_terms, self.reset_cause, self.track_progress, self.active_track_tile,
                 self.ranks if self.num_agents>1 else None, self._global_step, self.all_targets_pos_world_env0, self.all_egoagent_pos_world_env0, self.last_actions,
-                self.active_track_tile, self.targets_tile_idx, self._values_ll, None, None, self.use_ppc_vec, self.ppc.lookahead_points,
+                self.active_track_tile, self.targets_tile_idx, self._values_ll, None, None, self.use_ppc_vec, None, self._svo_probs_hl,
             )
 
     def write_behavior_stats(self) -> None:
