@@ -39,7 +39,7 @@ def train():
             adv_model_paths_ll.append("{}/model_{}.pt".format(dir_ll, modelnr_ll))
             print("Loading LL model" + adv_model_paths_ll[-1])
 
-        runner.populate_adversary_buffer(adv_model_paths_hl, adv_model_paths_ll)
+        runner.populate_adversary_buffer(adv_model_paths_hl, adv_model_paths_ll, load_hl=LOAD_HL)
 
     runner.learn(cfg_train['runner']['max_iterations'], init_at_random_ep_len=False)
 

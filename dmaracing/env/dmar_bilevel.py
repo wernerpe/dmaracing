@@ -1338,8 +1338,9 @@ class DmarEnvBilevel:
         # increment_idx = torch.where(self.active_track_tile - self.old_active_track_tile < 15 - self.track_tile_counts[self.active_track_ids].view(-1, 1))  # avoid farming turns? NOTE: track length - buffer
         # decrement_idx = torch.where(self.active_track_tile - self.old_active_track_tile > 15)
 
+        # FIXME: decrement relative to track length not good, should use absolute tile count!
         increment_idx = torch.where(self.active_track_tile - self.old_active_track_tile < -0.95 * self.track_tile_counts[self.active_track_ids].view(-1, 1))  # 0.9
-        decrement_idx = torch.where(self.active_track_tile - self.old_active_track_tile > +0.20 * self.track_tile_counts[self.active_track_ids].view(-1, 1))  # 0.9
+        decrement_idx = torch.where(self.active_track_tile - self.old_active_track_tile > 12)  # +0.20 * self.track_tile_counts[self.active_track_ids].view(-1, 1))  # 0.9
 
         self.lap_counter[increment_idx] += 1
         self.lap_counter[decrement_idx] -= 1
@@ -1950,10 +1951,20 @@ def compute_rewards_jit(
         # rew_rank += (time_left_frac[..., 0]==1.0) * (initial_team_rank - teamranks) * 0.25
         # rew_rank += 1.e-1*torch.exp(-ranks)
         # rew_rank += 1.e-2*torch.exp(-teamranks)
-        # Version 9
+        # # Version 9
+        # rew_rank = 1.0 * (prev_ranks - ranks) / (1.0 + torch.minimum(prev_ranks, ranks))
+        # rew_rank += (time_left_frac[..., 0]==1.0) * (ranks==0) * 2.0
+        # rew_rank += (time_left_frac[..., 0]==1.0) * (initial_rank - ranks) * 0.25
+        # rew_rank += 1.e-1*torch.exp(-ranks)
+
+        # # Version 11
+        # rew_rank = 1.0 * (prev_teamranks - teamranks) / (1.0 + torch.minimum(prev_teamranks, teamranks))
+        # rew_rank += 1.0 * (teamranks==0)
+        # rew_rank += 1.e-1*torch.exp(-ranks)
+
+        # Version 13
         rew_rank = 1.0 * (prev_ranks - ranks) / (1.0 + torch.minimum(prev_ranks, ranks))
-        rew_rank += (time_left_frac[..., 0]==1.0) * (ranks==0) * 2.0
-        rew_rank += (time_left_frac[..., 0]==1.0) * (initial_rank - ranks) * 0.25
+        rew_rank += 1.0 * (ranks==0)
         rew_rank += 1.e-1*torch.exp(-ranks)
 
         # LL mod

@@ -777,30 +777,39 @@ class Viewer:
 
     def draw_svo_distribution(self, hl_svo_probs):
 
-        hl_svo_probs = hl_svo_probs[0, 0, 0].cpu().numpy()
+        hl_svo_probs = hl_svo_probs[0, :, 0].cpu().numpy()
 
         bar_scale = 30
         bar_bottom = 170
+        x_start = 480  # 150  # 35  # 125
 
         # width budget = 70
         # per bar = int(width budget / len(hl_action_probs[0]))
         # separation = int(max(1.0, per bar * 0.2))
         # bar width = per bar - separation
 
-        width_budget = 65
-        bar_budget = int(width_budget / len(hl_svo_probs))
+        width_budget = 75
+        bar_budget = int(width_budget / hl_svo_probs.shape[-1])
         separation = int(max(1.0, bar_budget * 0.3))  # 3
         bar_width = bar_budget - separation  # 10
 
-        # ### High-level controller ###
-        # Action 1
-        x_start = 490  # 150  # 35  # 125
+        # ### SVO distribution ###
+        # SVO 1
         y_start = bar_bottom
-        for idx, action_prob in enumerate(hl_svo_probs):
+        for idx, action_prob in enumerate(hl_svo_probs[0]):
             x_bar_start = x_start + idx * (bar_width + separation)
             x_bar_end = x_bar_start + bar_width
             cv.rectangle(self.img, (x_bar_start, y_start), (x_bar_end, y_start - int(action_prob * bar_scale)), color=(255, 0, 0), thickness=-1)
-        cv.putText(self.img, "SVO", (x_start+15, bar_bottom+20), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
+        cv.putText(self.img, "A SVO 0 I", (x_start-5, y_start+20), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
+
+        # SVO 2
+        y_start = bar_bottom + 60
+        for idx, action_prob in enumerate(hl_svo_probs[1]):
+            x_bar_start = x_start + idx * (bar_width + separation)
+            x_bar_end = x_bar_start + bar_width
+            cv.rectangle(self.img, (x_bar_start, y_start), (x_bar_end, y_start - int(action_prob * bar_scale)), color=(255, 0, 0), thickness=-1)
+        cv.putText(self.img, "A SVO 1 I", (x_start-5, y_start+20), self.font, 0.5, (int(self.colors[-1]),  0, int(self.colors[-1])), 1, cv.LINE_AA)
+
 
 
 
