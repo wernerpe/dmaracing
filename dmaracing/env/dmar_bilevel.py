@@ -808,7 +808,7 @@ class DmarEnvBilevel:
                     lookahead_lbound_scaled[:,:,:,0], 
                     lookahead_lbound_scaled[:,:,:,1],
                     # self.dyn_model.max_vel_vec,  # NOTE: removed if only used for robustness
-                    2.0 * self.time_left_frac - 1.0,  # NOTE: removed 05/04/23 evening
+                    # 2.0 * self.time_left_frac - 1.0,  # NOTE: removed 05/04/23 evening
                     2.0 * self.wheel_off_frac - 1.0,  # NOTE: removed 05/04/23 evening
                     progress_jump.view(-1, self.num_agents, 1),
                     last_raw_actions,
@@ -929,6 +929,7 @@ class DmarEnvBilevel:
         reset_progress = reset_progress & False  # self.train_ll
         ### Check timeout
         reset_timeout = self.episode_length_buf > self.max_episode_length - 1
+        # reset_timeout = self.episode_length_buf > self.max_episode_length  # HACK: remove after testing!!!
         
         self.reset_cause = 1e0 * reset_offtrack + 1e1 * reset_progress + 1e2 * reset_timeout
         # self.reset_buf_tmp = reset_offtrack | reset_progress | reset_timeout  # | self.reset_buf_tmp
@@ -943,6 +944,7 @@ class DmarEnvBilevel:
             self.reset_buf = torch.logical_and(self.reset_buf_tmp, torch.remainder((self.total_step) * torch.ones_like(self.reset_buf), self.dt_hl)==0)
         else:
             self.reset_buf[:] = self.reset_buf_tmp
+            # self.reset_buf = self.reset_buf_tmp  # HACK: remove after testing!!!
 
     def reset(self) -> Tuple[torch.Tensor, Union[None, torch.Tensor]]:
         print("Resetting")
@@ -1868,6 +1870,7 @@ def compute_rewards_jit(
     # LL mod
     # rew_goal_ll = 0.05 / ll_steps_left.squeeze(-1) * rew_goal * (vel > 0.5) * torch.exp((vel-0.5)/5.0)  # NOTE: pre-04/24/23
     rew_goal_ll = (ll_steps_left.squeeze(-1) < 0.15) * rew_goal * torch.exp((vel-2.0)/4.0)  # NOTE: pre-05/05/23  ||| * (vel > 0.5)
+    # rew_goal_ll += 5e-2 * rew_goal
     # rew_goal_ll = 0.05 / ll_steps_left.squeeze(-1) * rew_goal * torch.exp((vel-2.0)/4.0)
     # HL mod
     rew_goal_hl = 0.0 * rew_goal  #+ 5.e-2 * targets_off_ahead[..., 0] / 5.0 * ll_ep_done[..., 0]  # bias towards far away goals
@@ -1921,12 +1924,12 @@ def compute_rewards_jit(
         # rew_rank = 1.0 * (prev_teamranks - teamranks) / (1.0 + torch.minimum(prev_teamranks, teamranks))
         # rew_rank += (time_left_frac[..., 0]==1.0) * (teamranks==0) * 2.0
         # rew_rank += (time_left_frac[..., 0]==1.0) * (initial_team_rank - teamranks) * 0.25
-        # Version 4
-        rew_rank = 1.0 * (prev_teamranks - teamranks) / (1.0 + torch.minimum(prev_teamranks, teamranks))
-        rew_rank += (time_left_frac[..., 0]==1.0) * (teamranks==0) * 2.0
-        rew_rank += (time_left_frac[..., 0]==1.0) * (initial_team_rank - teamranks) * 0.25
-        rew_rank += 1.e-1*torch.exp(-ranks)
-        rew_rank += 1.e-2*torch.exp(-teamranks)
+        # # Version 4
+        # rew_rank = 1.0 * (prev_teamranks - teamranks) / (1.0 + torch.minimum(prev_teamranks, teamranks))
+        # rew_rank += (time_left_frac[..., 0]==1.0) * (teamranks==0) * 2.0
+        # rew_rank += (time_left_frac[..., 0]==1.0) * (initial_team_rank - teamranks) * 0.25
+        # rew_rank += 1.e-1*torch.exp(-ranks)
+        # rew_rank += 1.e-2*torch.exp(-teamranks)
         # # Version 5
         # rew_rank = 1.0 * (prev_teamranks - teamranks) / (1.0 + torch.minimum(prev_teamranks, teamranks))
         # rew_rank += (time_left_frac[..., 0]==1.0) * (teamranks==0) * 2.0
@@ -1953,6 +1956,18 @@ def compute_rewards_jit(
         # rew_rank += (time_left_frac[..., 0]==1.0) * (ranks==0) * 2.0
         # rew_rank += (time_left_frac[..., 0]==1.0) * (initial_rank - ranks) * 0.25
         # rew_rank += 1.e-1*torch.exp(-ranks)
+
+        # # Version 10
+        # rew_rank = 1.0 * (prev_teamranks - teamranks) / (1.0 + torch.minimum(prev_teamranks, teamranks))
+        # rew_rank += 1.0 * (teamranks==0)
+        # rew_rank += 1.e0*torch.exp(-ranks)
+        # # Version 11
+        # rew_rank = 1.0 * (prev_teamranks - teamranks) / (1.0 + torch.minimum(prev_teamranks, teamranks))
+        # rew_rank += 1.0 * (teamranks==0)
+        # rew_rank += 1.e-1*torch.exp(-ranks)
+        # Version 12
+        rew_rank = 1.0 * (teamranks==0)
+        rew_rank += 1.e0*torch.exp(-ranks)
         
 
         # LL mod

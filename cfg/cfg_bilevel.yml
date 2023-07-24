@@ -12,7 +12,7 @@ sim:
   #dependent on the lookaheadhorizon length and number of ado cars in an env
   #this is done in get_cfg directly
   numObservations: -1
-  numConstantObservations: 10  # 8 #vels, rxy, lxy, [maxvel=8obs], last actions, rank, teamrank(, offtrack time = 9)  [wheels, time, jump] = 7+3
+  numConstantObservations: 9  # 8 #vels, rxy, lxy, [maxvel=8obs], last actions, rank, teamrank(, offtrack time = 9)  [wheels, time, jump] = 7+3
   numConstantObservationsLL: 5  #  5  # goalpos, goalstd, lltime
   numActions: 2
   numActionsHL: 4  # goalpos, goalstd

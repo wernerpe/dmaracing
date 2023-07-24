@@ -39,7 +39,7 @@ runner:
   iter_per_hl: 50  # 50  # 20  # 50  # 200  # 20  # 20  # 1  # 20
   iter_per_ll: 50  # 50  # 500  # 500  # 600  # 200  # 400  # 40  # 40  # 100  # 200  # 100 # 300  # 200  # 10  # 200
   start_on_ll: True
-  pretrain_ll_iter: 0  # 500  # 0  # 200  # 1000
+  pretrain_ll_iter: 500  # 500  # 0  # 500  # 0  # 200  # 1000
   warmup_hl_iter: 1  # 200
   warmup_hl_ini: 1.0  # 0.5
   population_sample_interval: 20  #20  # 20  # 100 #number of iterations before the opponent policy is updated
