@@ -13,7 +13,7 @@ algorithm:
   entropy_coef_ll: 0.01  # 0.01  # 0.005  # 0.01
   num_learning_epochs: 2  # 2  # 2  # 5  #  5  # 15
   num_mini_batches: 4  # 4  # 4  # 1  # 6 # this is per agent
-  learning_rate: 1.e-3  # 1.e-4  # 5.e-5
+  learning_rate: 1.e-4  # 1.e-3  # 1.e-4  # 5.e-5  # --> NOTE: was 1.e-3
   # schedule: adaptive # could be adaptive, linear or fixed
   # gamma: 0.99
   gamma_hl: 0.99
@@ -23,8 +23,10 @@ algorithm:
   value_loss_coef: 1.0
   use_clipped_value_loss: True
   max_grad_norm: 10.0  # 1.0  # 1.0  # 40.0  # 2.0
-  use_sdqn: True
-  use_mdqn: True  # False
+  use_sdqn: False  # True
+  use_mdqn: False  # True  # False
+  use_svo: True
+  svo_val: False
 
 runner:
   policy_class_hl_name: MultiTeamBilevelDecCritic #MultiTeamBilevelDecCritic  #MultiTeamBilevelDecCritic  # MultiTeamBilevelActorCritic  # BilevelActorCriticAttention  # BilevelActorCritic
@@ -66,7 +68,7 @@ policy:
   attentive: True
   encoder_type: attention4  # attention{1, 2, 3, 4}
   do_train_encoder: True
-  svo_bins: 7
+  svo_bins: 5
   teamsize: 2
   numteams: 2
   numcritics: 1
